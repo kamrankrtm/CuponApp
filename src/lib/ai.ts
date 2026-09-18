@@ -1,5 +1,6 @@
 import type { PromoCode, RawSms } from '../types';
 import type { StrictnessLevel } from './smsFilter';
+import { isExpiredNow, resolveExpiresAt } from './expiry';
 
 /**
  * کلاینت هوش مصنوعی.
@@ -32,6 +33,8 @@ export interface AiSettings {
   baseUrl: string;
   /** سطح سخت‌گیری فیلتر محلی — تعیین می‌کند چه چیزی ارزش ارسال دارد */
   strictness: StrictnessLevel;
+  /** توکن فقط-خواندنی گیت‌هاب؛ فقط وقتی مخزن خصوصی است برای بررسی نسخه لازم می‌شود */
+  githubToken?: string;
 }
 
 export const DEFAULT_SETTINGS: AiSettings = {
@@ -39,6 +42,7 @@ export const DEFAULT_SETTINGS: AiSettings = {
   model: DEFAULT_MODEL,
   baseUrl: DEFAULT_BASE_URL,
   strictness: 'balanced',
+  githubToken: '',
 };
 
 const SYSTEM_PROMPT = `تو یک دستیار دقیق استخراج کد تخفیف از پیامک‌های تبلیغاتی فارسی هستی.
@@ -51,7 +55,11 @@ const SYSTEM_PROMPT = `تو یک دستیار دقیق استخراج کد تخ�
 - categorySlug فقط یکی از این‌ها: food, transport, ecommerce, entertainment, supermarket, other.
 - instructions باید کوتاه و عملی باشد: کاربر دقیقاً چه کاری کند تا تخفیف اعمال شود.
 - expiryDateText عیناً از متن پیامک برداشته شود، مثل "تا پایان امشب" یا "تا ۱۵ آذر".
-- isExpired را با توجه به تاریخ امروز که در پیام کاربر آمده تعیین کن.
+- expiresAt بسیار مهم است: تاریخ انقضا را به صورت میلادی YYYY-MM-DD بده.
+  عبارت‌های نسبی مثل "تا امشب" یا "۲ روز آینده" را نسبت به فیلد receivedAt
+  همان پیامک حساب کن، نه نسبت به امروز. تاریخ‌های شمسی را به میلادی تبدیل کن.
+  اگر پیامک هیچ اشاره‌ای به انقضا ندارد، expiresAt را خالی بگذار و از خودت
+  تاریخ نساز.
 - هیچ اطلاعاتی را حدس نزن؛ چیزی که در متن نیست را ننویس.
 
 پاسخ را فقط به صورت یک شیء JSON با کلید "results" که آرایه‌ای از نتایج است بده.`;
@@ -69,7 +77,8 @@ export interface AiResult {
   minOrder?: string;
   instructions?: string;
   expiryDateText?: string;
-  isExpired?: boolean;
+  /** تاریخ انقضا به میلادی YYYY-MM-DD، نسبت به زمان دریافت همان پیامک */
+  expiresAt?: string;
 }
 
 const RESPONSE_SCHEMA = {
@@ -95,7 +104,7 @@ const RESPONSE_SCHEMA = {
           minOrder: { type: 'string' },
           instructions: { type: 'string' },
           expiryDateText: { type: 'string' },
-          isExpired: { type: 'boolean' },
+          expiresAt: { type: 'string' },
         },
         required: ['smsId', 'hasPromoCode'],
         additionalProperties: false,
@@ -189,7 +198,7 @@ function parseModelJson(content: string): AiResult[] {
  */
 export async function analyzeBatch(
   settings: AiSettings,
-  messages: Pick<RawSms, 'id' | 'sender' | 'body'>[],
+  messages: Pick<RawSms, 'id' | 'sender' | 'body' | 'timestamp'>[],
   signal?: AbortSignal
 ): Promise<AiResult[]> {
   if (!settings.apiKey) {
@@ -202,7 +211,13 @@ export async function analyzeBatch(
 
 پیامک‌ها:
 ${JSON.stringify(
-  messages.map((m) => ({ smsId: m.id, sender: m.sender, body: m.body })),
+  messages.map((m) => ({
+    smsId: m.id,
+    sender: m.sender,
+    body: m.body,
+    // لنگر زمانی: بدون این، عبارت‌هایی مثل «تا امشب» بی‌معنا هستند
+    receivedAt: m.timestamp.slice(0, 10),
+  })),
   null,
   1
 )}`;
@@ -245,7 +260,7 @@ ${JSON.stringify(
 /** مسیر جایگزین برای مدل‌هایی که فقط json_object را پشتیبانی می‌کنند */
 async function analyzeBatchJsonObject(
   settings: AiSettings,
-  _messages: Pick<RawSms, 'id' | 'sender' | 'body'>[],
+  _messages: Pick<RawSms, 'id' | 'sender' | 'body' | 'timestamp'>[],
   userContent: string,
   signal?: AbortSignal
 ): Promise<AiResult[]> {
@@ -281,7 +296,7 @@ async function analyzeBatchJsonObject(
  */
 export async function analyzeAll(
   settings: AiSettings,
-  messages: Pick<RawSms, 'id' | 'sender' | 'body'>[],
+  messages: Pick<RawSms, 'id' | 'sender' | 'body' | 'timestamp'>[],
   options: {
     batchSize?: number;
     onProgress?: (done: number, total: number) => void;
@@ -307,9 +322,16 @@ export async function analyzeAll(
   return { results, errors };
 }
 
-/** ساخت مدل نهایی کد تخفیف از خروجی هوش مصنوعی و پیامک اصلی */
+/**
+ * ساخت مدل نهایی کد تخفیف از خروجی هوش مصنوعی و پیامک اصلی.
+ *
+ * انقضا اینجا به یک تاریخ واقعی تبدیل می‌شود تا اپ بتواند هر بار هنگام
+ * نمایش از نو بسنجد؛ بولین isExpired فقط عکس لحظه‌ی اسکن است.
+ */
 export function toPromoCode(result: AiResult, sms: RawSms): PromoCode {
+  const expiresAt = resolveExpiresAt(result.expiryDateText, sms.timestamp, result.expiresAt);
   return {
+    expiresAt,
     id: `promo-${sms.id}`,
     smsId: sms.id,
     brand: result.brand || 'نامشخص',
@@ -322,7 +344,7 @@ export function toPromoCode(result: AiResult, sms: RawSms): PromoCode {
     minOrder: result.minOrder,
     instructions: result.instructions || 'در مرحله تسویه‌حساب کد را وارد کنید.',
     expiryDateText: result.expiryDateText || 'نامشخص',
-    isExpired: result.isExpired ?? false,
+    isExpired: isExpiredNow(expiresAt),
     status: 'active',
     sender: sms.sender,
     recipientSim: sms.recipientSim,

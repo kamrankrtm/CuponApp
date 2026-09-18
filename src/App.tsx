@@ -1,103 +1,84 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowRight, Archive, Settings, ScanLine, Ticket, Check } from 'lucide-react';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Flame, 
-  Sparkles, 
-  MessageSquarePlus, 
-  Smartphone, 
-  ShieldCheck, 
-  Info, 
-  Check, 
-  Inbox, 
-  SlidersHorizontal,
-  RefreshCw,
-  Settings
-} from 'lucide-react';
-import { RawSms, PromoCode, AnalysisSummary } from './types';
-import { INITIAL_SMS_DATA } from './data/mockSms';
-import { INITIAL_PROMO_CODES } from './data/initialPromos';
-import { Header } from './components/Header';
-import { FilterBar } from './components/FilterBar';
+import type { PromoCode, RawSms } from './types';
 import { PromoCard } from './components/PromoCard';
-import { OriginalSmsModal } from './components/OriginalSmsModal';
-import { NewSmsDrawer } from './components/NewSmsDrawer';
-import { AndroidBridgeModal } from './components/AndroidBridgeModal';
-import { PersonalSmsView } from './components/PersonalSmsView';
-import { UsedCodesView } from './components/UsedCodesView';
-import { ScanPanel } from './components/ScanPanel';
+import { BrandsScreen, groupByBrand } from './components/BrandsScreen';
+import { ScanScreen } from './components/ScanScreen';
 import { SettingsModal } from './components/SettingsModal';
+import { SmsDetailSheet } from './components/SmsDetailSheet';
+import { UpdateBanner } from './components/UpdateBanner';
+
 import { DEFAULT_SETTINGS, type AiSettings } from './lib/ai';
 import { loadSettings } from './lib/settings';
 import { mergePromoCodes, mergeSmsList, runScan, type ScanProgress } from './lib/scan';
 import type { FilterStats } from './lib/smsFilter';
-import {
-  checkSmsPermission,
-  isNativeAndroid,
-  requestSmsPermission,
-} from './native/smsReader';
+import { isExpiredNow } from './lib/expiry';
+import { APP_VERSION, checkForUpdate, type UpdateInfo } from './lib/update';
+import { checkSmsPermission, isNativeAndroid, requestSmsPermission } from './native/smsReader';
+
+type Screen = 'brands' | 'brand' | 'archive' | 'scan';
+
+const STORAGE_SMS = 'cuponapp.sms';
+const STORAGE_PROMOS = 'cuponapp.promos';
+
+function loadStored<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) return JSON.parse(raw) as T;
+  } catch {
+    /* داده خراب بود؛ از صفر شروع می‌کنیم */
+  }
+  return fallback;
+}
 
 export default function App() {
-  // Local storage persisted state
-  const [smsList, setSmsList] = useState<RawSms[]>(() => {
-    try {
-      const saved = localStorage.getItem('sms_discount_sms_list');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error(e);
-    }
-    // روی گوشی داده نمونه بارگذاری نمی‌شود؛ منبع داده، صندوق پیامک واقعی است
-    return isNativeAndroid() ? [] : INITIAL_SMS_DATA;
-  });
+  const [smsList, setSmsList] = useState<RawSms[]>(() => loadStored(STORAGE_SMS, []));
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>(() =>
+    loadStored(STORAGE_PROMOS, [])
+  );
 
-  const [promoCodes, setPromoCodes] = useState<PromoCode[]>(() => {
-    try {
-      const saved = localStorage.getItem('sms_discount_promo_codes');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error(e);
-    }
-    return isNativeAndroid() ? [] : INITIAL_PROMO_CODES;
-  });
+  const [screen, setScreen] = useState<Screen>('brands');
+  const [activeBrand, setActiveBrand] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
-  // Filters & Tabs
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedBrand, setSelectedBrand] = useState('all');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedSim, setSelectedSim] = useState('all');
-  const [activeTab, setActiveTab] = useState<'active' | 'personal' | 'used'>('active');
-
-  // Modals
-  const [inspectPromo, setInspectPromo] = useState<PromoCode | null>(null);
-  const [isNewSmsOpen, setIsNewSmsOpen] = useState(false);
-  const [isAndroidBridgeOpen, setIsAndroidBridgeOpen] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
+  const [settings, setSettings] = useState<AiSettings>(DEFAULT_SETTINGS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [inspect, setInspect] = useState<PromoCode | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
-  // تنظیمات هوش مصنوعی و وضعیت اسکن نیتیو
-  const [aiSettings, setAiSettings] = useState<AiSettings>(DEFAULT_SETTINGS);
   const [smsPermission, setSmsPermission] = useState<
     'granted' | 'denied' | 'prompt' | 'prompt-with-rationale'
   >('denied');
-  const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
-  const [scanStats, setScanStats] = useState<FilterStats | null>(null);
-  const [scanErrors, setScanErrors] = useState<string[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
+  const [progress, setProgress] = useState<ScanProgress | null>(null);
+  const [stats, setStats] = useState<FilterStats | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
+
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const [updateDismissed, setUpdateDismissed] = useState(false);
 
   const isNative = isNativeAndroid();
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
-  // بارگذاری تنظیمات ذخیره‌شده و وضعیت مجوز هنگام باز شدن اپ
+  // ── راه‌اندازی ─────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const saved = await loadSettings();
-      if (!cancelled) setAiSettings(saved);
+      if (cancelled) return;
+      setSettings(saved);
+
       if (isNativeAndroid()) {
         const perm = await checkSmsPermission();
         if (!cancelled) setSmsPermission(perm);
+      }
+
+      // بررسی نسخه جدید؛ خطایش نباید اپ را مختل کند
+      try {
+        const found = await checkForUpdate(saved.githubToken || undefined);
+        if (!cancelled) setUpdate(found);
+      } catch {
+        /* آفلاین یا مخزن خصوصی — بی‌صدا رد می‌شویم */
       }
     })();
     return () => {
@@ -105,376 +86,256 @@ export default function App() {
     };
   }, []);
 
-  // Sync to local storage
   useEffect(() => {
-    localStorage.setItem('sms_discount_sms_list', JSON.stringify(smsList));
+    localStorage.setItem(STORAGE_SMS, JSON.stringify(smsList));
   }, [smsList]);
 
   useEffect(() => {
-    localStorage.setItem('sms_discount_promo_codes', JSON.stringify(promoCodes));
+    localStorage.setItem(STORAGE_PROMOS, JSON.stringify(promoCodes));
   }, [promoCodes]);
 
-  const showToast = (message: string, type: 'success' | 'info' = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 2600);
+  }, []);
 
-  // Distinct brands for filter pills
-  const availableBrands = useMemo(() => {
-    const brands = new Set<string>();
-    promoCodes.forEach((p) => {
-      if (p.brand) brands.add(p.brand);
-    });
-    return Array.from(brands);
-  }, [promoCodes]);
-
-  // Handle Mark as Used
-  const handleMarkUsed = (id: string) => {
-    setPromoCodes((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: 'used' } : p))
-    );
-    showToast('کد تخفیف به عنوان «استفاده شد» علامت‌گذاری و از لیست فعال حذف شد.');
-  };
-
-  // Handle Mark as Invalid / Not working
-  const handleMarkInvalid = (id: string) => {
-    setPromoCodes((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: 'invalid' } : p))
-    );
-    showToast('کد تخفیف به عنوان «کار نمی‌کنه» گزارش و از لیست فعال خارج شد.', 'info');
-  };
-
-  // Restore back to active
-  const handleRestore = (id: string) => {
-    setPromoCodes((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: 'active' } : p))
-    );
-    showToast('کد تخفیف مجدداً به لیست کدهای فعال بازگردانده شد.');
-  };
-
-  // Handle new incoming SMS processed by AI
-  const handleSmsProcessed = (newSms: RawSms, newPromo: PromoCode | null) => {
-    setSmsList((prev) => [newSms, ...prev]);
-    if (newPromo) {
-      setPromoCodes((prev) => [newPromo, ...prev]);
-      setActiveTab('active');
-      setSelectedBrand('all');
-      setSelectedCategory('all');
-      showToast(`کد تخفیف جدید ${newPromo.brand} با موفقیت در اپ فعال شد!`);
+  // ── تفکیک کدهای فعال و بایگانی ────────────────────────────────────────
+  // انقضا هر بار اینجا از نو سنجیده می‌شود، نه از روی بولین ذخیره‌شده،
+  // تا کدها با گذشت زمان خودبه‌خود از لیست فعال بیرون بروند.
+  const { active, archived } = useMemo(() => {
+    const now = new Date();
+    const active: PromoCode[] = [];
+    const archived: PromoCode[] = [];
+    for (const promo of promoCodes) {
+      const expired = isExpiredNow(promo.expiresAt, now);
+      if (promo.status === 'active' && !expired) active.push(promo);
+      else archived.push(promo);
     }
+    return { active, archived };
+  }, [promoCodes]);
+
+  const brandCodes = useMemo(() => {
+    if (!activeBrand) return [];
+    return groupByBrand(active).find((g) => g.brand === activeBrand)?.codes ?? [];
+  }, [active, activeBrand]);
+
+  // ── اقدام‌ها ──────────────────────────────────────────────────────────
+  const setStatus = (id: string, status: PromoCode['status'], message: string) => {
+    setPromoCodes((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
+    showToast(message);
   };
 
-  // درخواست مجوز خواندن پیامک از سیستم‌عامل
   const handleRequestPermission = async () => {
     const result = await requestSmsPermission();
     setSmsPermission(result);
-    if (result === 'granted') {
-      showToast('دسترسی خواندن پیامک داده شد. حالا می‌توانید اسکن کنید.');
-    } else {
-      showToast('بدون مجوز خواندن پیامک، اسکن خودکار ممکن نیست.', 'info');
-    }
+    showToast(
+      result === 'granted' ? 'دسترسی داده شد. حالا می‌توانی اسکن کنی.' : 'بدون مجوز، اسکن ممکن نیست.'
+    );
   };
 
-  /**
-   * اسکن واقعی صندوق پیامک گوشی.
-   *
-   * مسیر: خواندن نیتیو ← فیلتر محلی (حذف پیام‌های شخصی و بانکی) ←
-   * ارسال فقط پیامک‌های تبلیغاتی به هوش مصنوعی.
-   */
   const handleScan = async () => {
     if (!isNative) {
-      showToast('اسکن پیامک فقط در نسخه اندروید اپ در دسترس است.', 'info');
+      showToast('اسکن پیامک فقط در اپ اندروید کار می‌کند.');
       return;
     }
-
     setIsScanning(true);
-    setScanErrors([]);
-    setScanProgress(null);
+    setErrors([]);
+    setProgress(null);
 
     try {
-      const result = await runScan(aiSettings, {
-        sinceDays: 60,
-        limit: 500,
-        onProgress: setScanProgress,
-      });
-
+      const result = await runScan(settings, { sinceDays: 60, limit: 500, onProgress: setProgress });
       setSmsList((prev) => mergeSmsList(prev, result.smsList));
-      setScanStats(result.stats);
-      setScanErrors(result.errors);
+      setStats(result.stats);
+      setErrors(result.errors);
 
       if (result.promoCodes.length > 0) {
         setPromoCodes((prev) => mergePromoCodes(prev, result.promoCodes));
-        setActiveTab('active');
-        setSelectedBrand('all');
-        setSelectedCategory('all');
-        showToast(`${result.promoCodes.length} کد تخفیف از پیامک‌های شما استخراج شد.`);
-      } else if (result.errors.length > 0) {
-        showToast('اسکن انجام شد ولی تحلیل هوش مصنوعی با خطا مواجه شد.', 'info');
-      } else {
-        showToast('اسکن کامل شد؛ کد تخفیف جدیدی پیدا نشد.', 'info');
+        setScreen('brands');
+        setQuery('');
+        showToast(`${result.promoCodes.length} کد تخفیف پیدا شد.`);
+      } else if (result.errors.length === 0) {
+        showToast('اسکن کامل شد؛ کد جدیدی نبود.');
       }
     } catch (e: any) {
       const message = e?.message ?? String(e);
-      setScanErrors([message]);
-      showToast('خطا در اسکن پیامک‌ها: ' + message, 'info');
+      setErrors([message]);
+      showToast('خطا در اسکن: ' + message);
     } finally {
       setIsScanning(false);
     }
   };
 
-  // Active non-expired codes
-  const activePromoCodes = useMemo(() => {
-    return promoCodes.filter(
-      (p) => p.status === 'active' && !p.isExpired
-    );
-  }, [promoCodes]);
+  // ── عنوان و ناوبری ────────────────────────────────────────────────────
+  const canGoBack = screen === 'brand' || screen === 'archive' || screen === 'scan';
+  const title =
+    screen === 'brand'
+      ? activeBrand ?? ''
+      : screen === 'archive'
+      ? 'بایگانی'
+      : screen === 'scan'
+      ? 'اسکن پیامک‌ها'
+      : 'تخفیف‌یاب';
 
-  // Used or Invalid codes
-  const usedPromoCodes = useMemo(() => {
-    return promoCodes.filter(
-      (p) => p.status === 'used' || p.status === 'invalid' || p.isExpired
-    );
-  }, [promoCodes]);
-
-  // Personal SMS messages
-  const personalSmsList = useMemo(() => {
-    return smsList.filter((s) => s.type === 'personal');
-  }, [smsList]);
-
-  // Filtered active codes based on query, brand, category, sim
-  const filteredActiveCodes = useMemo(() => {
-    return activePromoCodes.filter((p) => {
-      // Brand match
-      if (selectedBrand !== 'all' && p.brand !== selectedBrand) {
-        return false;
-      }
-      // Category match
-      if (selectedCategory !== 'all' && p.categorySlug !== selectedCategory) {
-        return false;
-      }
-      // SIM match
-      if (selectedSim !== 'all' && !p.recipientSim.includes(selectedSim)) {
-        return false;
-      }
-      // Search query match
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const inBrand = p.brand.toLowerCase().includes(q);
-        const inCode = p.code.toLowerCase().includes(q);
-        const inDesc = p.description.toLowerCase().includes(q);
-        const inAmount = p.discountAmount.toLowerCase().includes(q);
-        const inInstructions = p.instructions.toLowerCase().includes(q);
-        return inBrand || inCode || inDesc || inAmount || inInstructions;
-      }
-      return true;
-    });
-  }, [activePromoCodes, selectedBrand, selectedCategory, selectedSim, searchQuery]);
-
-  // Summary stats
-  const summary: AnalysisSummary = {
-    totalSms: smsList.length,
-    promotionalCount: smsList.filter((s) => s.type === 'promotional').length,
-    personalCount: personalSmsList.length,
-    bankingCount: smsList.filter((s) => s.type === 'banking').length,
-    extractedPromoCount: promoCodes.length,
-    activePromoCount: activePromoCodes.length,
+  const goBack = () => {
+    setScreen('brands');
+    setActiveBrand(null);
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-amber-500 selection:text-black">
-      {/* App Header */}
-      <Header
-        summary={summary}
-        onOpenNewSms={() => setIsNewSmsOpen(true)}
-        onOpenAndroidBridge={() => setIsAndroidBridgeOpen(true)}
-        onRescanAll={handleScan}
-        isScanning={isScanning}
-      />
+    <div className="min-h-screen bg-[#080b12] text-slate-100 flex flex-col">
+      {/* نوار بالا — باریک و بدون آمار اضافه */}
+      <header className="sticky top-0 z-30 bg-[#080b12]/95 backdrop-blur border-b border-white/6">
+        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-2">
+          {canGoBack ? (
+            <button
+              onClick={goBack}
+              aria-label="بازگشت"
+              className="w-9 h-9 -mr-1.5 rounded-xl flex items-center justify-center text-slate-300 hover:bg-white/[0.06] transition cursor-pointer"
+            >
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          ) : (
+            <span className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center">
+              <Ticket className="w-[18px] h-[18px]" />
+            </span>
+          )}
 
-      {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 py-6 flex-1 w-full space-y-6">
-        {/* اسکن پیامک‌های گوشی */}
-        <ScanPanel
-          isNative={isNative}
-          hasApiKey={!!aiSettings.apiKey}
-          permission={smsPermission}
-          isScanning={isScanning}
-          progress={scanProgress}
-          lastStats={scanStats}
-          errors={scanErrors}
-          onRequestPermission={handleRequestPermission}
-          onScan={handleScan}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-        />
+          <h1 className="text-[15px] font-bold text-white truncate flex-1">{title}</h1>
 
-        {/* Brand/Category/Search Filter Bar */}
-        <FilterBar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          selectedBrand={selectedBrand}
-          onBrandChange={setSelectedBrand}
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-          selectedSim={selectedSim}
-          onSimChange={setSelectedSim}
-          availableBrands={availableBrands}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          activeCount={activePromoCodes.length}
-          personalCount={personalSmsList.length}
-          usedCount={usedPromoCodes.length}
-        />
-
-        {/* Tab 1: Active Promo Codes */}
-        {activeTab === 'active' && (
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Flame className="w-5 h-5 text-amber-500" />
-                <h2 className="text-base md:text-lg font-bold text-white">
-                  کدهای تخفیف معتبر آماده استفاده
-                </h2>
-                <span className="text-xs bg-slate-900 border border-slate-800 text-slate-400 px-2.5 py-0.5 rounded-full font-mono">
-                  {filteredActiveCodes.length} کد یافت شد
+          {screen === 'brands' && (
+            <>
+              {active.length > 0 && (
+                <span className="text-[11px] font-mono text-slate-500 px-2">
+                  {active.length} کد
                 </span>
-              </div>
-
-              {selectedBrand !== 'all' && (
-                <button
-                  onClick={() => setSelectedBrand('all')}
-                  className="text-xs text-amber-400 hover:text-amber-300 transition cursor-pointer"
-                >
-                  حذف فیلتر برند ({selectedBrand}) ✕
-                </button>
               )}
-            </div>
+              <IconButton
+                label="بایگانی"
+                onClick={() => setScreen('archive')}
+                badge={archived.length || undefined}
+              >
+                <Archive className="w-[18px] h-[18px]" />
+              </IconButton>
+              <IconButton label="اسکن" onClick={() => setScreen('scan')}>
+                <ScanLine className="w-[18px] h-[18px]" />
+              </IconButton>
+            </>
+          )}
 
-            {filteredActiveCodes.length === 0 ? (
-              <div className="text-center py-16 bg-slate-900/40 border border-slate-800/80 rounded-3xl p-8 flex flex-col items-center justify-center gap-3">
-                <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500">
-                  <Inbox className="w-7 h-7" />
-                </div>
-                <h3 className="text-sm font-bold text-slate-300">هیچ کد تخفیف فعالی با این فیلترها پیدا نشد</h3>
-                <p className="text-xs text-slate-500 max-w-sm">
-                  می‌توانید فیلترها را پاک کنید یا روی «دریافت پیامک جدید» بزنید تا پیامک‌های تازه اضافه و پردازش شوند.
-                </p>
-                <div className="flex items-center gap-2 mt-2">
-                  <button
-                    onClick={() => {
-                      setSelectedBrand('all');
-                      setSelectedCategory('all');
-                      setSelectedSim('all');
-                      setSearchQuery('');
-                    }}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition cursor-pointer"
-                  >
-                    پاکسازی همه فیلترها
-                  </button>
-                  <button
-                    onClick={() => setIsNewSmsOpen(true)}
-                    className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition cursor-pointer"
-                  >
-                    ثبت و تحلیل پیامک جدید
-                  </button>
-                </div>
-              </div>
+          <IconButton label="تنظیمات" onClick={() => setIsSettingsOpen(true)}>
+            <Settings className="w-[18px] h-[18px]" />
+          </IconButton>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-4 space-y-4">
+        {/* اعلان نسخه جدید */}
+        {!updateDismissed && screen === 'brands' && (
+          <UpdateBanner update={update} onDismiss={() => setUpdateDismissed(true)} />
+        )}
+
+        {screen === 'brands' && (
+          <BrandsScreen
+            codes={active}
+            query={query}
+            onQueryChange={setQuery}
+            onSelectBrand={(brand) => {
+              setActiveBrand(brand);
+              setScreen('brand');
+            }}
+            onScan={() => setScreen('scan')}
+          />
+        )}
+
+        {screen === 'brand' && (
+          <div className="space-y-3">
+            {brandCodes.map((promo) => (
+              <PromoCard
+                key={promo.id}
+                promo={promo}
+                onUse={(id) => setStatus(id, 'used', 'به بایگانی منتقل شد.')}
+                onInvalid={(id) => setStatus(id, 'invalid', 'به عنوان «کار نکرد» ثبت شد.')}
+                onShowSms={setInspect}
+              />
+            ))}
+          </div>
+        )}
+
+        {screen === 'archive' && (
+          <div className="space-y-3">
+            {archived.length === 0 ? (
+              <p className="text-center text-[13px] text-slate-500 py-16">بایگانی خالی است.</p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredActiveCodes.map((promo) => (
-                  <PromoCard
-                    key={promo.id}
-                    promo={promo}
-                    onMarkUsed={handleMarkUsed}
-                    onMarkInvalid={handleMarkInvalid}
-                    onViewOriginal={setInspectPromo}
-                  />
-                ))}
-              </div>
+              archived.map((promo) => (
+                <PromoCard
+                  key={promo.id}
+                  promo={promo}
+                  variant="archived"
+                  onRestore={(id) => setStatus(id, 'active', 'به لیست فعال برگشت.')}
+                  onShowSms={setInspect}
+                />
+              ))
             )}
           </div>
         )}
 
-        {/* Tab 2: Personal Messages Separated for Privacy */}
-        {activeTab === 'personal' && (
-          <PersonalSmsView messages={personalSmsList} />
-        )}
-
-        {/* Tab 3: Used or Invalid Codes Archive */}
-        {activeTab === 'used' && (
-          <UsedCodesView
-            codes={usedPromoCodes}
-            onRestore={handleRestore}
-            onViewOriginal={setInspectPromo}
+        {screen === 'scan' && (
+          <ScanScreen
+            isNative={isNative}
+            hasApiKey={!!settings.apiKey}
+            permission={smsPermission}
+            isScanning={isScanning}
+            progress={progress}
+            lastStats={stats}
+            errors={errors}
+            onRequestPermission={handleRequestPermission}
+            onScan={handleScan}
+            onOpenSettings={() => setIsSettingsOpen(true)}
           />
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950/90 py-6 mt-12 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span>استخراج هوشمند کد تخفیف از پیامک‌های گوشی، با پردازش محلی حریم خصوصی</span>
-          </div>
-          <div className="flex items-center gap-4 text-slate-400">
-            <button
-              onClick={() => setIsAndroidBridgeOpen(true)}
-              className="hover:text-amber-400 transition cursor-pointer"
-            >
-              راهنمای نصب اندروید
-            </button>
-            <span>•</span>
-            <button
-              onClick={() => setIsNewSmsOpen(true)}
-              className="hover:text-amber-400 transition cursor-pointer"
-            >
-              تست پیامک جدید
-            </button>
-          </div>
-        </div>
+      <footer className="py-4 text-center text-[10px] text-slate-700">
+        نسخه {APP_VERSION}
       </footer>
 
-      {/* Modals */}
-      <OriginalSmsModal
-        promo={inspectPromo}
-        onClose={() => setInspectPromo(null)}
-      />
-
-      <NewSmsDrawer
-        isOpen={isNewSmsOpen}
-        onClose={() => setIsNewSmsOpen(false)}
-        settings={aiSettings}
-        onSmsProcessed={handleSmsProcessed}
-      />
-
-      <AndroidBridgeModal
-        isOpen={isAndroidBridgeOpen}
-        onClose={() => setIsAndroidBridgeOpen(false)}
-      />
+      <SmsDetailSheet promo={inspect} onClose={() => setInspect(null)} />
 
       <SettingsModal
         isOpen={isSettingsOpen}
-        settings={aiSettings}
+        settings={settings}
         onClose={() => setIsSettingsOpen(false)}
-        onSave={setAiSettings}
+        onSave={setSettings}
       />
 
-      {/* دکمه شناور تنظیمات */}
-      <button
-        onClick={() => setIsSettingsOpen(true)}
-        aria-label="تنظیمات"
-        className="fixed bottom-6 left-6 z-40 w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-amber-400 hover:border-slate-700 shadow-2xl flex items-center justify-center transition cursor-pointer"
-      >
-        <Settings className="w-5 h-5" />
-      </button>
-
-      {/* Floating Toast Notification */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-slate-700 text-slate-100 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs font-medium animate-in slide-in-from-bottom duration-200">
-          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{toast.message}</span>
+        <div className="fixed bottom-6 inset-x-4 z-50 flex justify-center pointer-events-none">
+          <div className="bg-slate-800 border border-white/10 text-slate-100 px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 text-[12px]">
+            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            {toast}
+          </div>
         </div>
       )}
     </div>
   );
 }
+
+const IconButton: React.FC<{
+  label: string;
+  onClick: () => void;
+  badge?: number;
+  children: React.ReactNode;
+}> = ({ label, onClick, badge, children }) => (
+  <button
+    onClick={onClick}
+    aria-label={label}
+    className="relative w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-100 hover:bg-white/[0.06] transition cursor-pointer"
+  >
+    {children}
+    {badge ? (
+      <span className="absolute -top-0.5 -left-0.5 min-w-4 h-4 px-1 rounded-full bg-slate-700 text-slate-300 text-[9px] font-mono flex items-center justify-center">
+        {badge > 99 ? '۹۹+' : badge}
+      </span>
+    ) : null}
+  </button>
+);

@@ -5,7 +5,13 @@ import {defineConfig} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
+  // نسخه از گردش‌کار CI می‌آید؛ در توسعه محلی صفر می‌ماند
+  const appVersion = process.env.APP_VERSION ?? '0.0.0-dev';
+
   return {
+    define: {
+      __APP_VERSION__: JSON.stringify(appVersion),
+    },
     plugins: [
       react(),
       tailwindcss(),

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   X, KeyRound, Cpu, Check, Loader2, AlertTriangle, ShieldCheck, RefreshCw, Trash2, Filter,
+  Sparkles,
 } from 'lucide-react';
 import {
   DEFAULT_BASE_URL, SUGGESTED_MODELS, listModels, testConnection, type AiSettings,
@@ -9,6 +10,7 @@ import { clearAnalyzedFingerprints, clearSettings, saveSettings } from '../lib/s
 import {
   STRICTNESS_LABELS, STRICTNESS_THRESHOLD, type StrictnessLevel,
 } from '../lib/smsFilter';
+import { APP_VERSION, checkForUpdate } from '../lib/update';
 
 interface Props {
   isOpen: boolean;
@@ -54,6 +56,20 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, settings, onClose, onSa
     }
   };
 
+  const handleCheckUpdate = async () => {
+    setStatus({ kind: 'busy', message: 'در حال بررسی نسخه جدید…' });
+    try {
+      const found = await checkForUpdate(draft.githubToken || undefined);
+      setStatus(
+        found
+          ? { kind: 'ok', message: `نسخه ${found.version} منتشر شده است.` }
+          : { kind: 'ok', message: 'همین نسخه آخرین نسخه است.' }
+      );
+    } catch (e: any) {
+      setStatus({ kind: 'error', message: e?.message ?? 'بررسی نسخه ناموفق بود' });
+    }
+  };
+
   const handleSave = async () => {
     await saveSettings(draft);
     onSave(draft);
@@ -67,6 +83,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, settings, onClose, onSa
       model: draft.model,
       baseUrl: DEFAULT_BASE_URL,
       strictness: draft.strictness,
+      githubToken: draft.githubToken,
     };
     setDraft(reset);
     onSave(reset);
@@ -210,6 +227,35 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, settings, onClose, onSa
           >
             پاک کردن کش پیامک‌های تحلیل‌شده
           </button>
+        </div>
+
+        {/* بروزرسانی خودکار */}
+        <div className="space-y-2 border-t border-slate-800/80 pt-4">
+          <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5" />
+            بروزرسانی خودکار
+          </label>
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            اپ هر بار که باز شود، آخرین نسخه منتشرشده روی گیت‌هاب را بررسی می‌کند.
+            اگر مخزن خصوصی است، یک توکن گیت‌هاب با دسترسی خواندن وارد کنید؛ برای
+            مخزن عمومی نیازی نیست.
+          </p>
+          <input
+            type="password"
+            dir="ltr"
+            value={draft.githubToken ?? ''}
+            onChange={(e) => setDraft({ ...draft, githubToken: e.target.value.trim() })}
+            placeholder="ghp_… (اختیاری)"
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 font-mono outline-none focus:border-amber-500 transition"
+          />
+          <button
+            onClick={handleCheckUpdate}
+            disabled={status.kind === 'busy'}
+            className="text-[11px] text-slate-400 hover:text-amber-400 underline transition cursor-pointer disabled:opacity-40"
+          >
+            بررسی نسخه جدید
+          </button>
+          <p className="text-[10px] text-slate-600 font-mono">نسخه فعلی: {APP_VERSION}</p>
         </div>
 
         {/* وضعیت */}
