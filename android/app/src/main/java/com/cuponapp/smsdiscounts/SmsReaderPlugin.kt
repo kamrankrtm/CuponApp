@@ -9,6 +9,7 @@ import android.telephony.SubscriptionInfo
 import android.telephony.SubscriptionManager
 import androidx.core.content.ContextCompat
 import android.content.pm.PackageManager
+import android.os.Build
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.PermissionState
@@ -31,7 +32,11 @@ import com.getcapacitor.annotation.PermissionCallback
     permissions = [
         Permission(
             alias = SmsReaderPlugin.SMS_PERMISSION_ALIAS,
-            strings = [Manifest.permission.READ_SMS]
+            strings = [Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS]
+        ),
+        Permission(
+            alias = SmsReaderPlugin.NOTIFICATION_PERMISSION_ALIAS,
+            strings = [Manifest.permission.POST_NOTIFICATIONS]
         )
     ]
 )
@@ -39,6 +44,7 @@ class SmsReaderPlugin : Plugin() {
 
     companion object {
         const val SMS_PERMISSION_ALIAS = "sms"
+        const val NOTIFICATION_PERMISSION_ALIAS = "notifications"
         private const val DEFAULT_LIMIT = 500
     }
 
@@ -56,11 +62,58 @@ class SmsReaderPlugin : Plugin() {
         call.resolve(result)
     }
 
-    /** وضعیت فعلی مجوز خواندن پیامک */
+    /** وضعیت فعلی مجوزها */
     @PluginMethod
     override fun checkPermissions(call: PluginCall) {
         val result = JSObject()
         result.put(SMS_PERMISSION_ALIAS, getPermissionState(SMS_PERMISSION_ALIAS).toString())
+        result.put(
+            NOTIFICATION_PERMISSION_ALIAS,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                getPermissionState(NOTIFICATION_PERMISSION_ALIAS).toString()
+            } else {
+                // پیش از اندروید ۱۳ اعلان مجوز زمان اجرا نمی‌خواهد
+                PermissionState.GRANTED.toString()
+            }
+        )
+        call.resolve(result)
+    }
+
+    /** درخواست مجوز نمایش اعلان؛ در اندروید زیر ۱۳ بی‌درنگ موفق است */
+    @PluginMethod
+    fun requestNotificationPermission(call: PluginCall) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            getPermissionState(NOTIFICATION_PERMISSION_ALIAS) == PermissionState.GRANTED
+        ) {
+            val result = JSObject()
+            result.put(NOTIFICATION_PERMISSION_ALIAS, PermissionState.GRANTED.toString())
+            call.resolve(result)
+            return
+        }
+        requestPermissionForAlias(NOTIFICATION_PERMISSION_ALIAS, call, "notificationPermissionCallback")
+    }
+
+    @PermissionCallback
+    private fun notificationPermissionCallback(call: PluginCall) {
+        val result = JSObject()
+        result.put(
+            NOTIFICATION_PERMISSION_ALIAS,
+            getPermissionState(NOTIFICATION_PERMISSION_ALIAS).toString()
+        )
+        call.resolve(result)
+    }
+
+    /**
+     * برداشتن کدهایی که گیرنده پیامک در پس‌زمینه پیدا کرده است.
+     *
+     * صف پس از خواندن خالی می‌شود؛ از این لحظه مالک داده لایه وب است.
+     */
+    @PluginMethod
+    fun consumePendingPromos(call: PluginCall) {
+        val items = PendingPromoStore.drain(context)
+        val result = JSObject()
+        result.put("promos", items)
+        result.put("count", items.length())
         call.resolve(result)
     }
 

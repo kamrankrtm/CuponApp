@@ -1,7 +1,8 @@
 import { analyzeAll, toPromoCode, type AiSettings } from './ai';
 import { filterInbox, type FilterStats } from './smsFilter';
 import { addAnalyzedFingerprints, loadAnalyzedFingerprints } from './settings';
-import { readInbox } from '../native/smsReader';
+import { readInbox, type PendingPromo } from '../native/smsReader';
+import { isExpiredNow, resolveExpiresAt } from './expiry';
 import type { PromoCode, RawSms } from '../types';
 
 /**
@@ -179,4 +180,43 @@ export function mergeSmsList(existing: RawSms[], incoming: RawSms[]): RawSms[] {
   return Array.from(byId.values()).sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
+}
+
+/**
+ * تبدیل کدهایی که گیرنده پیامک در پس‌زمینه پیدا کرده به مدل داخلی اپ.
+ *
+ * انقضا اینجا دوباره حل می‌شود تا با همان منطق اسکن دستی بخواند؛ سمت
+ * نیتیو فقط متن خام و تاریخ پیشنهادی مدل را می‌فرستد.
+ */
+export function fromPendingPromos(items: PendingPromo[]): PromoCode[] {
+  return items.map((item) => {
+    const receivedAt = new Date(item.timestamp || Date.now()).toISOString();
+    const expiresAt = resolveExpiresAt(
+      item.expiryDateText || undefined,
+      receivedAt,
+      item.expiresAt || undefined
+    );
+
+    return {
+      id: `promo-bg-${item.timestamp}-${item.code}`,
+      smsId: `sms-bg-${item.timestamp}`,
+      brand: item.brand || 'نامشخص',
+      brandEn: '',
+      category: '',
+      categorySlug: (item.categorySlug as PromoCode['categorySlug']) || 'other',
+      code: item.code || 'بدون کد',
+      discountAmount: item.discountAmount || 'تخفیف',
+      description: '',
+      minOrder: item.minOrder || undefined,
+      instructions: item.instructions || 'در مرحله تسویه‌حساب کد را وارد کنید.',
+      expiryDateText: item.expiryDateText || 'نامشخص',
+      expiresAt,
+      isExpired: isExpiredNow(expiresAt),
+      status: 'active',
+      sender: item.sender || 'نامشخص',
+      recipientSim: (item.simLabel || 'SIM 1') as PromoCode['recipientSim'],
+      originalSmsBody: item.body || '',
+      receivedAt,
+    };
+  });
 }

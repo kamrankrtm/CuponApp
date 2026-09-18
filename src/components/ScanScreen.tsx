@@ -1,5 +1,7 @@
 import React from 'react';
-import { ShieldCheck, Loader2, ScanLine, AlertTriangle, Lock, KeyRound, Smartphone } from 'lucide-react';
+import {
+  ShieldCheck, Loader2, ScanLine, AlertTriangle, Lock, KeyRound, Smartphone, Bell,
+} from 'lucide-react';
 import type { ScanProgress } from '../lib/scan';
 import type { FilterStats } from '../lib/smsFilter';
 
@@ -7,11 +9,13 @@ interface Props {
   isNative: boolean;
   hasApiKey: boolean;
   permission: 'granted' | 'denied' | 'prompt' | 'prompt-with-rationale';
+  notificationPermission: 'granted' | 'denied' | 'prompt' | 'prompt-with-rationale';
   isScanning: boolean;
   progress: ScanProgress | null;
   lastStats: FilterStats | null;
   errors: string[];
   onRequestPermission: () => void;
+  onRequestNotifications: () => void;
   onScan: () => void;
   onOpenSettings: () => void;
 }
@@ -20,11 +24,13 @@ export const ScanScreen: React.FC<Props> = ({
   isNative,
   hasApiKey,
   permission,
+  notificationPermission,
   isScanning,
   progress,
   lastStats,
   errors,
   onRequestPermission,
+  onRequestNotifications,
   onScan,
   onOpenSettings,
 }) => {
@@ -39,7 +45,7 @@ export const ScanScreen: React.FC<Props> = ({
         <p className="text-[12px] text-emerald-100/80 leading-relaxed">
           پیامک‌های شخصی، بانکی و رمزهای یک‌بارمصرف روی خود گوشی جدا می‌شوند و
           هرگز به هوش مصنوعی ارسال نمی‌گردند. فقط پیامک‌های تبلیغاتی نشانه‌دار
-          بررسی می‌شوند.
+          بررسی می‌شوند — چه در اسکن دستی، چه هنگام دریافت خودکار.
         </p>
       </div>
 
@@ -56,6 +62,15 @@ export const ScanScreen: React.FC<Props> = ({
           icon={<Lock className="w-4 h-4" />}
           text="برای خواندن پیامک‌ها به مجوز «خواندن پیامک» نیاز است."
           action={{ label: 'اجازه می‌دهم', onClick: onRequestPermission }}
+        />
+      )}
+
+      {/* اعلان لحظه‌ای */}
+      {isNative && notificationPermission !== 'granted' && (
+        <Blocker
+          icon={<Bell className="w-4 h-4" />}
+          text="با اجازه اعلان، کد تخفیف پیامک‌های تازه بی‌درنگ به شما خبر داده می‌شود."
+          action={{ label: 'فعال کن', onClick: onRequestNotifications }}
         />
       )}
 
@@ -86,6 +101,13 @@ export const ScanScreen: React.FC<Props> = ({
           </>
         )}
       </button>
+
+      {isNative && (
+        <p className="text-[11px] text-slate-500 text-center leading-relaxed">
+          پیامک‌های تازه خودکار بررسی می‌شوند. این دکمه برای پیامک‌های قدیمی
+          یا وقتی اپ مدتی خاموش بوده لازم است.
+        </p>
+      )}
 
       {/* پیشرفت */}
       {progress && (

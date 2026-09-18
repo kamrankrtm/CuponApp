@@ -25,6 +25,28 @@
 
         </activity>
 
+        <!--
+          دریافت لحظه‌ای پیامک. اندروید این گیرنده را حتی وقتی اپ بسته است
+          بیدار می‌کند، چون SMS_RECEIVED از محدودیت پخش‌های ضمنی مستثناست.
+        -->
+        <receiver
+            android:name=".SmsReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter android:priority="999">
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- کپی کد از روی خود اعلان، بدون باز کردن اپ -->
+        <receiver
+            android:name=".CopyCodeReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.cuponapp.smsdiscounts.COPY_CODE" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -44,6 +66,12 @@
 
     <!-- خواندن پیامک‌های صندوق ورودی؛ هسته‌ی کار اپ -->
     <uses-permission android:name="android.permission.READ_SMS" />
+
+    <!-- دریافت لحظه‌ای پیامک تازه، حتی وقتی اپ بسته است -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+
+    <!-- اعلان کد تخفیف تازه؛ در اندروید ۱۳ به بعد مجوز زمان اجرا دارد -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!--
       اختیاری: فقط برای نمایش نام اپراتور هر سیم‌کارت استفاده می‌شود.

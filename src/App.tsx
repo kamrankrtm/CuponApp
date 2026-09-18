@@ -11,11 +11,24 @@ import { UpdateBanner } from './components/UpdateBanner';
 
 import { DEFAULT_SETTINGS, type AiSettings } from './lib/ai';
 import { loadSettings } from './lib/settings';
-import { mergePromoCodes, mergeSmsList, runScan, type ScanProgress } from './lib/scan';
+import {
+  fromPendingPromos,
+  mergePromoCodes,
+  mergeSmsList,
+  runScan,
+  type ScanProgress,
+} from './lib/scan';
 import type { FilterStats } from './lib/smsFilter';
 import { isExpiredNow } from './lib/expiry';
 import { APP_VERSION, checkForUpdate, type UpdateInfo } from './lib/update';
-import { checkSmsPermission, isNativeAndroid, requestSmsPermission } from './native/smsReader';
+import {
+  checkNotificationPermission,
+  checkSmsPermission,
+  consumePendingPromos,
+  isNativeAndroid,
+  requestNotificationPermission,
+  requestSmsPermission,
+} from './native/smsReader';
 import { App as CapacitorApp } from '@capacitor/app';
 
 type Screen = 'brands' | 'brand' | 'archive' | 'scan';
@@ -42,6 +55,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('brands');
   const [activeBrand, setActiveBrand] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('all');
 
   const [settings, setSettings] = useState<AiSettings>(DEFAULT_SETTINGS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -51,6 +65,9 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null);
 
   const [smsPermission, setSmsPermission] = useState<
+    'granted' | 'denied' | 'prompt' | 'prompt-with-rationale'
+  >('denied');
+  const [notificationPermission, setNotificationPermission] = useState<
     'granted' | 'denied' | 'prompt' | 'prompt-with-rationale'
   >('denied');
   const [isScanning, setIsScanning] = useState(false);
@@ -63,6 +80,12 @@ export default function App() {
 
   const isNative = isNativeAndroid();
 
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 2600);
+  }, []);
+
+
   // ── راه‌اندازی ─────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +97,8 @@ export default function App() {
       if (isNativeAndroid()) {
         const perm = await checkSmsPermission();
         if (!cancelled) setSmsPermission(perm);
+        const notif = await checkNotificationPermission();
+        if (!cancelled) setNotificationPermission(notif);
       }
 
       // بررسی نسخه جدید؛ خطایش نباید اپ را مختل کند
@@ -119,6 +144,37 @@ export default function App() {
     return () => detach?.();
   }, [isNative, isSettingsOpen, inspect, screen]);
 
+  /**
+   * برداشتن کدهایی که گیرنده پیامک در پس‌زمینه پیدا کرده است.
+   *
+   * صف سمت نیتیو با خواندن خالی می‌شود، پس نتیجه بی‌درنگ در همین جا ادغام
+   * و ذخیره می‌گردد. هم هنگام باز شدن اپ اجرا می‌شود و هم هر بار که اپ از
+   * پس‌زمینه برمی‌گردد، چون ممکن است در این فاصله پیامکی رسیده باشد.
+   */
+  const drainBackground = useCallback(async () => {
+    const pending = await consumePendingPromos();
+    if (pending.length === 0) return;
+
+    const promos = fromPendingPromos(pending);
+    setPromoCodes((prev) => mergePromoCodes(prev, promos));
+    showToast(`${promos.length} کد تخفیف تازه از پیامک‌های جدید اضافه شد.`);
+  }, [showToast]);
+
+  useEffect(() => {
+    if (!isNative) return;
+
+    drainBackground();
+
+    let detach: (() => void) | undefined;
+    CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) drainBackground();
+    }).then((handle) => {
+      detach = () => handle.remove();
+    });
+
+    return () => detach?.();
+  }, [isNative, drainBackground]);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_SMS, JSON.stringify(smsList));
   }, [smsList]);
@@ -126,11 +182,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_PROMOS, JSON.stringify(promoCodes));
   }, [promoCodes]);
-
-  const showToast = useCallback((message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 2600);
-  }, []);
 
   // ── تفکیک کدهای فعال و بایگانی ────────────────────────────────────────
   // انقضا هر بار اینجا از نو سنجیده می‌شود، نه از روی بولین ذخیره‌شده،
@@ -166,6 +217,16 @@ export default function App() {
     );
   };
 
+  const handleRequestNotifications = async () => {
+    const result = await requestNotificationPermission();
+    setNotificationPermission(result);
+    showToast(
+      result === 'granted'
+        ? 'از این پس کدهای تخفیف تازه را بی‌درنگ اطلاع می‌دهیم.'
+        : 'بدون مجوز اعلان، کدها فقط داخل اپ دیده می‌شوند.'
+    );
+  };
+
   const handleScan = async () => {
     if (!isNative) {
       showToast('اسکن پیامک فقط در اپ اندروید کار می‌کند.');
@@ -185,6 +246,7 @@ export default function App() {
         setPromoCodes((prev) => mergePromoCodes(prev, result.promoCodes));
         setScreen('brands');
         setQuery('');
+        setCategory('all');
         showToast(`${result.promoCodes.length} کد تخفیف پیدا شد.`);
       } else if (result.errors.length === 0) {
         showToast('اسکن کامل شد؛ کد جدیدی نبود.');
@@ -272,6 +334,8 @@ export default function App() {
             codes={active}
             query={query}
             onQueryChange={setQuery}
+            category={category}
+            onCategoryChange={setCategory}
             onSelectBrand={(brand) => {
               setActiveBrand(brand);
               setScreen('brand');
@@ -321,6 +385,8 @@ export default function App() {
             progress={progress}
             lastStats={stats}
             errors={errors}
+            notificationPermission={notificationPermission}
+            onRequestNotifications={handleRequestNotifications}
             onRequestPermission={handleRequestPermission}
             onScan={handleScan}
             onOpenSettings={() => setIsSettingsOpen(true)}

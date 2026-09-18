@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { ChevronLeft, Search, Inbox } from 'lucide-react';
 import type { PromoCode } from '../types';
-import { brandInitial, brandTone, categoryMeta } from '../lib/categories';
+import { CATEGORIES, brandInitial, brandTone, categoryMeta } from '../lib/categories';
 import { expiryLabel } from '../lib/expiry';
 
 export interface BrandGroup {
@@ -48,6 +48,8 @@ interface Props {
   codes: PromoCode[];
   query: string;
   onQueryChange: (q: string) => void;
+  category: string;
+  onCategoryChange: (slug: string) => void;
   onSelectBrand: (brand: string) => void;
   onScan: () => void;
 }
@@ -56,22 +58,40 @@ export const BrandsScreen: React.FC<Props> = ({
   codes,
   query,
   onQueryChange,
+  category,
+  onCategoryChange,
   onSelectBrand,
   onScan,
 }) => {
+  // شمارش هر دسته از روی همه کدها، نه کدهای فیلترشده، تا انتخاب یک دسته
+  // باعث صفر شدن شمارنده بقیه نشود
+  const counts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const code of codes) {
+      const slug = code.categorySlug ?? 'other';
+      map.set(slug, (map.get(slug) ?? 0) + 1);
+    }
+    return map;
+  }, [codes]);
+
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = q
-      ? codes.filter(
-          (c) =>
-            c.brand.toLowerCase().includes(q) ||
-            c.brandEn?.toLowerCase().includes(q) ||
-            c.code.toLowerCase().includes(q) ||
-            c.discountAmount.toLowerCase().includes(q)
-        )
-      : codes;
+    let filtered = category === 'all' ? codes : codes.filter((c) => c.categorySlug === category);
+
+    if (q) {
+      filtered = filtered.filter(
+        (c) =>
+          c.brand.toLowerCase().includes(q) ||
+          c.brandEn?.toLowerCase().includes(q) ||
+          c.code.toLowerCase().includes(q) ||
+          c.discountAmount.toLowerCase().includes(q)
+      );
+    }
     return groupByBrand(filtered);
-  }, [codes, query]);
+  }, [codes, query, category]);
+
+  // فقط دسته‌هایی نشان داده می‌شوند که واقعاً کدی دارند
+  const visibleCategories = CATEGORIES.filter((c) => (counts.get(c.slug) ?? 0) > 0);
 
   return (
     <div className="space-y-3">
@@ -86,8 +106,31 @@ export const BrandsScreen: React.FC<Props> = ({
         />
       </div>
 
+      {/* فیلتر دسته‌بندی */}
+      {visibleCategories.length > 1 && (
+        <div className="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <CategoryChip
+            label="همه"
+            emoji="✨"
+            count={codes.length}
+            active={category === 'all'}
+            onClick={() => onCategoryChange('all')}
+          />
+          {visibleCategories.map((cat) => (
+            <CategoryChip
+              key={cat.slug}
+              label={cat.label}
+              emoji={cat.emoji}
+              count={counts.get(cat.slug) ?? 0}
+              active={category === cat.slug}
+              onClick={() => onCategoryChange(category === cat.slug ? 'all' : cat.slug)}
+            />
+          ))}
+        </div>
+      )}
+
       {groups.length === 0 ? (
-        <EmptyBrands hasQuery={!!query.trim()} onScan={onScan} />
+        <EmptyBrands hasQuery={!!query.trim() || category !== 'all'} onScan={onScan} />
       ) : (
         <div className="space-y-2">
           {groups.map((group) => (
@@ -98,6 +141,31 @@ export const BrandsScreen: React.FC<Props> = ({
     </div>
   );
 };
+
+const CategoryChip: React.FC<{
+  label: string;
+  emoji: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}> = ({ label, emoji, count, active, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[12px] transition cursor-pointer ${
+      active
+        ? 'bg-amber-500 border-amber-500 text-slate-950 font-bold'
+        : 'bg-white/[0.03] border-white/6 text-slate-300 hover:bg-white/[0.06]'
+    }`}
+  >
+    <span className="text-[13px] leading-none">{emoji}</span>
+    {label}
+    <span
+      className={`font-mono text-[10px] ${active ? 'text-slate-950/60' : 'text-slate-500'}`}
+    >
+      {count}
+    </span>
+  </button>
+);
 
 const BrandRow: React.FC<{ group: BrandGroup; onSelect: (b: string) => void }> = ({
   group,

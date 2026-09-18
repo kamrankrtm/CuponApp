@@ -19,10 +19,28 @@ export interface SimInfo {
 
 type PermissionValue = 'granted' | 'denied' | 'prompt' | 'prompt-with-rationale';
 
+/** کد تخفیفی که گیرنده پیامک در پس‌زمینه پیدا کرده است */
+export interface PendingPromo {
+  brand: string;
+  code: string;
+  discountAmount: string;
+  minOrder: string;
+  instructions: string;
+  expiryDateText: string;
+  expiresAt: string;
+  categorySlug: string;
+  sender: string;
+  body: string;
+  timestamp: number;
+  simLabel: string;
+}
+
 export interface SmsReaderPlugin {
   isAvailable(): Promise<{ available: boolean; granted: boolean }>;
-  checkPermissions(): Promise<{ sms: PermissionValue }>;
+  checkPermissions(): Promise<{ sms: PermissionValue; notifications: PermissionValue }>;
   requestPermissions(): Promise<{ sms: PermissionValue }>;
+  requestNotificationPermission(): Promise<{ notifications: PermissionValue }>;
+  consumePendingPromos(): Promise<{ promos: PendingPromo[]; count: number }>;
   readInbox(options?: { sinceDays?: number; limit?: number }): Promise<{
     messages: NativeSms[];
     count: number;
@@ -72,3 +90,32 @@ export async function getSimInfo(): Promise<SimInfo[]> {
 }
 
 export default SmsReader;
+
+
+/** وضعیت مجوز نمایش اعلان */
+export async function checkNotificationPermission(): Promise<PermissionValue> {
+  if (!isNativeAndroid()) return 'denied';
+  const res = await SmsReader.checkPermissions();
+  return res.notifications;
+}
+
+/** درخواست مجوز نمایش اعلان کدهای تخفیف تازه */
+export async function requestNotificationPermission(): Promise<PermissionValue> {
+  if (!isNativeAndroid()) return 'denied';
+  const res = await SmsReader.requestNotificationPermission();
+  return res.notifications;
+}
+
+/**
+ * برداشتن کدهایی که در پس‌زمینه پیدا شده‌اند.
+ * صف پس از خواندن خالی می‌شود، پس نتیجه باید بی‌درنگ ذخیره گردد.
+ */
+export async function consumePendingPromos(): Promise<PendingPromo[]> {
+  if (!isNativeAndroid()) return [];
+  try {
+    const res = await SmsReader.consumePendingPromos();
+    return res.promos ?? [];
+  } catch {
+    return [];
+  }
+}
