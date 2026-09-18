@@ -14,7 +14,8 @@ import {
   Check, 
   Inbox, 
   SlidersHorizontal,
-  RefreshCw
+  RefreshCw,
+  Settings
 } from 'lucide-react';
 import { RawSms, PromoCode, AnalysisSummary } from './types';
 import { INITIAL_SMS_DATA } from './data/mockSms';
@@ -27,6 +28,17 @@ import { NewSmsDrawer } from './components/NewSmsDrawer';
 import { AndroidBridgeModal } from './components/AndroidBridgeModal';
 import { PersonalSmsView } from './components/PersonalSmsView';
 import { UsedCodesView } from './components/UsedCodesView';
+import { ScanPanel } from './components/ScanPanel';
+import { SettingsModal } from './components/SettingsModal';
+import { DEFAULT_SETTINGS, type AiSettings } from './lib/ai';
+import { loadSettings } from './lib/settings';
+import { mergePromoCodes, mergeSmsList, runScan, type ScanProgress } from './lib/scan';
+import type { FilterStats } from './lib/smsFilter';
+import {
+  checkSmsPermission,
+  isNativeAndroid,
+  requestSmsPermission,
+} from './native/smsReader';
 
 export default function App() {
   // Local storage persisted state
@@ -37,7 +49,8 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
-    return INITIAL_SMS_DATA;
+    // روی گوشی داده نمونه بارگذاری نمی‌شود؛ منبع داده، صندوق پیامک واقعی است
+    return isNativeAndroid() ? [] : INITIAL_SMS_DATA;
   });
 
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>(() => {
@@ -47,7 +60,7 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
-    return INITIAL_PROMO_CODES;
+    return isNativeAndroid() ? [] : INITIAL_PROMO_CODES;
   });
 
   // Filters & Tabs
@@ -62,7 +75,35 @@ export default function App() {
   const [isNewSmsOpen, setIsNewSmsOpen] = useState(false);
   const [isAndroidBridgeOpen, setIsAndroidBridgeOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // تنظیمات هوش مصنوعی و وضعیت اسکن نیتیو
+  const [aiSettings, setAiSettings] = useState<AiSettings>(DEFAULT_SETTINGS);
+  const [smsPermission, setSmsPermission] = useState<
+    'granted' | 'denied' | 'prompt' | 'prompt-with-rationale'
+  >('denied');
+  const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
+  const [scanStats, setScanStats] = useState<FilterStats | null>(null);
+  const [scanErrors, setScanErrors] = useState<string[]>([]);
+
+  const isNative = isNativeAndroid();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+
+  // بارگذاری تنظیمات ذخیره‌شده و وضعیت مجوز هنگام باز شدن اپ
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const saved = await loadSettings();
+      if (!cancelled) setAiSettings(saved);
+      if (isNativeAndroid()) {
+        const perm = await checkSmsPermission();
+        if (!cancelled) setSmsPermission(perm);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Sync to local storage
   useEffect(() => {
@@ -123,56 +164,59 @@ export default function App() {
     }
   };
 
-  // Rescan all SMS using Gemini API
-  const handleRescanAll = async () => {
+  // درخواست مجوز خواندن پیامک از سیستم‌عامل
+  const handleRequestPermission = async () => {
+    const result = await requestSmsPermission();
+    setSmsPermission(result);
+    if (result === 'granted') {
+      showToast('دسترسی خواندن پیامک داده شد. حالا می‌توانید اسکن کنید.');
+    } else {
+      showToast('بدون مجوز خواندن پیامک، اسکن خودکار ممکن نیست.', 'info');
+    }
+  };
+
+  /**
+   * اسکن واقعی صندوق پیامک گوشی.
+   *
+   * مسیر: خواندن نیتیو ← فیلتر محلی (حذف پیام‌های شخصی و بانکی) ←
+   * ارسال فقط پیامک‌های تبلیغاتی به هوش مصنوعی.
+   */
+  const handleScan = async () => {
+    if (!isNative) {
+      showToast('اسکن پیامک فقط در نسخه اندروید اپ در دسترس است.', 'info');
+      return;
+    }
+
     setIsScanning(true);
-    showToast('در حال ارسال پیامک‌های ۲ ماهه اخیر به هوش مصنوعی Gemini...', 'info');
+    setScanErrors([]);
+    setScanProgress(null);
 
     try {
-      const response = await fetch('/api/analyze-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ smsList }),
+      const result = await runScan(aiSettings, {
+        sinceDays: 60,
+        limit: 500,
+        onProgress: setScanProgress,
       });
 
-      const data = await response.json();
-      if (data.results && Array.isArray(data.results)) {
-        const newPromos: PromoCode[] = [];
-        data.results.forEach((item: any) => {
-          if (item.hasPromoCode && item.type === 'promotional') {
-            const original = smsList.find((s) => s.id === item.smsId);
-            newPromos.push({
-              id: 'promo-' + item.smsId,
-              smsId: item.smsId,
-              brand: item.brand || 'فروشگاه',
-              brandEn: item.brandEn || 'Store',
-              category: item.category || 'تخفیف',
-              categorySlug: item.categorySlug || 'ecommerce',
-              code: item.code || 'PROMO',
-              discountAmount: item.discountAmount || 'تخفیف',
-              description: item.description || '',
-              minOrder: item.minOrder,
-              instructions: item.instructions || 'در مرحله تسویه‌حساب اعمال شود.',
-              expiryDateText: item.expiryDateText || 'معتبر',
-              isExpired: item.isExpired || false,
-              status: 'active',
-              sender: original?.sender || 'UNKNOWN',
-              recipientSim: original?.recipientSim || 'SIM 1',
-              originalSmsBody: original?.body || '',
-              receivedAt: original?.timestamp || new Date().toISOString(),
-            });
-          }
-        });
+      setSmsList((prev) => mergeSmsList(prev, result.smsList));
+      setScanStats(result.stats);
+      setScanErrors(result.errors);
 
-        if (newPromos.length > 0) {
-          setPromoCodes(newPromos);
-          showToast(`تحلیل کامل شد: ${newPromos.length} کد تخفیف معتبر شناسایی شد.`);
-        } else {
-          showToast('تحلیل پیامک‌ها با موفقیت انجام شد.');
-        }
+      if (result.promoCodes.length > 0) {
+        setPromoCodes((prev) => mergePromoCodes(prev, result.promoCodes));
+        setActiveTab('active');
+        setSelectedBrand('all');
+        setSelectedCategory('all');
+        showToast(`${result.promoCodes.length} کد تخفیف از پیامک‌های شما استخراج شد.`);
+      } else if (result.errors.length > 0) {
+        showToast('اسکن انجام شد ولی تحلیل هوش مصنوعی با خطا مواجه شد.', 'info');
+      } else {
+        showToast('اسکن کامل شد؛ کد تخفیف جدیدی پیدا نشد.', 'info');
       }
     } catch (e: any) {
-      showToast('خطا در تحلیل دسته‌ای پیامک‌ها: ' + e.message, 'info');
+      const message = e?.message ?? String(e);
+      setScanErrors([message]);
+      showToast('خطا در اسکن پیامک‌ها: ' + message, 'info');
     } finally {
       setIsScanning(false);
     }
@@ -243,12 +287,26 @@ export default function App() {
         summary={summary}
         onOpenNewSms={() => setIsNewSmsOpen(true)}
         onOpenAndroidBridge={() => setIsAndroidBridgeOpen(true)}
-        onRescanAll={handleRescanAll}
+        onRescanAll={handleScan}
         isScanning={isScanning}
       />
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 py-6 flex-1 w-full space-y-6">
+        {/* اسکن پیامک‌های گوشی */}
+        <ScanPanel
+          isNative={isNative}
+          hasApiKey={!!aiSettings.apiKey}
+          permission={smsPermission}
+          isScanning={isScanning}
+          progress={scanProgress}
+          lastStats={scanStats}
+          errors={scanErrors}
+          onRequestPermission={handleRequestPermission}
+          onScan={handleScan}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
+
         {/* Brand/Category/Search Filter Bar */}
         <FilterBar
           searchQuery={searchQuery}
@@ -356,7 +414,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span>سامانه هوشمند استخراج کدهای تخفیف با موتور Google Gemini 3.8 Flash</span>
+            <span>استخراج هوشمند کد تخفیف از پیامک‌های گوشی، با پردازش محلی حریم خصوصی</span>
           </div>
           <div className="flex items-center gap-4 text-slate-400">
             <button
@@ -385,6 +443,7 @@ export default function App() {
       <NewSmsDrawer
         isOpen={isNewSmsOpen}
         onClose={() => setIsNewSmsOpen(false)}
+        settings={aiSettings}
         onSmsProcessed={handleSmsProcessed}
       />
 
@@ -392,6 +451,22 @@ export default function App() {
         isOpen={isAndroidBridgeOpen}
         onClose={() => setIsAndroidBridgeOpen(false)}
       />
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        settings={aiSettings}
+        onClose={() => setIsSettingsOpen(false)}
+        onSave={setAiSettings}
+      />
+
+      {/* دکمه شناور تنظیمات */}
+      <button
+        onClick={() => setIsSettingsOpen(true)}
+        aria-label="تنظیمات"
+        className="fixed bottom-6 left-6 z-40 w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-amber-400 hover:border-slate-700 shadow-2xl flex items-center justify-center transition cursor-pointer"
+      >
+        <Settings className="w-5 h-5" />
+      </button>
 
       {/* Floating Toast Notification */}
       {toast && (

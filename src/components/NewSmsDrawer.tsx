@@ -12,14 +12,17 @@ import {
   Zap
 } from 'lucide-react';
 import { RawSms, SimSlot, PromoCode } from '../types';
+import { analyzeBatch, toPromoCode, type AiSettings } from '../lib/ai';
+import { classifySms } from '../lib/smsFilter';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  settings: AiSettings;
   onSmsProcessed: (newSms: RawSms, newPromo: PromoCode | null) => void;
 }
 
-export const NewSmsDrawer: React.FC<Props> = ({ isOpen, onClose, onSmsProcessed }) => {
+export const NewSmsDrawer: React.FC<Props> = ({ isOpen, onClose, settings, onSmsProcessed }) => {
   const [sender, setSender] = useState('10008585');
   const [sim, setSim] = useState<SimSlot>('SIM 1 (همراه اول)');
   const [body, setBody] = useState('');
@@ -85,56 +88,47 @@ export const NewSmsDrawer: React.FC<Props> = ({ isOpen, onClose, onSmsProcessed 
     };
 
     try {
-      const response = await fetch('/api/analyze-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ smsList: [smsItem] }),
-      });
+      // مرحله ۱: دسته‌بندی محلی. پیام شخصی یا بانکی اصلاً به شبکه نمی‌رود.
+      const classification = classifySms(smsItem.sender, smsItem.body);
+      smsItem.type = classification.type;
 
-      const data = await response.json();
-      const itemAnalysis = data?.results?.[0];
-
-      if (!itemAnalysis) {
-        throw new Error('تحلیل از سمت هوش مصنوعی انجام نشد');
-      }
-
-      smsItem.type = itemAnalysis.type || 'promotional';
-
-      if (smsItem.type === 'personal') {
+      if (classification.type === 'personal') {
         setResultMsg({
           type: 'personal',
-          text: 'این پیامک شخصی تشخیص داده شد و به صورت امن در بخش پیام‌های شخصی بایگانی گردید.',
-          details: 'سرشماره و متن با محتوای بازرگانی مطابقت نداشت و هیچ کد تبلیغاتی استخراج نشد.',
+          text: 'این پیامک شخصی تشخیص داده شد و در بخش پیام‌های شخصی بایگانی گردید.',
+          details: classification.reason,
         });
         onSmsProcessed(smsItem, null);
-      } else if (smsItem.type === 'banking') {
+      } else if (classification.type === 'banking') {
         setResultMsg({
           type: 'banking',
-          text: 'پیامک بانکی / تراکنشی تشخیص داده شد و شامل کد تخفیف نیست.',
+          text: 'پیامک بانکی یا رمز یک‌بارمصرف تشخیص داده شد و به هوش مصنوعی ارسال نشد.',
+          details: classification.reason,
+        });
+        onSmsProcessed(smsItem, null);
+      } else if (!classification.safeToSend) {
+        setResultMsg({
+          type: 'banking',
+          text: 'پیامک خدماتی بدون نشانه تخفیف است و برای صرفه‌جویی ارسال نشد.',
+          details: classification.reason,
         });
         onSmsProcessed(smsItem, null);
       } else {
-        // Promotional with promo code
-        const promo: PromoCode = {
-          id: 'promo-' + Date.now(),
-          smsId: smsItem.id,
-          brand: itemAnalysis.brand || 'فروشگاه',
-          brandEn: itemAnalysis.brandEn || 'Store',
-          category: itemAnalysis.category || 'تخفیف',
-          categorySlug: itemAnalysis.categorySlug || 'ecommerce',
-          code: itemAnalysis.code || 'PROMO',
-          discountAmount: itemAnalysis.discountAmount || 'تخفیف ویژه',
-          description: itemAnalysis.description || '',
-          minOrder: itemAnalysis.minOrder,
-          instructions: itemAnalysis.instructions || 'کد را در صفحه سبد خرید اعمال کنید.',
-          expiryDateText: itemAnalysis.expiryDateText || 'معتبر',
-          isExpired: itemAnalysis.isExpired || false,
-          status: 'active',
-          sender: smsItem.sender,
-          recipientSim: smsItem.recipientSim,
-          originalSmsBody: smsItem.body,
-          receivedAt: smsItem.timestamp,
-        };
+        // مرحله ۲: فقط پیامک تبلیغاتی به هوش مصنوعی می‌رود
+        const results = await analyzeBatch(settings, [smsItem]);
+        const analysis = results[0];
+
+        if (!analysis || !analysis.hasPromoCode) {
+          setResultMsg({
+            type: 'banking',
+            text: 'پیامک تبلیغاتی بود ولی کد تخفیف قابل استخراجی نداشت.',
+          });
+          onSmsProcessed(smsItem, null);
+          setLoading(false);
+          return;
+        }
+
+        const promo = toPromoCode(analysis, smsItem);
 
         setResultMsg({
           type: 'success',
