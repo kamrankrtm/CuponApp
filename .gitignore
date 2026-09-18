@@ -6,3 +6,9 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# کلید امضا هرگز نباید کامیت شود
+android/app/*.keystore
+android/app/*.jks
+*.keystore
+*.jks

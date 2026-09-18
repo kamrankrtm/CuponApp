@@ -57,11 +57,39 @@ jobs:
       - name: Sync Capacitor Android project
         run: bunx cap sync android
 
+      - name: Restore signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::KEYSTORE_BASE64 تنظیم نشده — APK با کلید موقت debug امضا می‌شود و روی نسخه قبلی نصب نخواهد شد."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/cuponapp-release.keystore
+          echo "کلید امضا بازیابی شد ($(stat -c%s android/app/cuponapp-release.keystore) بایت)"
+
       - name: Build APK
         working-directory: android
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
           chmod +x ./gradlew
           ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Verify APK signature
+        run: |
+          # اثر انگشت کلید را چاپ می‌کنیم تا در هر بیلد قابل مقایسه باشد؛
+          # اگر بین دو نسخه فرق کند، نصب روی نسخه قبلی شکست می‌خورد.
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs \
+            android/app/build/outputs/apk/release/app-release.apk \
+            | grep -i "SHA-256 digest" || echo "امضا قابل خواندن نبود"
+
+      - name: Remove signing key
+        if: always()
+        run: rm -f android/app/cuponapp-release.keystore
 
       - name: Rename APK
         run: |
