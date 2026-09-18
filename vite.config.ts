@@ -18,6 +18,11 @@ export default defineConfig(() => {
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
+        workbox: {
+          // فونت جاسازی‌شده باید در کش آفلاین باشد وگرنه نسخه وب بدون
+          // اینترنت با فونت پیش‌فرض سیستم نمایش داده می‌شود
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        },
         manifest: {
           id: '/',
           name: 'تخفیف‌یاب پیامکی هوشمند',
