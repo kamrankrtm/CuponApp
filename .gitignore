@@ -7,8 +7,10 @@ coverage/
 .env*
 !.env.example
 
-# کلید امضا هرگز نباید کامیت شود
-android/app/*.keystore
-android/app/*.jks
+# کلیدهای امضا؛ فقط کلید انتشار پروژه استثناست
 *.keystore
 *.jks
+!android/app/cuponapp-release.keystore
+
+# رمز کلید، اگر جدا از مخزن نگه داشته شود
+keystore.properties

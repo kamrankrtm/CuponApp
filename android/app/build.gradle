@@ -11,9 +11,21 @@ apply plugin: 'org.jetbrains.kotlin.android'
  * محیطی در دسترس باشد از آن استفاده می‌شود.
  */
 def keystoreFile = file("cuponapp-release.keystore")
-def hasReleaseKey = keystoreFile.exists() &&
-    System.getenv("KEYSTORE_PASSWORD") != null &&
-    System.getenv("KEY_PASSWORD") != null
+
+// رمزها از دو جا خوانده می‌شوند: متغیر محیطی (که گردش‌کار از Secret مخزن
+// پر می‌کند) و در نبود آن، فایل keystore.properties کنار پروژه. اولویت با
+// متغیر محیطی است تا بتوان رمز را از مخزن بیرون نگه داشت.
+def keystoreProps = new Properties()
+def keystorePropsFile = rootProject.file("keystore.properties")
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+}
+
+def storePass = System.getenv("KEYSTORE_PASSWORD") ?: keystoreProps.getProperty("storePassword")
+def keyPass = System.getenv("KEY_PASSWORD") ?: keystoreProps.getProperty("keyPassword")
+def keyAliasName = System.getenv("KEY_ALIAS") ?: keystoreProps.getProperty("keyAlias") ?: "cuponapp"
+
+def hasReleaseKey = keystoreFile.exists() && storePass != null && keyPass != null
 
 android {
     namespace = "com.cuponapp.smsdiscounts"
@@ -36,9 +48,9 @@ android {
         if (hasReleaseKey) {
             release {
                 storeFile keystoreFile
-                storePassword System.getenv("KEYSTORE_PASSWORD")
-                keyAlias System.getenv("KEY_ALIAS") ?: "cuponapp"
-                keyPassword System.getenv("KEY_PASSWORD")
+                storePassword storePass
+                keyAlias keyAliasName
+                keyPassword keyPass
             }
         }
     }
