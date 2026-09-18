@@ -15,6 +15,7 @@ import {
   fromPendingPromos,
   mergePromoCodes,
   mergeSmsList,
+  purgeSensitive,
   runScan,
   type ScanProgress,
 } from './lib/scan';
@@ -48,9 +49,12 @@ function loadStored<T>(key: string, fallback: T): T {
 
 export default function App() {
   const [smsList, setSmsList] = useState<RawSms[]>(() => loadStored(STORAGE_SMS, []));
-  const [promoCodes, setPromoCodes] = useState<PromoCode[]>(() =>
-    loadStored(STORAGE_PROMOS, [])
-  );
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>(() => {
+    // کارت‌هایی که نسخه‌های قبلی فیلتر اشتباه ساخته بودند (مثل کد ورود)
+    // همین‌جا با فیلتر فعلی دوباره سنجیده و حذف می‌شوند
+    const stored = loadStored<PromoCode[]>(STORAGE_PROMOS, []);
+    return purgeSensitive(stored).kept;
+  });
 
   const [screen, setScreen] = useState<Screen>('brands');
   const [activeBrand, setActiveBrand] = useState<string | null>(null);

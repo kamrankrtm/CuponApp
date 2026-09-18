@@ -1,5 +1,5 @@
 import { analyzeAll, toPromoCode, type AiSettings } from './ai';
-import { filterInbox, type FilterStats } from './smsFilter';
+import { classifySms, filterInbox, type FilterStats } from './smsFilter';
 import { addAnalyzedFingerprints, loadAnalyzedFingerprints } from './settings';
 import { readInbox, type PendingPromo } from '../native/smsReader';
 import { isExpiredNow, resolveExpiresAt } from './expiry';
@@ -219,4 +219,26 @@ export function fromPendingPromos(items: PendingPromo[]): PromoCode[] {
       receivedAt,
     };
   });
+}
+
+/**
+ * پاکسازی کدهایی که نباید هرگز استخراج می‌شدند.
+ *
+ * نسخه‌های پیشین فیلتر، بعضی پیامک‌های کد ورود را تبلیغاتی تشخیص می‌دادند
+ * و از آن‌ها کارت می‌ساختند. این تابع هنگام بالا آمدن اپ متن اصلی هر کارت
+ * را با فیلتر فعلی دوباره می‌سنجد و هر چیزی را که حالا حساس تشخیص داده
+ * می‌شود دور می‌ریزد. بدون این، داده‌ی نشتی تا ابد در اپ می‌ماند.
+ */
+export function purgeSensitive(promos: PromoCode[]): {
+  kept: PromoCode[];
+  removed: number;
+} {
+  const kept = promos.filter((promo) => {
+    // کارتی که متن اصلی ندارد قابل بازبینی نیست؛ نگه داشته می‌شود
+    if (!promo.originalSmsBody) return true;
+    const verdict = classifySms(promo.sender, promo.originalSmsBody, 'balanced');
+    return verdict.type === 'promotional';
+  });
+
+  return { kept, removed: promos.length - kept.length };
 }

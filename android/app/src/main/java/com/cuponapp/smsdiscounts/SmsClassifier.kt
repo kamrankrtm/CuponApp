@@ -19,14 +19,31 @@ object SmsClassifier {
         val reason: String
     )
 
-    /** رمز یک‌بارمصرف و کد تایید — حساس‌ترین دسته، هرگز ارسال نمی‌شوند */
+    /**
+     * رمز یک‌بارمصرف و کد تایید — حساس‌ترین دسته، هرگز ارسال نمی‌شوند.
+     *
+     * الگوها عمداً کلمات را چسبیده نمی‌خواهند. آینه‌ی OTP_PATTERNS در
+     * src/lib/smsFilter.ts — هر تغییری باید در هر دو اعمال شود.
+     */
     private val OTP = listOf(
-        Regex("کد\\s*(?:تایید|تأیید|ورود|فعال\\s*سازی|احراز|امنیتی|یکبار|یک\\s*بار)"),
-        Regex("رمز\\s*(?:عبور|ورود|موقت|یکبار|یک\\s*بار)"),
+        Regex("\\bcode\\s*[:：=]?\\s*\\d{3,8}\\b", RegexOption.IGNORE_CASE),
+        Regex("(?:کد|رمز)[^\\n]{0,25}?(?:ورود|تایید|تأیید|احراز|فعال\\s*ساز|فعالساز|یک\\s*بار\\s*مصرف|یکبار\\s*مصرف|امنیتی|عضویت|ثبت\\s*نام|اعتبارسنجی|شناسایی|دسترسی)"),
+        Regex("(?:ورود|تایید|تأیید|احراز|عضویت|ثبت\\s*نام)[^\\n]{0,25}?(?:کد|رمز)\\s*[:\\s]*\\d{3,8}"),
+        Regex("کد\\s*اختصاصی"),
+        Regex("رمز\\s*(?:عبور|ورود|موقت|یکبار|یک\\s*بار|پویا|دوم)"),
         Regex("verification\\s*code", RegexOption.IGNORE_CASE),
         Regex("one[-\\s]?time\\s*(?:password|code)", RegexOption.IGNORE_CASE),
         Regex("\\bOTP\\b", RegexOption.IGNORE_CASE)
     )
+
+    /** کلمه‌هایی که نیت «ورود و احراز هویت» را نشان می‌دهند */
+    private val AUTH_INTENT = Regex(
+        "ورود|تایید|تأیید|احراز|فعال\\s*ساز|فعالساز|عضویت|ثبت\\s*نام|اعتبارسنجی|شناسایی|رمز|\\bcode\\b|\\blogin\\b",
+        RegexOption.IGNORE_CASE
+    )
+
+    /** عدد تنهای ۴ تا ۸ رقمی — شکل معمول رمز یک‌بارمصرف */
+    private val STANDALONE_CODE = Regex("(?:^|[^\\d])\\d{4,8}(?:[^\\d]|$)")
 
     /** پیامک بانکی و تراکنش مالی */
     private val BANKING = listOf(
@@ -83,6 +100,9 @@ object SmsClassifier {
         ) to 1
     )
 
+    /** نشانه‌هایی که به تنهایی «این پیامک درباره تخفیف است» را قطعی می‌کنند */
+    private val STRONG_SIGNALS = SIGNALS.filter { it.second >= 3 }.map { it.first }
+
     /** آستانه امتیاز به ازای هر سطح سخت‌گیری */
     fun thresholdFor(strictness: String?): Int = when (strictness) {
         "relaxed" -> 2
@@ -126,6 +146,20 @@ object SmsClassifier {
 
         if (matchesAny(OTP, text)) {
             return Result(Kind.BANKING, false, 0, "رمز یک‌بارمصرف یا کد تایید")
+        }
+
+        /*
+         * دام دوم برای رمزهایی که جمله‌بندی غیرمعمول دارند: پیامک کوتاه،
+         * یک عدد تنهای چندرقمی، کلمه‌ای با نیت ورود، و هیچ نشانه قوی تخفیف.
+         * شرط آخر مهم است تا پیامک تخفیف واقعی قربانی این قاعده نشود.
+         */
+        val strongPromo = STRONG_SIGNALS.any { it.containsMatchIn(text) }
+        if (!strongPromo &&
+            text.length < 160 &&
+            STANDALONE_CODE.containsMatchIn(text) &&
+            AUTH_INTENT.containsMatchIn(text)
+        ) {
+            return Result(Kind.BANKING, false, 0, "به نظر کد ورود می‌رسد")
         }
         if (matchesAny(BANKING, text)) {
             return Result(Kind.BANKING, false, 0, "پیامک بانکی")
