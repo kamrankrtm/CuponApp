@@ -25,6 +25,10 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # پیش‌فرض این اکشن پکیج منسوخ‌شده «tools» را نصب می‌کند و شکست می‌خورد.
+          # SDK پایه از قبل روی رانر نصب است و AGP بقیه را خودش دانلود می‌کند.
+          packages: ''
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2

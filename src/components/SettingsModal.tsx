@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import {
-  X, KeyRound, Cpu, Check, Loader2, AlertTriangle, ShieldCheck, RefreshCw, Trash2,
+  X, KeyRound, Cpu, Check, Loader2, AlertTriangle, ShieldCheck, RefreshCw, Trash2, Filter,
 } from 'lucide-react';
 import {
   DEFAULT_BASE_URL, SUGGESTED_MODELS, listModels, testConnection, type AiSettings,
 } from '../lib/ai';
-import { clearSettings, saveSettings } from '../lib/settings';
+import { clearAnalyzedFingerprints, clearSettings, saveSettings } from '../lib/settings';
+import {
+  STRICTNESS_LABELS, STRICTNESS_THRESHOLD, type StrictnessLevel,
+} from '../lib/smsFilter';
 
 interface Props {
   isOpen: boolean;
@@ -59,7 +62,12 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, settings, onClose, onSa
 
   const handleClear = async () => {
     await clearSettings();
-    const reset = { apiKey: '', model: draft.model, baseUrl: DEFAULT_BASE_URL };
+    const reset = {
+      apiKey: '',
+      model: draft.model,
+      baseUrl: DEFAULT_BASE_URL,
+      strictness: draft.strictness,
+    };
     setDraft(reset);
     onSave(reset);
     setStatus({ kind: 'ok', message: 'کلید از روی دستگاه پاک شد.' });
@@ -162,6 +170,46 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, settings, onClose, onSa
               </button>
             ))}
           </div>
+        </div>
+
+        {/* سخت‌گیری فیلتر */}
+        <div className="space-y-2 border-t border-slate-800/80 pt-4">
+          <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+            <Filter className="w-3.5 h-3.5" />
+            سخت‌گیری فیلتر
+          </label>
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            تعیین می‌کند یک پیامک چقدر باید نشانه تخفیف داشته باشد تا ارزش ارسال
+            به هوش مصنوعی را پیدا کند. هرچه سخت‌گیرتر، هزینه کمتر — ولی احتمال
+            رد شدن تخفیف‌های با جمله‌بندی غیرمعمول بیشتر.
+          </p>
+          <div className="grid grid-cols-1 gap-1.5">
+            {(['relaxed', 'balanced', 'strict'] as StrictnessLevel[]).map((level) => (
+              <button
+                key={level}
+                onClick={() => setDraft({ ...draft, strictness: level })}
+                className={`text-right px-3 py-2 rounded-xl border text-[11px] transition cursor-pointer flex items-center justify-between gap-2 ${
+                  draft.strictness === level
+                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-200'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <span>{STRICTNESS_LABELS[level]}</span>
+                <span className="font-mono text-[10px] opacity-70 shrink-0">
+                  آستانه {STRICTNESS_THRESHOLD[level]}
+                </span>
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={async () => {
+              await clearAnalyzedFingerprints();
+              setStatus({ kind: 'ok', message: 'کش پاک شد؛ اسکن بعدی همه پیامک‌ها را از نو بررسی می‌کند.' });
+            }}
+            className="text-[11px] text-slate-400 hover:text-amber-400 underline transition cursor-pointer"
+          >
+            پاک کردن کش پیامک‌های تحلیل‌شده
+          </button>
         </div>
 
         {/* وضعیت */}

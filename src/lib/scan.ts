@@ -1,5 +1,6 @@
 import { analyzeAll, toPromoCode, type AiSettings } from './ai';
 import { filterInbox, type FilterStats } from './smsFilter';
+import { addAnalyzedFingerprints, loadAnalyzedFingerprints } from './settings';
 import { readInbox } from '../native/smsReader';
 import type { PromoCode, RawSms } from '../types';
 
@@ -45,10 +46,20 @@ export async function runScan(
     phase: 'filtering',
     message: `${raw.length} پیامک خوانده شد. در حال جداسازی محلی پیام‌های شخصی و بانکی…`,
   });
-  const { all, toAnalyze, stats } = filterInbox(raw);
+  const analyzedFingerprints = await loadAnalyzedFingerprints();
+  const { all, toAnalyze, fingerprints, stats } = filterInbox(raw, {
+    strictness: settings.strictness,
+    analyzedFingerprints,
+  });
 
   if (toAnalyze.length === 0) {
-    onProgress?.({ phase: 'done', message: 'پیامک تبلیغاتی قابل تحلیلی پیدا نشد.' });
+    const skipped = stats.duplicates + stats.cached;
+    onProgress?.({
+      phase: 'done',
+      message: skipped > 0
+        ? `پیامک تازه‌ای برای تحلیل نبود (${skipped} مورد تکراری یا قبلاً بررسی‌شده رد شد).`
+        : 'پیامک تبلیغاتی قابل تحلیلی پیدا نشد.',
+    });
     return { smsList: all, promoCodes: [], stats, errors: [] };
   }
 
@@ -72,11 +83,21 @@ export async function runScan(
 
   const byId = new Map(toAnalyze.map((s) => [s.id, s]));
   const promoCodes: PromoCode[] = [];
+  const analyzedNow: string[] = [];
+
   for (const result of results) {
+    // چه کد تخفیف داشت چه نداشت، تحلیل شده حساب می‌شود تا دوباره ارسال نشود
+    const fp = fingerprints.get(result.smsId);
+    if (fp) analyzedNow.push(fp);
+
     if (!result.hasPromoCode) continue;
     const sms = byId.get(result.smsId);
     if (!sms) continue;
     promoCodes.push(toPromoCode(result, sms));
+  }
+
+  if (analyzedNow.length > 0) {
+    await addAnalyzedFingerprints(analyzedNow);
   }
 
   onProgress?.({

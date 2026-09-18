@@ -136,11 +136,30 @@ export const ScanPanel: React.FC<Props> = ({
 
       {/* آمار آخرین اسکن */}
       {lastStats && !isScanning && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <Stat label="کل پیامک" value={lastStats.total} />
-          <Stat label="تبلیغاتی" value={lastStats.promotional} tone="amber" />
-          <Stat label="شخصی و بانکی" value={lastStats.personal + lastStats.banking} tone="emerald" />
-          <Stat label="ارسال به AI" value={lastStats.sentToAi} tone="sky" />
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <Stat label="کل پیامک" value={lastStats.total} />
+            <Stat label="شخصی و بانکی" value={lastStats.personal + lastStats.banking} tone="emerald" />
+            <Stat label="بدون نشانه تخفیف" value={lastStats.belowThreshold} />
+            <Stat label="ارسال به AI" value={lastStats.sentToAi} tone="sky" />
+          </div>
+
+          {/* چقدر پیامک بابتش پول ندادیم */}
+          {lastStats.total > 0 && (
+            <p className="text-[11px] text-slate-500 leading-relaxed text-center">
+              از {lastStats.total} پیامک، فقط{' '}
+              <span className="text-sky-400 font-bold font-mono">{lastStats.sentToAi}</span> مورد
+              به هوش مصنوعی رفت
+              {lastStats.duplicates + lastStats.cached > 0 && (
+                <>
+                  {' '}(
+                  <span className="font-mono">{lastStats.duplicates}</span> تکراری و{' '}
+                  <span className="font-mono">{lastStats.cached}</span> مورد قبلاً بررسی‌شده رد شد)
+                </>
+              )}
+              .
+            </p>
+          )}
         </div>
       )}
 

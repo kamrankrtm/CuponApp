@@ -1,4 +1,5 @@
 import type { PromoCode, RawSms } from '../types';
+import type { StrictnessLevel } from './smsFilter';
 
 /**
  * کلاینت هوش مصنوعی.
@@ -29,12 +30,15 @@ export interface AiSettings {
   apiKey: string;
   model: string;
   baseUrl: string;
+  /** سطح سخت‌گیری فیلتر محلی — تعیین می‌کند چه چیزی ارزش ارسال دارد */
+  strictness: StrictnessLevel;
 }
 
 export const DEFAULT_SETTINGS: AiSettings = {
   apiKey: '',
   model: DEFAULT_MODEL,
   baseUrl: DEFAULT_BASE_URL,
+  strictness: 'balanced',
 };
 
 const SYSTEM_PROMPT = `تو یک دستیار دقیق استخراج کد تخفیف از پیامک‌های تبلیغاتی فارسی هستی.
