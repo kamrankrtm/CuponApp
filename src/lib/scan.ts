@@ -108,19 +108,67 @@ export async function runScan(
   return { smsList: all, promoCodes, stats, errors };
 }
 
-/** ادغام نتایج تازه با داده‌های موجود، بدون از دست رفتن وضعیت «استفاده شد» */
+function normalizeForKey(value: string): string {
+  const fa = '۰۱۲۳۴۵۶۷۸۹';
+  const ar = '٠١٢٣٤٥٦٧٨٩';
+  return value
+    .replace(/[۰-۹٠-٩]/g, (ch) => {
+      const i = fa.indexOf(ch);
+      return i > -1 ? String(i) : String(ar.indexOf(ch));
+    })
+    .replace(/[\u200c\s]+/g, '')
+    .toLowerCase();
+}
+
+/**
+ * کلید یکتای یک پیشنهاد تخفیف: برند + کد.
+ *
+ * یک کمپین اغلب با چند پیامک متفاوت تبلیغ می‌شود و هر کدام یک کد یکسان
+ * دارند. بدون این کلید، کاربر چند کارت تکراری با یک کد می‌بیند. ارقام
+ * فارسی و لاتین هم یکسان‌سازی می‌شوند تا «۱ میلیون» و «1 میلیون» یکی شوند.
+ */
+function promoKey(promo: PromoCode): string {
+  return `${normalizeForKey(promo.brand)}|${normalizeForKey(promo.code)}`;
+}
+
+/** میان دو نسخه از یک پیشنهاد، کاملش را نگه می‌دارد */
+function richer(a: PromoCode, b: PromoCode): PromoCode {
+  const score = (p: PromoCode) =>
+    (p.expiresAt ? 4 : 0) + (p.minOrder ? 2 : 0) + (p.description ? 1 : 0);
+  if (score(b) > score(a)) return b;
+  if (score(a) > score(b)) return a;
+  // امتیاز برابر: تازه‌ترین دریافت برنده است
+  return new Date(b.receivedAt) > new Date(a.receivedAt) ? b : a;
+}
+
+/**
+ * ادغام نتایج تازه با داده‌های موجود.
+ *
+ * وضعیتی که کاربر دستی تعیین کرده («استفاده شد» یا «کار نکرد») همیشه
+ * حفظ می‌شود، و کارت‌های تکراری با یک برند و کد در هم ادغام می‌گردند.
+ */
 export function mergePromoCodes(existing: PromoCode[], incoming: PromoCode[]): PromoCode[] {
-  const byId = new Map(existing.map((p) => [p.id, p]));
-  for (const promo of incoming) {
-    const prev = byId.get(promo.id);
-    if (prev) {
-      // وضعیتی که کاربر دستی تعیین کرده حفظ می‌شود
-      byId.set(promo.id, { ...promo, status: prev.status, invalidReason: prev.invalidReason });
-    } else {
-      byId.set(promo.id, promo);
+  const byKey = new Map<string, PromoCode>();
+
+  for (const promo of [...existing, ...incoming]) {
+    const key = promoKey(promo);
+    const prev = byKey.get(key);
+
+    if (!prev) {
+      byKey.set(key, promo);
+      continue;
     }
+
+    const merged = richer(prev, promo);
+    byKey.set(key, {
+      ...merged,
+      // وضعیت غیرفعال هرگز با یک اسکن تازه بازنشانی نمی‌شود
+      status: prev.status !== 'active' ? prev.status : merged.status,
+      invalidReason: prev.invalidReason ?? merged.invalidReason,
+    });
   }
-  return Array.from(byId.values()).sort(
+
+  return Array.from(byKey.values()).sort(
     (a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
   );
 }

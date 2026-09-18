@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Copy, Check, XCircle, FileText, RotateCcw, Clock } from 'lucide-react';
 import type { PromoCode } from '../types';
+import { usePressAndHold } from '../hooks/usePressAndHold';
 import { expiryLabel } from '../lib/expiry';
 import { categoryMeta } from '../lib/categories';
 
@@ -10,7 +11,8 @@ interface Props {
   onUse?: (id: string) => void;
   onInvalid?: (id: string) => void;
   onRestore?: (id: string) => void;
-  onShowSms: (promo: PromoCode) => void;
+  /** نمایش متن پیامک؛ با null یعنی بسته شود */
+  onPeekSms: (promo: PromoCode | null) => void;
 }
 
 const TONE_STYLES: Record<string, string> = {
@@ -27,13 +29,19 @@ export const PromoCard: React.FC<Props> = ({
   onUse,
   onInvalid,
   onRestore,
-  onShowSms,
+  onPeekSms,
 }) => {
   const [copied, setCopied] = useState(false);
+  const peek = usePressAndHold();
   const cat = categoryMeta(promo.categorySlug);
   const expiry = expiryLabel(promo.expiresAt);
   const hasCode = promo.code && promo.code !== 'بدون کد';
   const archived = variant === 'archived';
+
+  // نگه‌داشتن روی «متن پیامک» آن را باز می‌کند، برداشتن انگشت می‌بندد
+  useEffect(() => {
+    onPeekSms(peek.isHeld ? promo : null);
+  }, [peek.isHeld]);
 
   const handleCopy = async () => {
     if (!hasCode) return;
@@ -116,8 +124,10 @@ export const PromoCard: React.FC<Props> = ({
             {expiry.text}
           </span>
           <button
-            onClick={() => onShowSms(promo)}
-            className="mr-auto inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition cursor-pointer"
+            {...peek.handlers}
+            className={`mr-auto inline-flex items-center gap-1 text-[11px] px-2 py-1 -my-1 rounded-lg transition cursor-pointer ${
+              peek.isHeld ? 'bg-white/[0.08] text-slate-200' : 'text-slate-500'
+            }`}
           >
             <FileText className="w-3 h-3" />
             متن پیامک

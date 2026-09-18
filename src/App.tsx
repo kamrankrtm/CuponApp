@@ -16,6 +16,7 @@ import type { FilterStats } from './lib/smsFilter';
 import { isExpiredNow } from './lib/expiry';
 import { APP_VERSION, checkForUpdate, type UpdateInfo } from './lib/update';
 import { checkSmsPermission, isNativeAndroid, requestSmsPermission } from './native/smsReader';
+import { App as CapacitorApp } from '@capacitor/app';
 
 type Screen = 'brands' | 'brand' | 'archive' | 'scan';
 
@@ -45,6 +46,8 @@ export default function App() {
   const [settings, setSettings] = useState<AiSettings>(DEFAULT_SETTINGS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [inspect, setInspect] = useState<PromoCode | null>(null);
+  /** پیامکی که کاربر با نگه‌داشتن انگشت در حال دیدن آن است */
+  const [peeked, setPeeked] = useState<PromoCode | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const [smsPermission, setSmsPermission] = useState<
@@ -85,6 +88,36 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+
+  /**
+   * دکمه بازگشت اندروید.
+   *
+   * بدون این، دکمه سخت‌افزاری یا ژست بازگشت مستقیم اپ را می‌بندد، چون
+   * ناوبری اپ داخل React است و WebView تاریخچه‌ای برای برگشتن ندارد.
+   * ترتیب اینجا مهم است: اول لایه‌های رویی بسته می‌شوند، بعد صفحه، و
+   * فقط در صفحه اصلی اپ بسته می‌شود.
+   */
+  useEffect(() => {
+    if (!isNative) return;
+
+    let detach: (() => void) | undefined;
+    CapacitorApp.addListener('backButton', () => {
+      if (isSettingsOpen) {
+        setIsSettingsOpen(false);
+      } else if (inspect) {
+        setInspect(null);
+      } else if (screen !== 'brands') {
+        setScreen('brands');
+        setActiveBrand(null);
+      } else {
+        CapacitorApp.exitApp();
+      }
+    }).then((handle) => {
+      detach = () => handle.remove();
+    });
+
+    return () => detach?.();
+  }, [isNative, isSettingsOpen, inspect, screen]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_SMS, JSON.stringify(smsList));
@@ -255,7 +288,7 @@ export default function App() {
                 promo={promo}
                 onUse={(id) => setStatus(id, 'used', 'به بایگانی منتقل شد.')}
                 onInvalid={(id) => setStatus(id, 'invalid', 'به عنوان «کار نکرد» ثبت شد.')}
-                onShowSms={setInspect}
+                onPeekSms={setPeeked}
               />
             ))}
           </div>
@@ -272,7 +305,7 @@ export default function App() {
                   promo={promo}
                   variant="archived"
                   onRestore={(id) => setStatus(id, 'active', 'به لیست فعال برگشت.')}
-                  onShowSms={setInspect}
+                  onPeekSms={setPeeked}
                 />
               ))
             )}
@@ -299,7 +332,9 @@ export default function App() {
         نسخه {APP_VERSION}
       </footer>
 
-      <SmsDetailSheet promo={inspect} onClose={() => setInspect(null)} />
+      {/* نگاه سریع با نگه‌داشتن انگشت؛ اولویت با آن است */}
+      <SmsDetailSheet promo={peeked} peek onClose={() => setPeeked(null)} />
+      {!peeked && <SmsDetailSheet promo={inspect} onClose={() => setInspect(null)} />}
 
       <SettingsModal
         isOpen={isSettingsOpen}

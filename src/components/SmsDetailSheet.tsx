@@ -5,10 +5,15 @@ import type { PromoCode } from '../types';
 interface Props {
   promo: PromoCode | null;
   onClose: () => void;
+  /**
+   * حالت «نگاه سریع»: تا وقتی انگشت روی دکمه است باز می‌ماند.
+   * در این حالت دکمه بستن و لمس پس‌زمینه معنا ندارند.
+   */
+  peek?: boolean;
 }
 
 /** نمایش متن خام پیامکی که این کد از آن استخراج شده */
-export const SmsDetailSheet: React.FC<Props> = ({ promo, onClose }) => {
+export const SmsDetailSheet: React.FC<Props> = ({ promo, onClose, peek = false }) => {
   if (!promo) return null;
 
   const received = new Date(promo.receivedAt);
@@ -23,8 +28,10 @@ export const SmsDetailSheet: React.FC<Props> = ({ promo, onClose }) => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm"
-      onClick={onClose}
+      className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm ${
+        peek ? 'pointer-events-none' : ''
+      }`}
+      onClick={peek ? undefined : onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -32,12 +39,16 @@ export const SmsDetailSheet: React.FC<Props> = ({ promo, onClose }) => {
       >
         <div className="sticky top-0 bg-[#0e1420] flex items-center justify-between px-5 py-4 border-b border-white/6">
           <h3 className="text-[14px] font-bold text-white">متن اصلی پیامک</h3>
-          <button
-            onClick={onClose}
-            className="text-slate-500 hover:text-white p-1 rounded-lg transition cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {peek ? (
+            <span className="text-[10px] text-slate-500">انگشت را بردار تا بسته شود</span>
+          ) : (
+            <button
+              onClick={onClose}
+              className="text-slate-500 hover:text-white p-1 rounded-lg transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         <div className="p-5 space-y-4">
@@ -63,12 +74,14 @@ export const SmsDetailSheet: React.FC<Props> = ({ promo, onClose }) => {
             </p>
           </div>
 
-          <button
-            onClick={onClose}
-            className="w-full py-3 bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 rounded-xl text-[13px] font-medium transition cursor-pointer"
-          >
-            بستن
-          </button>
+          {!peek && (
+            <button
+              onClick={onClose}
+              className="w-full py-3 bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 rounded-xl text-[13px] font-medium transition cursor-pointer"
+            >
+              بستن
+            </button>
+          )}
         </div>
       </div>
     </div>
