@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#1e1b4b" />
+      <stop offset="100%" stop-color="#311042" />
+    </linearGradient>
+    <linearGradient id="bubbleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+    <linearGradient id="ticketGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="50%" stop-color="#ef4444" />
+      <stop offset="100%" stop-color="#ec4899" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+  </defs>
+
+  <!-- App Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+
+  <!-- Outer Glow Ring -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2" />
+
+  <!-- Chat SMS Bubble Base -->
+  <g filter="url(#shadow)">
+    <path d="M120 120 C120 90, 140 70, 180 70 L340 70 C380 70, 400 90, 400 120 L400 280 C400 310, 380 330, 340 330 L220 330 L150 390 L160 330 L180 330 C140 330, 120 310, 120 280 Z" fill="url(#bubbleGrad)" />
+    
+    <!-- SMS simulated lines -->
+    <rect x="160" y="120" width="120" height="14" rx="7" fill="rgba(255,255,255,0.4)" />
+    <rect x="160" y="150" width="180" height="12" rx="6" fill="rgba(255,255,255,0.25)" />
+  </g>
+
+  <!-- Discount Coupon / Ticket in Foreground -->
+  <g filter="url(#shadow)" transform="translate(110, 200)">
+    <path d="M 0 30 
+             C 0 15, 15 0, 30 0 
+             L 260 0 
+             C 275 0, 290 15, 290 30 
+             L 290 75 
+             A 20 20 0 0 0 290 115 
+             L 290 160 
+             C 290 175, 275 190, 260 190 
+             L 30 190 
+             C 15 190, 0 175, 0 160 
+             L 0 115 
+             A 20 20 0 0 0 0 75 
+             Z" fill="url(#ticketGrad)" />
+    
+    <!-- Dashed perforation line -->
+    <line x1="200" y1="12" x2="200" y2="178" stroke="rgba(255,255,255,0.5)" stroke-width="4" stroke-dasharray="8 8" />
+
+    <!-- Percentage Symbol -->
+    <text x="75" y="125" font-family="system-ui, -apple-system, sans-serif" font-size="80" font-weight="900" fill="#ffffff" text-anchor="middle">%</text>
+
+    <!-- AI Sparkle Icons -->
+    <path d="M 245 65 Q 245 80, 260 80 Q 245 80, 245 95 Q 245 80, 230 80 Q 245 80, 245 65 Z" fill="#ffffff" />
+    <path d="M 225 125 Q 225 133, 233 133 Q 225 133, 225 141 Q 225 133, 217 133 Q 225 133, 225 125 Z" fill="#fef08a" />
+
+    <!-- Code Pill tag -->
+    <rect x="35" y="145" width="130" height="26" rx="13" fill="rgba(0,0,0,0.25)" />
+    <text x="100" y="163" font-family="monospace" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle" letter-spacing="2">PROMO AI</text>
+  </g>
+
+  <!-- Small AI Flash at top right -->
+  <circle cx="395" cy="115" r="28" fill="#10b981" />
+  <path d="M 395 98 L 389 113 L 374 115 L 386 125 L 382 140 L 395 131 L 408 140 L 404 125 L 416 115 L 401 113 Z" fill="#ffffff" />
+</svg>

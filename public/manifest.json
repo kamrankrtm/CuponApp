@@ -1,0 +1,48 @@
+{
+  "id": "/",
+  "name": "تخفیف‌یاب پیامکی هوشمند",
+  "short_name": "تخفیف‌یاب",
+  "description": "سامانه هوشمند استخراج خودکار کدهای تخفیف از پیامک‌ها با موتور هوش مصنوعی",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#020617",
+  "theme_color": "#0f172a",
+  "dir": "rtl",
+  "lang": "fa",
+  "categories": ["shopping", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "پیامک جدید",
+      "url": "/?action=new-sms",
+      "description": "ثبت و استخراج سریع کد تخفیف جدید"
+    }
+  ]
+}

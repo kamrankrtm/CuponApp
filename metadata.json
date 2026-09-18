@@ -1,0 +1,6 @@
+{
+  "name": "تخفیف‌یاب پیامکی هوشمند",
+  "description": "سامانه هوشمند تحلیل پیامک، جداسازی پیامک‌های تبلیغاتی از شخصی و استخراج خودکار کدهای تخفیف با هوش مصنوعی",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
