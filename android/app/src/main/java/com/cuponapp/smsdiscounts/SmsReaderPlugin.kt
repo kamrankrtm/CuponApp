@@ -7,6 +7,7 @@ import android.net.Uri
 import android.provider.Telephony
 import android.telephony.SubscriptionInfo
 import android.telephony.SubscriptionManager
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import android.content.pm.PackageManager
 import android.os.Build
@@ -32,7 +33,11 @@ import com.getcapacitor.annotation.PermissionCallback
     permissions = [
         Permission(
             alias = SmsReaderPlugin.SMS_PERMISSION_ALIAS,
-            strings = [Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS]
+            strings = [Manifest.permission.READ_SMS]
+        ),
+        Permission(
+            alias = SmsReaderPlugin.RECEIVE_PERMISSION_ALIAS,
+            strings = [Manifest.permission.RECEIVE_SMS]
         ),
         Permission(
             alias = SmsReaderPlugin.NOTIFICATION_PERMISSION_ALIAS,
@@ -44,6 +49,7 @@ class SmsReaderPlugin : Plugin() {
 
     companion object {
         const val SMS_PERMISSION_ALIAS = "sms"
+        const val RECEIVE_PERMISSION_ALIAS = "receiveSms"
         const val NOTIFICATION_PERMISSION_ALIAS = "notifications"
         private const val DEFAULT_LIMIT = 500
     }
@@ -67,6 +73,7 @@ class SmsReaderPlugin : Plugin() {
     override fun checkPermissions(call: PluginCall) {
         val result = JSObject()
         result.put(SMS_PERMISSION_ALIAS, getPermissionState(SMS_PERMISSION_ALIAS).toString())
+        result.put(RECEIVE_PERMISSION_ALIAS, getPermissionState(RECEIVE_PERMISSION_ALIAS).toString())
         result.put(
             NOTIFICATION_PERMISSION_ALIAS,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -104,6 +111,35 @@ class SmsReaderPlugin : Plugin() {
     }
 
     /**
+     * وضعیت کامل دریافت خودکار، برای وقتی اعلانی نمی‌آید و علتش معلوم نیست.
+     */
+    @PluginMethod
+    fun getDiagnostics(call: PluginCall) {
+        val result = JSObject()
+        result.put("readSms", getPermissionState(SMS_PERMISSION_ALIAS).toString())
+        result.put("receiveSms", getPermissionState(RECEIVE_PERMISSION_ALIAS).toString())
+        result.put(
+            "notifications",
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                getPermissionState(NOTIFICATION_PERMISSION_ALIAS).toString()
+            } else {
+                PermissionState.GRANTED.toString()
+            }
+        )
+        result.put("notificationsEnabled", NotificationManagerCompat.from(context).areNotificationsEnabled())
+        result.put("hasApiKey", AppSettings.read(context).isUsable)
+        result.put("events", BackgroundLog.read(context))
+        call.resolve(result)
+    }
+
+    /** پاک کردن دفترچه رخدادها، برای شروع یک تست تمیز */
+    @PluginMethod
+    fun clearDiagnostics(call: PluginCall) {
+        BackgroundLog.clear(context)
+        call.resolve()
+    }
+
+    /**
      * برداشتن کدهایی که گیرنده پیامک در پس‌زمینه پیدا کرده است.
      *
      * صف پس از خواندن خالی می‌شود؛ از این لحظه مالک داده لایه وب است.
@@ -120,21 +156,33 @@ class SmsReaderPlugin : Plugin() {
     /** درخواست مجوز خواندن پیامک از کاربر */
     @PluginMethod
     override fun requestPermissions(call: PluginCall) {
-        if (getPermissionState(SMS_PERMISSION_ALIAS) == PermissionState.GRANTED) {
-            val result = JSObject()
-            result.put(SMS_PERMISSION_ALIAS, PermissionState.GRANTED.toString())
-            call.resolve(result)
+        // خواندن صندوق و دریافت لحظه‌ای دو مجوز جداگانه‌اند. نسخه‌ای که فقط
+        // READ_SMS داشت و بعد آپدیت شد، RECEIVE_SMS را ندارد و هرگز هم از
+        // کاربر نمی‌پرسد مگر صریحاً درخواست شود.
+        val needed = mutableListOf<String>()
+        if (getPermissionState(SMS_PERMISSION_ALIAS) != PermissionState.GRANTED) {
+            needed.add(SMS_PERMISSION_ALIAS)
+        }
+        if (getPermissionState(RECEIVE_PERMISSION_ALIAS) != PermissionState.GRANTED) {
+            needed.add(RECEIVE_PERMISSION_ALIAS)
+        }
+
+        if (needed.isEmpty()) {
+            call.resolve(currentSmsPermissions())
             return
         }
-        requestPermissionForAlias(SMS_PERMISSION_ALIAS, call, "smsPermissionCallback")
+
+        requestPermissionForAliases(needed.toTypedArray(), call, "smsPermissionCallback")
     }
 
     @PermissionCallback
     private fun smsPermissionCallback(call: PluginCall) {
-        val state = getPermissionState(SMS_PERMISSION_ALIAS)
-        val result = JSObject()
-        result.put(SMS_PERMISSION_ALIAS, state.toString())
-        call.resolve(result)
+        call.resolve(currentSmsPermissions())
+    }
+
+    private fun currentSmsPermissions(): JSObject = JSObject().apply {
+        put(SMS_PERMISSION_ALIAS, getPermissionState(SMS_PERMISSION_ALIAS).toString())
+        put(RECEIVE_PERMISSION_ALIAS, getPermissionState(RECEIVE_PERMISSION_ALIAS).toString())
     }
 
     /**

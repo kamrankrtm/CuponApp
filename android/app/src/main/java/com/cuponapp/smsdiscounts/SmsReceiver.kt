@@ -25,6 +25,9 @@ class SmsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
 
+        // نخستین نشانه حیات: اگر این خط ثبت نشود، گیرنده اصلاً صدا زده نشده
+        BackgroundLog.record(context, "received", "پیامک دریافت شد")
+
         val messages = try {
             Telephony.Sms.Intents.getMessagesFromIntent(intent) ?: return
         } catch (e: Exception) {
@@ -37,17 +40,31 @@ class SmsReceiver : BroadcastReceiver() {
         val body = messages.joinToString("") { it.messageBody ?: "" }
         val timestamp = messages[0].timestampMillis.takeIf { it > 0 } ?: System.currentTimeMillis()
 
-        if (body.isBlank()) return
+        if (body.isBlank()) {
+            BackgroundLog.record(context, "skipped", "متن پیامک خالی بود")
+            return
+        }
 
         val settings = AppSettings.read(context)
         val verdict = SmsClassifier.classify(sender, body, settings.strictness)
 
         // متوقف شدن اینجا یعنی پیامک هرگز از گوشی خارج نمی‌شود
-        if (!verdict.safeToSend) return
-        if (!settings.isUsable) return
+        if (!verdict.safeToSend) {
+            BackgroundLog.record(context, "filtered", "${verdict.kind} — ${verdict.reason}")
+            return
+        }
+        if (!settings.isUsable) {
+            BackgroundLog.record(context, "no-key", "کلید هوش مصنوعی تنظیم نشده است")
+            return
+        }
 
         val fingerprint = fingerprintOf(sender, body)
-        if (PendingPromoStore.isAlreadySeen(context, fingerprint)) return
+        if (PendingPromoStore.isAlreadySeen(context, fingerprint)) {
+            BackgroundLog.record(context, "duplicate", "این پیامک قبلاً بررسی شده بود")
+            return
+        }
+
+        BackgroundLog.record(context, "sending", "امتیاز ${verdict.score} — ارسال به هوش مصنوعی")
 
         // کار شبکه‌ای نباید روی رشته اصلی انجام شود؛ goAsync مهلت می‌دهد
         val pending = goAsync()
@@ -61,9 +78,13 @@ class SmsReceiver : BroadcastReceiver() {
                 if (promo != null) {
                     PendingPromoStore.add(appContext, promo, sender, body, timestamp, "SIM")
                     SmsNotifier.notifyPromo(appContext, promo)
+                    BackgroundLog.record(appContext, "found", "${promo.brand} — کد ${promo.code}")
+                } else {
+                    BackgroundLog.record(appContext, "no-promo", "هوش مصنوعی کد تخفیفی پیدا نکرد یا پاسخ نداد")
                 }
             } catch (e: Exception) {
                 // خطای شبکه نباید گیرنده را بشکند؛ پیامک در اسکن بعدی دیده می‌شود
+                BackgroundLog.record(appContext, "error", e.message ?: e.javaClass.simpleName)
             } finally {
                 pending.finish()
             }

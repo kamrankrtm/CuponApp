@@ -2,6 +2,7 @@ import React from 'react';
 import {
   ShieldCheck, Loader2, ScanLine, AlertTriangle, Lock, KeyRound, Smartphone, Bell,
 } from 'lucide-react';
+import { DiagnosticsPanel } from './DiagnosticsPanel';
 import type { ScanProgress } from '../lib/scan';
 import type { FilterStats } from '../lib/smsFilter';
 
@@ -60,7 +61,7 @@ export const ScanScreen: React.FC<Props> = ({
       {needsPermission && (
         <Blocker
           icon={<Lock className="w-4 h-4" />}
-          text="برای خواندن پیامک‌ها به مجوز «خواندن پیامک» نیاز است."
+          text="برای خواندن صندوق و دریافت لحظه‌ای پیامک به مجوز پیامک نیاز است."
           action={{ label: 'اجازه می‌دهم', onClick: onRequestPermission }}
         />
       )}
@@ -158,6 +159,9 @@ export const ScanScreen: React.FC<Props> = ({
           )}
         </div>
       )}
+
+      {/* تشخیص مشکل دریافت خودکار */}
+      {isNative && <DiagnosticsPanel />}
 
       {/* خطاها */}
       {errors.length > 0 && (
