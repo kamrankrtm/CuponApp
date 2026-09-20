@@ -61,7 +61,12 @@ fun Context.resolveThemeColor(attributeId: Int, default: Int = 0): Int {
     val outValue = TypedValue()
     val wasResolved = theme.resolveAttribute(attributeId, outValue, true)
 
-    return if (wasResolved) getColorCompat(outValue.resourceId) else default
+    if (!wasResolved) return default
+    return if (outValue.type >= TypedValue.TYPE_FIRST_COLOR_INT && outValue.type <= TypedValue.TYPE_LAST_COLOR_INT) {
+        outValue.data
+    } else {
+        getColorCompat(outValue.resourceId)
+    }
 }
 
 fun Context.resolveThemeColorStateList(attributeId: Int, default: Int = 0): ColorStateList {

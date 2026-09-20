@@ -127,7 +127,7 @@
         <item name="android:layout_marginEnd">32dp</item>
     </style>
 
-    <style name="SmartTabTextAppearance" parent="TextAppearance.MaterialComponents.Tab">
+    <style name="SmartTabTextAppearance" parent="TextAppearance.Design.Tab">
         <item name="android:textSize">13sp</item>
         <item name="android:textStyle">bold</item>
     </style>
