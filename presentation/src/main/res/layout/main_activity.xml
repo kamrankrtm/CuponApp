@@ -78,7 +78,7 @@
             app:tabIndicatorHeight="3dp"
             app:tabMode="scrollable"
             app:tabSelectedTextColor="?android:attr/colorAccent"
-            app:tabTextAppearance="@style/TextSecondary"
+            app:tabTextAppearance="@style/SmartTabTextAppearance"
             app:tabTextColor="?android:attr/textColorSecondary" />
 
         <com.moez.QKSMS.common.widget.QkTextView

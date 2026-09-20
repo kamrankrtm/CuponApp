@@ -163,7 +163,11 @@ class MainActivity : QkThemedActivity(), MainView {
         }
 
         toggle.syncState()
-        setupSmartTabs()
+        try {
+            setupSmartTabs()
+        } catch (t: Throwable) {
+            android.util.Log.e("MainActivity", "Error setting up smart tabs", t)
+        }
         toolbar.setNavigationOnClickListener {
             dismissKeyboard()
             homeIntent.onNext(Unit)
@@ -206,8 +210,8 @@ class MainActivity : QkThemedActivity(), MainView {
                     compose.setTint(theme.textPrimary)
 
                     // Theme Smart TabLayout
-                    smartTabLayout.setSelectedTabIndicatorColor(theme.theme)
-                    smartTabLayout.setTabTextColors(resolveThemeColor(android.R.attr.textColorSecondary), theme.theme)
+                    smartTabLayout?.setSelectedTabIndicatorColor(theme.theme)
+                    smartTabLayout?.setTabTextColors(resolveThemeColor(android.R.attr.textColorSecondary), theme.theme)
                 }
 
         // These theme attributes don't apply themselves on API 21
@@ -276,7 +280,7 @@ class MainActivity : QkThemedActivity(), MainView {
         searchAdapter.emptyView = empty.takeIf { state.page is Searching }
 
         currentState = state
-        smartTabLayout.setVisible(state.page is Inbox && state.page.selected == 0)
+        smartTabLayout?.setVisible(state.page is Inbox && state.page.selected == 0)
 
         when (state.page) {
             is Inbox -> {
@@ -448,17 +452,20 @@ class MainActivity : QkThemedActivity(), MainView {
     }
 
     private fun setupSmartTabs() {
-        smartTabLayout.removeAllTabs()
-        smartTabLayout.addTab(smartTabLayout.newTab().setText("پیام‌های شخصی"))
-        smartTabLayout.addTab(smartTabLayout.newTab().setText("کدهای تخفیف"))
-        smartTabLayout.addTab(smartTabLayout.newTab().setText("کد ورود (OTP)"))
-        smartTabLayout.addTab(smartTabLayout.newTab().setText("بانکی"))
-        smartTabLayout.addTab(smartTabLayout.newTab().setText("تبلیغات و اسپم"))
+        val tabs = smartTabLayout ?: return
+        tabs.removeAllTabs()
+        tabs.addTab(tabs.newTab().setText("پیام‌های شخصی"))
+        tabs.addTab(tabs.newTab().setText("کدهای تخفیف"))
+        tabs.addTab(tabs.newTab().setText("کد ورود (OTP)"))
+        tabs.addTab(tabs.newTab().setText("بانکی"))
+        tabs.addTab(tabs.newTab().setText("تبلیغات و اسپم"))
 
-        smartTabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
-            override fun onTabSelected(tab: TabLayout.Tab) {
-                currentTabPosition = tab.position
-                applyTabFilter()
+        tabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                tab?.let {
+                    currentTabPosition = it.position
+                    applyTabFilter()
+                }
             }
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
             override fun onTabReselected(tab: TabLayout.Tab?) {
@@ -468,8 +475,9 @@ class MainActivity : QkThemedActivity(), MainView {
     }
 
     private fun applyTabFilter() {
-        val state = currentState ?: return
-        if (state.page !is Inbox || state.page.selected > 0) return
+        try {
+            val state = currentState ?: return
+            if (state.page !is Inbox || state.page.selected > 0) return
 
         when (currentTabPosition) {
             0 -> {
@@ -537,6 +545,9 @@ class MainActivity : QkThemedActivity(), MainView {
                 empty.text = "صندوق تبلیغات و اسپم خالی است"
                 empty.setVisible(spam.isEmpty())
             }
+        }
+        } catch (t: Throwable) {
+            android.util.Log.e("MainActivity", "Error applying tab filter", t)
         }
     }
 

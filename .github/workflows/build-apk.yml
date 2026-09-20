@@ -40,15 +40,16 @@ jobs:
       - name: Locate and Rename APK
         run: |
           mkdir -p build-output
-          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/smsPRO-debug.apk \;
-          cp build-output/smsPRO-debug.apk build-output/CuponApp-debug.apk
+          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/smsPRO-1.0.11.apk \;
+          cp build-output/smsPRO-1.0.11.apk build-output/smsPRO-debug.apk
+          cp build-output/smsPRO-1.0.11.apk build-output/CuponApp-debug.apk
           ls -la build-output/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: smsPRO-debug-apk
-          path: build-output/smsPRO-debug.apk
+          path: build-output/smsPRO-1.0.11.apk
           retention-days: 14
 
       - name: Create Release (if tag pushed)
@@ -56,6 +57,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            build-output/smsPRO-1.0.11.apk
             build-output/smsPRO-debug.apk
             build-output/CuponApp-debug.apk
         env:

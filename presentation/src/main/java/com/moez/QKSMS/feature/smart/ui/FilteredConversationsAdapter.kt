@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import androidx.core.text.buildSpannedString
 import androidx.core.text.color
 import androidx.core.view.isVisible
+import androidx.recyclerview.widget.RecyclerView
 import com.moez.QKSMS.R
 import com.moez.QKSMS.common.Navigator
 import com.moez.QKSMS.common.base.QkAdapter
