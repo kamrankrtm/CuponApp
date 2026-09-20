@@ -28,6 +28,9 @@ jobs:
 
       - name: Build Debug APK (noAnalytics)
         run: ./gradlew assembleNoAnalyticsDebug --stacktrace --no-daemon
+        env:
+          ANDROID_NDK_HOME: ""
+          ANDROID_NDK_ROOT: ""
 
       - name: Locate and Rename APK
         run: |
