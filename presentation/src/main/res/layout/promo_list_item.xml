@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="12dp"
+    android:layout_marginEnd="12dp"
+    android:layout_marginTop="6dp"
+    android:layout_marginBottom="6dp"
+    android:background="@drawable/rounded_rectangle_16dp"
+    android:backgroundTint="?attr/bubbleColor"
+    android:padding="14dp">
+
+    <!-- Brand Badge / Avatar -->
+    <ImageView
+        android:id="@+id/brandIcon"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:background="@drawable/circle_ripple"
+        android:backgroundTint="?android:attr/colorAccent"
+        android:padding="10dp"
+        android:src="@drawable/ic_local_offer_black_24dp"
+        android:tint="@color/white"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Brand Name -->
+    <com.moez.QKSMS.common.widget.QkTextView
+        android:id="@+id/promoBrand"
+        style="@style/TextPrimary"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="8dp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toStartOf="@id/promoDiscountAmount"
+        app:layout_constraintStart_toEndOf="@id/brandIcon"
+        app:layout_constraintTop_toTopOf="@id/brandIcon"
+        tools:text="اسنپ‌فود" />
+
+    <!-- Discount Amount Badge -->
+    <com.moez.QKSMS.common.widget.QkTextView
+        android:id="@+id/promoDiscountAmount"
+        style="@style/TextSecondary"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/rounded_rectangle_24dp"
+        android:backgroundTint="?android:attr/colorAccent"
+        android:paddingStart="10dp"
+        android:paddingTop="3dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="3dp"
+        android:textColor="@color/white"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/brandIcon"
+        tools:text="۵۰,۰۰۰ تومان" />
+
+    <!-- Description -->
+    <com.moez.QKSMS.common.widget.QkTextView
+        android:id="@+id/promoDescription"
+        style="@style/TextSecondary"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="2dp"
+        android:layout_marginEnd="8dp"
+        android:ellipsize="end"
+        android:lines="1"
+        android:textSize="12sp"
+        app:layout_constraintEnd_toStartOf="@id/promoDiscountAmount"
+        app:layout_constraintStart_toEndOf="@id/brandIcon"
+        app:layout_constraintTop_toBottomOf="@id/promoBrand"
+        tools:text="تخفیف ویژه سفارش غذا بالای ۱۵۰ هزار تومان" />
+
+    <!-- Promo Code Box -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/codeContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/rounded_rectangle_8dp"
+        android:backgroundTint="?android:attr/divider"
+        android:padding="8dp"
+        app:layout_constraintTop_toBottomOf="@id/brandIcon">
+
+        <com.moez.QKSMS.common.widget.QkTextView
+            android:id="@+id/promoCode"
+            style="@style/TextPrimary"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.1"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnCopyPromo"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="SNAPPFOOD50" />
+
+        <Button
+            android:id="@+id/btnCopyPromo"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:background="@drawable/rounded_rectangle_24dp"
+            android:backgroundTint="?android:attr/colorAccent"
+            android:minWidth="70dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text="کپی کد"
+            android:textColor="@color/white"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Bottom Info & Actions -->
+    <com.moez.QKSMS.common.widget.QkTextView
+        android:id="@+id/promoExpiry"
+        style="@style/TextSecondary"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:textSize="11sp"
+        app:layout_constraintEnd_toStartOf="@id/btnMarkUsed"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/codeContainer"
+        tools:text="اعتبار: تا پایان فردا شب" />
+
+    <Button
+        android:id="@+id/btnMarkUsed"
+        style="@style/Widget.AppCompat.Button.Borderless"
+        android:layout_width="wrap_content"
+        android:layout_height="32dp"
+        android:text="استفاده شد"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="11sp"
+        app:layout_constraintBottom_toBottomOf="@id/promoExpiry"
+        app:layout_constraintEnd_toStartOf="@id/btnViewOriginal"
+        app:layout_constraintTop_toTopOf="@id/promoExpiry" />
+
+    <Button
+        android:id="@+id/btnViewOriginal"
+        style="@style/Widget.AppCompat.Button.Borderless"
+        android:layout_width="wrap_content"
+        android:layout_height="32dp"
+        android:text="متن پیامک"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="11sp"
+        app:layout_constraintBottom_toBottomOf="@id/promoExpiry"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/promoExpiry" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
