@@ -77,8 +77,20 @@ object SmartSmsClassifier {
         return SmsCategory.Spam
     }
 
+    fun normalizeDigits(input: String): String {
+        val chars = input.toCharArray()
+        for (i in chars.indices) {
+            val c = chars[i]
+            when (c) {
+                in '۰'..'۹' -> chars[i] = ('0'.toInt() + (c - '۰')).toChar()
+                in '٠'..'٩' -> chars[i] = ('0'.toInt() + (c - '٠')).toChar()
+            }
+        }
+        return String(chars)
+    }
+
     fun isPersonalNumber(sender: String): Boolean {
-        val normalized = sender.replace("\\s+".toRegex(), "").replace("-", "")
+        val normalized = normalizeDigits(sender).replace("\\s+".toRegex(), "").replace("-", "")
         return PERSONAL_NUMBER_REGEX.matcher(normalized).matches()
     }
 
@@ -88,18 +100,19 @@ object SmartSmsClassifier {
     }
 
     fun extractOtpCode(body: String): String? {
+        val normalizedBody = normalizeDigits(body)
         // Look for digit sequences (4 to 8 digits)
         val patterns = listOf(
-            Pattern.compile("(?:کد(?:\\s*تایید|\\s*ورود|\\s*فعالسازی)?|رمز(?:\\s*پویا)?|code|otp)[:\\s]+([0-9]{4,8})", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("(?:کد(?:\\s*تایید|\\s*ورود|\\s*فعالسازی|\\s*احراز)?|رمز(?:\\s*پویا|\\s*یکبار\\s*مصرف)?|code|otp)[:\\s]+([0-9]{4,8})", Pattern.CASE_INSENSITIVE),
             Pattern.compile("([0-9]{4,8})(?:\\s*کد(?:\\s*تایید|\\s*ورود|\\s*شما))", Pattern.CASE_INSENSITIVE),
             Pattern.compile("\\b([0-9]{4,8})\\b")
         )
 
         for (pattern in patterns) {
-            val matcher = pattern.matcher(body)
+            val matcher = pattern.matcher(normalizedBody)
             if (matcher.find()) {
                 val candidate = matcher.group(1) ?: matcher.group(0)
-                // Ensure candidate is between 4 and 8 digits
+                // Ensure candidate is between 4 and 8 digits and not a phone prefix
                 if (candidate != null && candidate.length in 4..8 && !candidate.startsWith("09")) {
                     return candidate
                 }
@@ -232,13 +245,14 @@ object SmartSmsClassifier {
         }
 
         // Discount amount extraction
+        val normBody = normalizeDigits(body)
         val amountPattern = Pattern.compile("(\\d+[\\s‌]*(?:هزار تومان|درصد|٪|تومان))", Pattern.CASE_INSENSITIVE)
-        val amountMatcher = amountPattern.matcher(body)
+        val amountMatcher = amountPattern.matcher(normBody)
         val discountAmount = if (amountMatcher.find()) amountMatcher.group(1)?.trim() ?: "تخفیف ویژه" else "تخفیف ویژه"
 
         // Minimum order extraction
-        val minOrderPattern = Pattern.compile("(?:بالای|حداقل خرید)\\s*([۰-۹0-9,]+(?:\\s*هزار)?\\s*تومان)", Pattern.CASE_INSENSITIVE)
-        val minOrderMatcher = minOrderPattern.matcher(body)
+        val minOrderPattern = Pattern.compile("(?:بالای|حداقل خرید)\\s*([0-9,]+(?:\\s*هزار)?\\s*تومان)", Pattern.CASE_INSENSITIVE)
+        val minOrderMatcher = minOrderPattern.matcher(normBody)
         val minOrder = if (minOrderMatcher.find()) "حداقل خرید " + minOrderMatcher.group(1)?.trim() else null
 
         // Expiry extraction
@@ -285,8 +299,9 @@ object SmartSmsClassifier {
     }
 
     private fun extractBankingAmount(body: String): String? {
+        val normalized = normalizeDigits(body)
         val pattern = Pattern.compile("([0-9,]{4,})\\s*(?:ریال|تومان)")
-        val matcher = pattern.matcher(body)
+        val matcher = pattern.matcher(normalized)
         return if (matcher.find()) matcher.group(0) else null
     }
 }

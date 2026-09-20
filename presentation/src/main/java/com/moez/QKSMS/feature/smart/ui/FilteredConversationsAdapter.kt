@@ -52,8 +52,11 @@ class FilteredConversationsAdapter(
 
         return QkViewHolder(view).apply {
             view.setOnClickListener {
-                val conversation = getItem(adapterPosition)
-                navigator.showConversation(conversation.id)
+                val pos = adapterPosition
+                if (pos != RecyclerView.NO_POSITION && pos in 0 until itemCount) {
+                    val conversation = getItem(pos)
+                    navigator.showConversation(conversation.id)
+                }
             }
         }
     }
