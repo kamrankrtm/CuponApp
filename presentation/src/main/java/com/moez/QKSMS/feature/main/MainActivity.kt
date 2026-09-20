@@ -68,6 +68,7 @@ import io.reactivex.subjects.Subject
 import kotlinx.android.synthetic.main.drawer_view.*
 import kotlinx.android.synthetic.main.main_activity.*
 import kotlinx.android.synthetic.main.main_permission_hint.*
+import kotlinx.android.synthetic.main.main_syncing.*
 import com.google.android.material.tabs.TabLayout
 import com.moez.QKSMS.common.util.DateFormatter
 import com.moez.QKSMS.feature.smart.SmartDataManager

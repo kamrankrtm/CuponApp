@@ -83,8 +83,8 @@ object SmartSmsClassifier {
     }
 
     private fun isOtpMessage(body: String): Boolean {
-        val lower = body.lowercase()
-        return OTP_KEYWORDS.any { lower.contains(it.lowercase()) }
+        val lower = body.toLowerCase()
+        return OTP_KEYWORDS.any { lower.contains(it.toLowerCase()) }
     }
 
     fun extractOtpCode(body: String): String? {
@@ -128,8 +128,8 @@ object SmartSmsClassifier {
     }
 
     private fun hasDiscountCode(body: String): Boolean {
-        val lower = body.lowercase()
-        return DISCOUNT_KEYWORDS.any { lower.contains(it.lowercase()) }
+        val lower = body.toLowerCase()
+        return DISCOUNT_KEYWORDS.any { lower.contains(it.toLowerCase()) }
     }
 
     fun extractPromo(sender: String, body: String): PromoItem? {

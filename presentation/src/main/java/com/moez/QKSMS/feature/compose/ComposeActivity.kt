@@ -178,6 +178,11 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
                 ?: ""
             openWhatsApp(recipientNumber, text)
         }
+
+        send.setOnLongClickListener {
+            showScheduleOptionsDialog()
+            true
+        }
     }
 
     override fun onStart() {
@@ -504,6 +509,54 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
                     .show()
             }
         )
+    }
+
+    private fun showScheduleOptionsDialog() {
+        val options = arrayOf(
+            "فردا ساعت ۱۴:۰۰ (۲ بعدازظهر)",
+            "فردا صبح ساعت ۰۹:۰۰",
+            "امشب ساعت ۲۰:۰۰ (۸ شب)",
+            "انتخاب تاریخ و ساعت دلخواه..."
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle("زمان‌بندی ارسال پیام")
+            .setItems(options) { _, which ->
+                val calendar = Calendar.getInstance()
+                when (which) {
+                    0 -> {
+                        calendar.add(Calendar.DAY_OF_YEAR, 1)
+                        calendar.set(Calendar.HOUR_OF_DAY, 14)
+                        calendar.set(Calendar.MINUTE, 0)
+                        calendar.set(Calendar.SECOND, 0)
+                        scheduleSelectedIntent.onNext(calendar.timeInMillis)
+                        Toast.makeText(this, "ارسال پیام برای فردا ساعت ۱۴:۰۰ تنظیم شد", Toast.LENGTH_SHORT).show()
+                    }
+                    1 -> {
+                        calendar.add(Calendar.DAY_OF_YEAR, 1)
+                        calendar.set(Calendar.HOUR_OF_DAY, 9)
+                        calendar.set(Calendar.MINUTE, 0)
+                        calendar.set(Calendar.SECOND, 0)
+                        scheduleSelectedIntent.onNext(calendar.timeInMillis)
+                        Toast.makeText(this, "ارسال پیام برای فردا ساعت ۰۹:۰۰ تنظیم شد", Toast.LENGTH_SHORT).show()
+                    }
+                    2 -> {
+                        if (calendar.get(Calendar.HOUR_OF_DAY) >= 20) {
+                            calendar.add(Calendar.DAY_OF_YEAR, 1)
+                        }
+                        calendar.set(Calendar.HOUR_OF_DAY, 20)
+                        calendar.set(Calendar.MINUTE, 0)
+                        calendar.set(Calendar.SECOND, 0)
+                        scheduleSelectedIntent.onNext(calendar.timeInMillis)
+                        Toast.makeText(this, "ارسال پیام برای ساعت ۲۰:۰۰ تنظیم شد", Toast.LENGTH_SHORT).show()
+                    }
+                    3 -> {
+                        requestDatePicker()
+                    }
+                }
+            }
+            .setNegativeButton(R.string.button_cancel, null)
+            .show()
     }
 
 }
