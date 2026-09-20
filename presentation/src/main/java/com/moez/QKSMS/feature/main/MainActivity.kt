@@ -293,6 +293,7 @@ class MainActivity : QkThemedActivity(), MainView {
                     empty.setText(R.string.inbox_empty_text)
                 } else {
                     currentConversationsList = state.page.data?.toList() ?: emptyList()
+                    conversationsAdapter.updateData(state.page.data)
                     SmartDataManager.scanConversations(currentConversationsList)
                     applyTabFilter()
                 }
@@ -454,11 +455,12 @@ class MainActivity : QkThemedActivity(), MainView {
     private fun setupSmartTabs() {
         val tabs = smartTabLayout ?: return
         tabs.removeAllTabs()
-        tabs.addTab(tabs.newTab().setText("پیام‌های شخصی"))
-        tabs.addTab(tabs.newTab().setText("کدهای تخفیف"))
-        tabs.addTab(tabs.newTab().setText("کد ورود (OTP)"))
+        tabs.addTab(tabs.newTab().setText("همه"))
+        tabs.addTab(tabs.newTab().setText("شخصی"))
         tabs.addTab(tabs.newTab().setText("بانکی"))
-        tabs.addTab(tabs.newTab().setText("تبلیغات و اسپم"))
+        tabs.addTab(tabs.newTab().setText("رمز ورود (OTP)"))
+        tabs.addTab(tabs.newTab().setText("کدهای تخفیف"))
+        tabs.addTab(tabs.newTab().setText("تبلیغات"))
 
         tabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
@@ -467,7 +469,9 @@ class MainActivity : QkThemedActivity(), MainView {
                     applyTabFilter()
                 }
             }
+
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
+
             override fun onTabReselected(tab: TabLayout.Tab?) {
                 applyTabFilter()
             }
@@ -479,79 +483,86 @@ class MainActivity : QkThemedActivity(), MainView {
             val state = currentState ?: return
             if (state.page !is Inbox || state.page.selected > 0) return
 
-        when (currentTabPosition) {
-            0 -> {
-                // Personal: 09... numbers or personal contacts
-                val personal = currentConversationsList.filter { conv ->
-                    if (!conv.isValid) return@filter false
-                    val sender = conv.recipients.firstOrNull()?.address ?: ""
-                    val body = conv.lastMessage?.body ?: ""
-                    val cat = SmartSmsClassifier.classify(sender, body)
-                    cat is SmsCategory.Personal
+            when (currentTabPosition) {
+                0 -> {
+                    // All messages
+                    if (recyclerView.adapter !== conversationsAdapter) recyclerView.adapter = conversationsAdapter
+                    itemTouchHelper.attachToRecyclerView(recyclerView)
+                    compose.setVisible(true)
+                    empty.setText(R.string.inbox_empty_text)
+                    empty.setVisible(currentConversationsList.isEmpty())
                 }
-                filteredConversationsAdapter.data = personal
-                recyclerView.adapter = filteredConversationsAdapter
-                itemTouchHelper.attachToRecyclerView(null)
-                compose.setVisible(true)
-                empty.text = "پیامک شخصی جدیدی وجود ندارد"
-                empty.setVisible(personal.isEmpty())
-            }
-            1 -> {
-                // Discount Promo codes
-                val promos = SmartDataManager.getPromos()
-                promoCodesAdapter.updateData(promos)
-                recyclerView.adapter = promoCodesAdapter
-                itemTouchHelper.attachToRecyclerView(null)
-                compose.setVisible(false)
-                empty.text = "هیچ کد تخفیف فعالی یافت نشد"
-                empty.setVisible(promos.isEmpty())
-            }
-            2 -> {
-                // OTP / Verification codes
-                val otps = SmartDataManager.getOtps()
-                otpCodesAdapter.updateData(otps)
-                recyclerView.adapter = otpCodesAdapter
-                itemTouchHelper.attachToRecyclerView(null)
-                compose.setVisible(false)
-                empty.text = "کد تایید یا رمز ورود دریافت نشده است"
-                empty.setVisible(otps.isEmpty())
-            }
-            3 -> {
-                // Banking messages
-                val banking = currentConversationsList.filter { conv ->
-                    if (!conv.isValid) return@filter false
-                    val sender = conv.recipients.firstOrNull()?.address ?: ""
-                    val body = conv.lastMessage?.body ?: ""
-                    val cat = SmartSmsClassifier.classify(sender, body)
-                    cat is SmsCategory.Banking
+                1 -> {
+                    // Personal: 09... numbers or personal contacts
+                    val personal = currentConversationsList.filter { conv ->
+                        if (!conv.isValid) return@filter false
+                        val sender = conv.recipients.firstOrNull()?.address ?: ""
+                        val body = conv.lastMessage?.body ?: ""
+                        val cat = SmartSmsClassifier.classify(sender, body)
+                        cat is SmsCategory.Personal
+                    }
+                    filteredConversationsAdapter.data = personal
+                    recyclerView.adapter = filteredConversationsAdapter
+                    itemTouchHelper.attachToRecyclerView(null)
+                    compose.setVisible(true)
+                    empty.text = "پیامک شخصی جدیدی وجود ندارد"
+                    empty.setVisible(personal.isEmpty())
                 }
-                filteredConversationsAdapter.data = banking
-                recyclerView.adapter = filteredConversationsAdapter
-                itemTouchHelper.attachToRecyclerView(null)
-                compose.setVisible(false)
-                empty.text = "هیچ پیامک بانکی یافت نشد"
-                empty.setVisible(banking.isEmpty())
-            }
-            4 -> {
-                // Spam & promotional ads without promo codes
-                val spam = currentConversationsList.filter { conv ->
-                    if (!conv.isValid) return@filter false
-                    val sender = conv.recipients.firstOrNull()?.address ?: ""
-                    val body = conv.lastMessage?.body ?: ""
-                    val cat = SmartSmsClassifier.classify(sender, body)
-                    cat is SmsCategory.Spam
+                2 -> {
+                    // Banking messages
+                    val banking = currentConversationsList.filter { conv ->
+                        if (!conv.isValid) return@filter false
+                        val sender = conv.recipients.firstOrNull()?.address ?: ""
+                        val body = conv.lastMessage?.body ?: ""
+                        val cat = SmartSmsClassifier.classify(sender, body)
+                        cat is SmsCategory.Banking
+                    }
+                    filteredConversationsAdapter.data = banking
+                    recyclerView.adapter = filteredConversationsAdapter
+                    itemTouchHelper.attachToRecyclerView(null)
+                    compose.setVisible(false)
+                    empty.text = "هیچ پیامک بانکی یافت نشد"
+                    empty.setVisible(banking.isEmpty())
                 }
-                filteredConversationsAdapter.data = spam
-                recyclerView.adapter = filteredConversationsAdapter
-                itemTouchHelper.attachToRecyclerView(null)
-                compose.setVisible(false)
-                empty.text = "صندوق تبلیغات و اسپم خالی است"
-                empty.setVisible(spam.isEmpty())
+                3 -> {
+                    // OTP / Verification codes
+                    val otps = SmartDataManager.getOtps()
+                    otpCodesAdapter.updateData(otps)
+                    recyclerView.adapter = otpCodesAdapter
+                    itemTouchHelper.attachToRecyclerView(null)
+                    compose.setVisible(false)
+                    empty.text = "کد تایید یا رمز ورود دریافت نشده است"
+                    empty.setVisible(otps.isEmpty())
+                }
+                4 -> {
+                    // Discount Promo codes
+                    val promos = SmartDataManager.getPromos()
+                    promoCodesAdapter.updateData(promos)
+                    recyclerView.adapter = promoCodesAdapter
+                    itemTouchHelper.attachToRecyclerView(null)
+                    compose.setVisible(false)
+                    empty.text = "هیچ کد تخفیف فعالی یافت نشد"
+                    empty.setVisible(promos.isEmpty())
+                }
+                5 -> {
+                    // Spam & promotional ads without promo codes
+                    val spam = currentConversationsList.filter { conv ->
+                        if (!conv.isValid) return@filter false
+                        val sender = conv.recipients.firstOrNull()?.address ?: ""
+                        val body = conv.lastMessage?.body ?: ""
+                        val cat = SmartSmsClassifier.classify(sender, body)
+                        cat is SmsCategory.Spam
+                    }
+                    filteredConversationsAdapter.data = spam
+                    recyclerView.adapter = filteredConversationsAdapter
+                    itemTouchHelper.attachToRecyclerView(null)
+                    compose.setVisible(false)
+                    empty.text = "صندوق تبلیغات و اسپم خالی است"
+                    empty.setVisible(spam.isEmpty())
+                }
             }
-        }
         } catch (t: Throwable) {
             android.util.Log.e("MainActivity", "Error applying tab filter", t)
         }
     }
-
 }

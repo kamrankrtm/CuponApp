@@ -71,8 +71,25 @@ class QKApplication : Application(), HasActivityInjector, HasBroadcastReceiverIn
     @Inject lateinit var realmMigration: QkRealmMigration
     @Inject lateinit var referralManager: ReferralManager
 
+    private fun isCrashProcess(): Boolean {
+        return try {
+            val processName = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                getProcessName()
+            } else {
+                java.io.File("/proc/self/cmdline").readText().trim().replace("\u0000", "")
+            }
+            processName.endsWith(":crash")
+        } catch (e: Throwable) {
+            false
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
+
+        if (isCrashProcess()) {
+            return
+        }
 
         // Install first so launch/theme/Realm crashes can show a screenshotable report
         CrashHandler.install(this)
