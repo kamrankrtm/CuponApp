@@ -61,10 +61,11 @@ class ReceiveSms @Inject constructor(
                     val time = messages[0].timestampMillis
                     val body: String = messages
                             .mapNotNull { message -> message.displayMessageBody }
-                            .reduce { body, new -> body + new }
+                            .joinToString(separator = "")
+                    val safeAddress = address ?: return@mapNotNull null
 
                     // Add the message to the db
-                    val message = messageRepo.insertReceivedSms(it.subId, address, body, time)
+                    val message = messageRepo.insertReceivedSms(it.subId, safeAddress, body, time)
 
                     when (action) {
                         is BlockingClient.Action.Block -> {

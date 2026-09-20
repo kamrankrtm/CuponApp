@@ -483,6 +483,7 @@ class MainActivity : QkThemedActivity(), MainView {
             0 -> {
                 // Personal: 09... numbers or personal contacts
                 val personal = currentConversationsList.filter { conv ->
+                    if (!conv.isValid) return@filter false
                     val sender = conv.recipients.firstOrNull()?.address ?: ""
                     val body = conv.lastMessage?.body ?: ""
                     val cat = SmartSmsClassifier.classify(sender, body)
@@ -518,6 +519,7 @@ class MainActivity : QkThemedActivity(), MainView {
             3 -> {
                 // Banking messages
                 val banking = currentConversationsList.filter { conv ->
+                    if (!conv.isValid) return@filter false
                     val sender = conv.recipients.firstOrNull()?.address ?: ""
                     val body = conv.lastMessage?.body ?: ""
                     val cat = SmartSmsClassifier.classify(sender, body)
@@ -533,6 +535,7 @@ class MainActivity : QkThemedActivity(), MainView {
             4 -> {
                 // Spam & promotional ads without promo codes
                 val spam = currentConversationsList.filter { conv ->
+                    if (!conv.isValid) return@filter false
                     val sender = conv.recipients.firstOrNull()?.address ?: ""
                     val body = conv.lastMessage?.body ?: ""
                     val cat = SmartSmsClassifier.classify(sender, body)

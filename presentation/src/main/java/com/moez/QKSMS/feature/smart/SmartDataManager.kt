@@ -28,6 +28,7 @@ object SmartDataManager {
 
     fun scanConversations(conversations: List<Conversation>) {
         for (conv in conversations) {
+            if (!conv.isValid) continue
             val lastMsg = conv.lastMessage ?: continue
             val sender = conv.recipients.firstOrNull()?.address ?: ""
             val body = lastMsg.body

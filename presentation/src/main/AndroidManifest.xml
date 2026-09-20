@@ -47,6 +47,12 @@
         android:theme="@style/AppLaunchTheme">
 
         <activity
+            android:name=".feature.crash.CrashDisplayActivity"
+            android:excludeFromRecents="true"
+            android:process=":crash"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
+
+        <activity
             android:name=".feature.main.MainActivity"
             android:launchMode="singleTask">
             <intent-filter>

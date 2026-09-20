@@ -26,6 +26,7 @@ import androidx.core.provider.FontRequest
 import androidx.emoji.text.EmojiCompat
 import androidx.emoji.text.FontRequestEmojiCompatConfig
 import com.moez.QKSMS.R
+import com.moez.QKSMS.common.util.CrashHandler
 import com.moez.QKSMS.common.util.CrashlyticsTree
 import com.moez.QKSMS.common.util.FileLoggingTree
 import com.moez.QKSMS.injection.AppComponentManager
@@ -73,39 +74,47 @@ class QKApplication : Application(), HasActivityInjector, HasBroadcastReceiverIn
     override fun onCreate() {
         super.onCreate()
 
-        AppComponentManager.init(this)
-        appComponent.inject(this)
+        // Install first so launch/theme/Realm crashes can show a screenshotable report
+        CrashHandler.install(this)
 
-        Realm.init(this)
-        Realm.setDefaultConfiguration(RealmConfiguration.Builder()
-                .compactOnLaunch()
-                .migration(realmMigration)
-                .schemaVersion(QkRealmMigration.SchemaVersion)
-                .build())
+        try {
+            AppComponentManager.init(this)
+            appComponent.inject(this)
 
-        qkMigration.performMigration()
+            Realm.init(this)
+            Realm.setDefaultConfiguration(RealmConfiguration.Builder()
+                    .compactOnLaunch()
+                    .migration(realmMigration)
+                    .schemaVersion(QkRealmMigration.SchemaVersion)
+                    .build())
 
-        GlobalScope.launch(Dispatchers.IO) {
-            referralManager.trackReferrer()
-            billingManager.checkForPurchases()
-            billingManager.queryProducts()
+            qkMigration.performMigration()
+
+            GlobalScope.launch(Dispatchers.IO) {
+                referralManager.trackReferrer()
+                billingManager.checkForPurchases()
+                billingManager.queryProducts()
+            }
+
+            nightModeManager.updateCurrentTheme()
+
+            val fontRequest = FontRequest(
+                    "com.google.android.gms.fonts",
+                    "com.google.android.gms",
+                    "Noto Color Emoji Compat",
+                    R.array.com_google_android_gms_fonts_certs)
+
+            EmojiCompat.init(FontRequestEmojiCompatConfig(this, fontRequest))
+
+            Timber.plant(Timber.DebugTree(), CrashlyticsTree(), fileLoggingTree)
+
+            RxDogTag.builder()
+                    .configureWith(AutoDisposeConfigurer::configure)
+                    .install()
+        } catch (t: Throwable) {
+            android.util.Log.e("QKApplication", "Fatal error during Application.onCreate", t)
+            throw t
         }
-
-        nightModeManager.updateCurrentTheme()
-
-        val fontRequest = FontRequest(
-                "com.google.android.gms.fonts",
-                "com.google.android.gms",
-                "Noto Color Emoji Compat",
-                R.array.com_google_android_gms_fonts_certs)
-
-        EmojiCompat.init(FontRequestEmojiCompatConfig(this, fontRequest))
-
-        Timber.plant(Timber.DebugTree(), CrashlyticsTree(), fileLoggingTree)
-
-        RxDogTag.builder()
-                .configureWith(AutoDisposeConfigurer::configure)
-                .install()
     }
 
     override fun activityInjector(): AndroidInjector<Activity> {

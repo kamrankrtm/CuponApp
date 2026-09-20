@@ -310,7 +310,7 @@ class NotificationManagerImpl @Inject constructor(
                         }
 
                         Preferences.NOTIFICATION_ACTION_CALL -> {
-                            val address = conversation.recipients[0]?.address
+                            val address = conversation.recipients.firstOrNull()?.address ?: return@mapNotNull null
                             val intentAction = if (permissions.hasCalling()) Intent.ACTION_CALL else Intent.ACTION_DIAL
                             val intent = Intent(intentAction, Uri.parse("tel:$address"))
                             val pi = PendingIntent.getActivity(context, threadId.toInt(), intent,

@@ -35,8 +35,16 @@
         <item name="bubbleColor">@color/bubbleDark</item>
         <item name="colorPrimary">@color/backgroundDark</item>
         <item name="colorPrimaryDark">@color/backgroundDark</item>
+        <item name="colorPrimaryVariant">@color/backgroundDark</item>
         <item name="colorSecondary">@color/blue_500</item>
+        <item name="colorSecondaryVariant">@color/blue_500</item>
         <item name="colorAccent">@color/blue_500</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSurface">@color/backgroundDark</item>
+        <item name="colorOnSurface">@color/white</item>
+        <item name="colorError">@color/red_500</item>
+        <item name="colorOnError">@color/white</item>
         <item name="selectableItemBackground">@drawable/ripple_dark</item>
         <item name="switchThumbEnabled">@color/switchThumbEnabledDark</item>
         <item name="switchThumbDisabled">@color/switchThumbDisabledDark</item>
@@ -45,7 +53,7 @@
         <item name="windowActionBar">false</item>
     </style>
 
-    <style name="AppThemeDialog" parent="Theme.AppCompat.Dialog">
+    <style name="AppThemeDialog" parent="Theme.MaterialComponents.Dialog.Bridge">
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
         <item name="android:textColorTertiary">@color/text_tertiary</item>
@@ -54,6 +62,16 @@
         <item name="bubbleColor">@color/bubbleDark</item>
         <item name="colorPrimary">@color/backgroundDark</item>
         <item name="colorPrimaryDark">@color/backgroundDark</item>
+        <item name="colorPrimaryVariant">@color/backgroundDark</item>
+        <item name="colorSecondary">@color/blue_500</item>
+        <item name="colorSecondaryVariant">@color/blue_500</item>
+        <item name="colorAccent">@color/blue_500</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSurface">@color/backgroundDark</item>
+        <item name="colorOnSurface">@color/white</item>
+        <item name="colorError">@color/red_500</item>
+        <item name="colorOnError">@color/white</item>
         <item name="selectableItemBackground">@drawable/ripple_dark</item>
         <item name="windowActionBar">false</item>
     </style>
@@ -71,6 +89,12 @@
         <item name="bubbleColor">@color/bubbleBlack</item>
         <item name="colorPrimary">@color/black</item>
         <item name="colorPrimaryDark">@color/black</item>
+        <item name="colorPrimaryVariant">@color/black</item>
+        <item name="colorSecondary">@color/blue_500</item>
+        <item name="colorSecondaryVariant">@color/blue_500</item>
+        <item name="colorAccent">@color/blue_500</item>
+        <item name="colorSurface">@color/black</item>
+        <item name="colorOnSurface">@color/white</item>
     </style>
 
     <style name="AppThemeDialog.Black">
@@ -78,6 +102,12 @@
         <item name="actionBarPopupTheme">@style/PopupTheme.Black</item>
         <item name="colorPrimary">@color/black</item>
         <item name="colorPrimaryDark">@color/black</item>
+        <item name="colorPrimaryVariant">@color/black</item>
+        <item name="colorSecondary">@color/blue_500</item>
+        <item name="colorSecondaryVariant">@color/blue_500</item>
+        <item name="colorAccent">@color/blue_500</item>
+        <item name="colorSurface">@color/black</item>
+        <item name="colorOnSurface">@color/white</item>
     </style>
 
     <style name="PopupTheme.Black">

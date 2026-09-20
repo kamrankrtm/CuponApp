@@ -68,6 +68,9 @@ class FilteredConversationsAdapter(
 
     override fun onBindViewHolder(holder: QkViewHolder, position: Int) {
         val conversation = getItem(position)
+        if (!conversation.isValid) {
+            return
+        }
         val lastMessage = conversation.lastMessage
         val recipient = when {
             conversation.recipients.size == 1 || lastMessage == null -> conversation.recipients.firstOrNull()
