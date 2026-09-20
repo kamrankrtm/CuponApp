@@ -144,7 +144,7 @@ export default function App() {
       } else {
         CapacitorApp.exitApp();
       }
-    }).then((handle) => {
+    }).then((handle: { remove: () => void }) => {
       detach = () => handle.remove();
     });
 
@@ -169,9 +169,9 @@ export default function App() {
     drainBackground();
 
     let detach: (() => void) | undefined;
-    CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+    CapacitorApp.addListener('appStateChange', ({ isActive }: { isActive: boolean }) => {
       if (isActive) drainBackground();
-    }).then((handle) => {
+    }).then((handle: { remove: () => void }) => {
       detach = () => handle.remove();
     });
 
