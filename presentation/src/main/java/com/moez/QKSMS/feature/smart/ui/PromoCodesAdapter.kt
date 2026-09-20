@@ -11,6 +11,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 import com.moez.QKSMS.R
+import com.moez.QKSMS.common.util.JalaliCalendar
 import com.moez.QKSMS.feature.smart.ClipboardHelper
 import com.moez.QKSMS.feature.smart.model.PromoItem
 
@@ -53,7 +54,7 @@ class PromoCodesAdapter(
             promoDiscountAmount.text = item.discountAmount
             promoDescription.text = item.description
             promoCode.text = item.code
-            promoExpiry.text = "مهلت: ${item.expiryDateText}"
+            promoExpiry.text = "مهلت: ${JalaliCalendar.toPersianDigits(item.expiryDateText)}"
 
             btnCopyPromo.text = "کپی کد"
             btnCopyPromo.setOnClickListener {

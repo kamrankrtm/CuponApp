@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="?android:attr/windowBackground">
+
+    <com.moez.QKSMS.common.widget.QkTextView
+        android:id="@+id/uploadTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="ارسال در فضای ابری (جایگزین MMS)"
+        android:textColor="?android:attr/textColorPrimary"
+        android:textStyle="bold"
+        app:textSize="dialog" />
+
+    <com.moez.QKSMS.common.widget.QkTextView
+        android:id="@+id/uploadStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="?android:attr/textColorSecondary"
+        android:text="در حال آماده‌سازی و آپلود فایل..."
+        app:textSize="secondary" />
+
+    <ProgressBar
+        android:id="@+id/uploadProgressBar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:indeterminate="true" />
+
+    <com.moez.QKSMS.common.widget.QkTextView
+        android:id="@+id/uploadPercent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:layout_marginTop="4dp"
+        android:textColor="?android:attr/textColorSecondary"
+        android:visibility="gone"
+        app:textSize="tertiary"
+        tools:text="45%"
+        tools:visibility="visible" />
+
+    <Button
+        android:id="@+id/uploadCancelButton"
+        style="@style/Widget.AppCompat.Button.Borderless"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:layout_marginTop="12dp"
+        android:text="@string/button_cancel"
+        android:textColor="?android:attr/textColorSecondary" />
+
+</LinearLayout>

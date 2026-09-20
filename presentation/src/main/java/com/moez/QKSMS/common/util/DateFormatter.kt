@@ -23,13 +23,17 @@ import android.text.format.DateFormat
 import com.moez.QKSMS.common.util.extensions.isSameDay
 import com.moez.QKSMS.common.util.extensions.isSameWeek
 import com.moez.QKSMS.common.util.extensions.isSameYear
+import com.moez.QKSMS.util.Preferences
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class DateFormatter @Inject constructor(val context: Context) {
+class DateFormatter @Inject constructor(
+    val context: Context,
+    val prefs: Preferences
+) {
 
     /**
      * Formats the [pattern] correctly for the current locale, and replaces 12 hour format with
@@ -49,17 +53,44 @@ class DateFormatter @Inject constructor(val context: Context) {
     }
 
     fun getDetailedTimestamp(date: Long): String {
+        if (prefs.jalaliCalendar.get()) {
+            val then = Calendar.getInstance().apply { timeInMillis = date }
+            val jDate = JalaliCalendar.fromMillis(date)
+            val time = JalaliCalendar.formatTimeWithSeconds(then)
+            val dateStr = "${jDate.year}/${String.format("%02d", jDate.month)}/${String.format("%02d", jDate.day)}"
+            return JalaliCalendar.toPersianDigits("$dateStr، $time")
+        }
         return getFormatter("M/d/y, h:mm:ss a").format(date)
     }
 
     fun getTimestamp(date: Long): String {
+        if (prefs.jalaliCalendar.get()) {
+            val then = Calendar.getInstance().apply { timeInMillis = date }
+            return JalaliCalendar.formatTime(then)
+        }
         return getFormatter("h:mm a").format(date)
     }
 
     fun getMessageTimestamp(date: Long): String {
         val now = Calendar.getInstance()
-        val then = Calendar.getInstance()
-        then.timeInMillis = date
+        val then = Calendar.getInstance().apply { timeInMillis = date }
+
+        if (prefs.jalaliCalendar.get()) {
+            val jDate = JalaliCalendar.fromMillis(date)
+            val time = JalaliCalendar.formatTime(then)
+            return when {
+                now.isSameDay(then) -> time
+                now.isSameWeek(then) -> "${JalaliCalendar.getWeekdayName(jDate.dayOfWeek)} $time"
+                now.isSameYear(then) -> {
+                    val dayStr = JalaliCalendar.toPersianDigits(jDate.day.toString())
+                    "$dayStr ${JalaliCalendar.getMonthName(jDate.month)}، $time"
+                }
+                else -> {
+                    val dateStr = "${jDate.year}/${String.format("%02d", jDate.month)}/${String.format("%02d", jDate.day)}"
+                    JalaliCalendar.toPersianDigits("$dateStr، $time")
+                }
+            }
+        }
 
         return when {
             now.isSameDay(then) -> getFormatter("h:mm a")
@@ -71,8 +102,24 @@ class DateFormatter @Inject constructor(val context: Context) {
 
     fun getConversationTimestamp(date: Long): String {
         val now = Calendar.getInstance()
-        val then = Calendar.getInstance()
-        then.timeInMillis = date
+        val then = Calendar.getInstance().apply { timeInMillis = date }
+
+        if (prefs.jalaliCalendar.get()) {
+            val jDate = JalaliCalendar.fromMillis(date)
+            return when {
+                now.isSameDay(then) -> JalaliCalendar.formatTime(then)
+                isYesterday(now, then) -> "دیروز"
+                now.isSameWeek(then) -> JalaliCalendar.getWeekdayName(jDate.dayOfWeek)
+                now.isSameYear(then) -> {
+                    val dayStr = JalaliCalendar.toPersianDigits(jDate.day.toString())
+                    "$dayStr ${JalaliCalendar.getMonthName(jDate.month)}"
+                }
+                else -> {
+                    val dateStr = "${jDate.year}/${String.format("%02d", jDate.month)}/${String.format("%02d", jDate.day)}"
+                    JalaliCalendar.toPersianDigits(dateStr)
+                }
+            }
+        }
 
         return when {
             now.isSameDay(then) -> getFormatter("h:mm a")
@@ -84,14 +131,35 @@ class DateFormatter @Inject constructor(val context: Context) {
 
     fun getScheduledTimestamp(date: Long): String {
         val now = Calendar.getInstance()
-        val then = Calendar.getInstance()
-        then.timeInMillis = date
+        val then = Calendar.getInstance().apply { timeInMillis = date }
+
+        if (prefs.jalaliCalendar.get()) {
+            val jDate = JalaliCalendar.fromMillis(date)
+            val time = JalaliCalendar.formatTime(then)
+            return when {
+                now.isSameDay(then) -> time
+                now.isSameYear(then) -> {
+                    val dayStr = JalaliCalendar.toPersianDigits(jDate.day.toString())
+                    "$dayStr ${JalaliCalendar.getMonthName(jDate.month)} $time"
+                }
+                else -> {
+                    val dateStr = "${jDate.year}/${String.format("%02d", jDate.month)}/${String.format("%02d", jDate.day)}"
+                    JalaliCalendar.toPersianDigits("$dateStr $time")
+                }
+            }
+        }
 
         return when {
             now.isSameDay(then) -> getFormatter("h:mm a")
             now.isSameYear(then) -> getFormatter("MMM d h:mm a")
             else -> getFormatter("MMM d yyyy h:mm a")
         }.format(date)
+    }
+
+    private fun isYesterday(now: Calendar, then: Calendar): Boolean {
+        val cloneNow = now.clone() as Calendar
+        cloneNow.add(Calendar.DAY_OF_YEAR, -1)
+        return cloneNow.isSameDay(then)
     }
 
 }

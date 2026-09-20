@@ -267,6 +267,60 @@
             app:summary="نمایش نام برند و دکمه کپی مستقیم در نوتیفیکیشن"
             app:widget="@layout/settings_switch_widget" />
 
+        <com.moez.QKSMS.common.widget.PreferenceView
+            android:id="@+id/prefJalaliCalendar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:icon="@drawable/ic_event_black_24dp"
+            app:title="نمایش تاریخ به هجری شمسی"
+            app:summary="نمایش تاریخ‌ها و ساعت‌ها با تقویم خورشیدی و ارقام فارسی"
+            app:widget="@layout/settings_switch_widget" />
+
+        <TextView
+            style="@style/PreferenceCategory"
+            android:text="فضای ابری و ارسال عکس و فیلم (جایگزین MMS)" />
+
+        <com.moez.QKSMS.common.widget.PreferenceView
+            android:id="@+id/prefMediaAsCloudLink"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:icon="@drawable/ic_file_upload_black_24dp"
+            app:title="تبدیل خودکار عکس و فیلم به لینک ابری"
+            app:summary="آپلود فایل‌ها در فضای ابری به جای MMS و ارسال لینک در پیامک"
+            app:widget="@layout/settings_switch_widget" />
+
+        <com.moez.QKSMS.common.widget.PreferenceView
+            android:id="@+id/prefFilesIrToken"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:icon="@drawable/ic_settings_black_24dp"
+            app:title="توکن اختصاصی Files.ir"
+            app:summary="کلید اتصال API جهت آپلود مستقیم در حساب کاربری فایلز (اختیاری)" />
+
+        <com.moez.QKSMS.common.widget.PreferenceView
+            android:id="@+id/prefFilesIrEndpoint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:icon="@drawable/ic_settings_black_24dp"
+            app:title="آدرس سرور Files.ir"
+            app:summary="پیش‌فرض: https://my.files.ir" />
+
+        <com.moez.QKSMS.common.widget.PreferenceView
+            android:id="@+id/prefZayaApiKey"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:icon="@drawable/ic_settings_black_24dp"
+            app:title="کلید API زایا (Zaya.io)"
+            app:summary="کوتاه‌سازی خودکار لینک‌ها قبل از ارسال پیامک" />
+
+        <com.moez.QKSMS.common.widget.PreferenceView
+            android:id="@+id/prefTestCloudConnection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:icon="@drawable/ic_sync_black_24dp"
+            app:title="تست اتصال سرور ابری و کوتاه‌کننده"
+            app:summary="بررسی وضعیت ارتباط با Files.ir و Zaya.io" />
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"

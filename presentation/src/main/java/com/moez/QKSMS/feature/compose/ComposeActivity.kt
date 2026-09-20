@@ -33,9 +33,16 @@ import android.provider.MediaStore
 import android.text.format.DateFormat
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
+import android.widget.Button
+import android.widget.ProgressBar
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
 import androidx.core.view.isVisible
+import com.moez.QKSMS.feature.cloud.CloudUploadManager
+import com.moez.QKSMS.util.Preferences
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProviders
 import com.google.android.flexbox.FlexboxLayoutManager
@@ -88,6 +95,8 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
     @Inject lateinit var messageAdapter: MessagesAdapter
     @Inject lateinit var navigator: Navigator
     @Inject lateinit var viewModelFactory: ViewModelProvider.Factory
+    @Inject lateinit var prefs: Preferences
+    @Inject lateinit var cloudUploadManager: CloudUploadManager
 
     override val activityVisibleIntent: Subject<Boolean> = PublishSubject.create()
     override val chipsSelectedIntent: Subject<HashMap<String, String?>> = PublishSubject.create()
@@ -119,6 +128,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
     private val viewModel by lazy { ViewModelProviders.of(this, viewModelFactory)[ComposeViewModel::class.java] }
 
     private var cameraDestination: Uri? = null
+    private var lastRenderedState: ComposeState? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AndroidInjection.inject(this)
@@ -159,6 +169,14 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         // These theme attributes don't apply themselves on API 21
         if (Build.VERSION.SDK_INT <= 22) {
             messageBackground.setBackgroundTint(resolveThemeColor(R.attr.bubbleColor))
+        }
+
+        sendWhatsApp.setOnClickListener {
+            val text = message.text?.toString() ?: ""
+            val recipientNumber = lastRenderedState?.selectedChips?.firstOrNull()?.address
+                ?: lastRenderedState?.messages?.first?.recipients?.firstOrNull()?.address
+                ?: ""
+            openWhatsApp(recipientNumber, text)
         }
     }
 
@@ -237,8 +255,13 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         sim.contentDescription = getString(R.string.compose_sim_cd, state.subscription?.displayName)
         simIndex.text = state.subscription?.simSlotIndex?.plus(1)?.toString()
 
+        lastRenderedState = state
+
         send.isEnabled = state.canSend
         send.imageAlpha = if (state.canSend) 255 else 128
+
+        sendWhatsApp.isEnabled = state.canSend || message.text?.isNotBlank() == true
+        sendWhatsApp.imageAlpha = if (sendWhatsApp.isEnabled) 255 else 128
     }
 
     override fun clearSelection() = messageAdapter.clearSelection()
@@ -371,14 +394,26 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
                         ?: hashMapOf())
             }
             requestCode == TakePhotoRequestCode && resultCode == Activity.RESULT_OK -> {
-                cameraDestination?.let(attachmentSelectedIntent::onNext)
+                if (prefs.mediaAsCloudLink.get()) {
+                    cameraDestination?.let { uploadCloudMedia(it) }
+                } else {
+                    cameraDestination?.let(attachmentSelectedIntent::onNext)
+                }
             }
             requestCode == AttachPhotoRequestCode && resultCode == Activity.RESULT_OK -> {
-                data?.clipData?.itemCount
+                if (prefs.mediaAsCloudLink.get()) {
+                    val uris = data?.clipData?.itemCount
                         ?.let { count -> 0 until count }
                         ?.mapNotNull { i -> data.clipData?.getItemAt(i)?.uri }
-                        ?.forEach(attachmentSelectedIntent::onNext)
-                        ?: data?.data?.let(attachmentSelectedIntent::onNext)
+                        ?: listOfNotNull(data?.data)
+                    uris.forEach { uploadCloudMedia(it) }
+                } else {
+                    data?.clipData?.itemCount
+                            ?.let { count -> 0 until count }
+                            ?.mapNotNull { i -> data.clipData?.getItemAt(i)?.uri }
+                            ?.forEach(attachmentSelectedIntent::onNext)
+                            ?: data?.data?.let(attachmentSelectedIntent::onNext)
+                }
             }
             requestCode == AttachContactRequestCode && resultCode == Activity.RESULT_OK -> {
                 data?.data?.let(contactSelectedIntent::onNext)
@@ -398,5 +433,77 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
     }
 
     override fun onBackPressed() = backPressedIntent.onNext(Unit)
+
+    private fun openWhatsApp(number: String, text: String) {
+        var cleanPhone = number.replace("[^0-9+]".toRegex(), "")
+        if (cleanPhone.startsWith("09")) {
+            cleanPhone = "98" + cleanPhone.substring(1)
+        } else if (cleanPhone.startsWith("+")) {
+            cleanPhone = cleanPhone.substring(1)
+        }
+        try {
+            val uri = Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone&text=${Uri.encode(text)}")
+            val intent = Intent(Intent.ACTION_VIEW, uri)
+            intent.setPackage("com.whatsapp")
+            startActivity(intent)
+        } catch (e: Exception) {
+            try {
+                val webUri = Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone&text=${Uri.encode(text)}")
+                startActivity(Intent(Intent.ACTION_VIEW, webUri))
+            } catch (e2: Exception) {
+                Toast.makeText(this, "امکان باز کردن واتس‌اپ وجود ندارد", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun uploadCloudMedia(uri: Uri) {
+        val dialogView = layoutInflater.inflate(R.layout.cloud_upload_dialog, null)
+        val status = dialogView.findViewById<TextView>(R.id.uploadStatus)
+        val progressBar = dialogView.findViewById<ProgressBar>(R.id.uploadProgressBar)
+        val percent = dialogView.findViewById<TextView>(R.id.uploadPercent)
+        val cancelBtn = dialogView.findViewById<Button>(R.id.uploadCancelButton)
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setCancelable(false)
+            .create()
+
+        var cancellable: CloudUploadManager.UploadCancellable? = null
+
+        cancelBtn.setOnClickListener {
+            cancellable?.cancel()
+            dialog.dismiss()
+        }
+
+        dialog.show()
+
+        cancellable = cloudUploadManager.upload(
+            context = this,
+            uri = uri,
+            onProgress = { p ->
+                progressBar.isIndeterminate = false
+                progressBar.progress = p
+                percent.visibility = View.VISIBLE
+                percent.text = "$p%"
+                status.text = "در حال بارگذاری فایل... ($p%)"
+            },
+            onSuccess = { linkText ->
+                dialog.dismiss()
+                val currentText = message.text?.toString() ?: ""
+                val newText = if (currentText.isBlank()) linkText else "$currentText\n$linkText"
+                message.setText(newText)
+                message.setSelection(newText.length)
+                Toast.makeText(this, "لینک فایل با موفقیت اضافه شد", Toast.LENGTH_SHORT).show()
+            },
+            onError = { error ->
+                dialog.dismiss()
+                AlertDialog.Builder(this)
+                    .setTitle("خطا در ارسال فایل")
+                    .setMessage(error)
+                    .setPositiveButton("بستن", null)
+                    .show()
+            }
+        )
+    }
 
 }

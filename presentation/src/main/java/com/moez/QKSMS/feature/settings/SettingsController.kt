@@ -43,6 +43,7 @@ import com.moez.QKSMS.common.util.extensions.setVisible
 import com.moez.QKSMS.common.widget.PreferenceView
 import com.moez.QKSMS.common.widget.QkSwitch
 import com.moez.QKSMS.common.widget.TextInputDialog
+import com.moez.QKSMS.feature.cloud.CloudUploadManager
 import com.moez.QKSMS.feature.settings.about.AboutController
 import com.moez.QKSMS.feature.settings.autodelete.AutoDeleteDialog
 import com.moez.QKSMS.feature.settings.swipe.SwipeActionsController
@@ -74,6 +75,7 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
     @Inject lateinit var sendDelayDialog: QkDialog
     @Inject lateinit var mmsSizeDialog: QkDialog
     @Inject lateinit var prefs: Preferences
+    @Inject lateinit var cloudUploadManager: CloudUploadManager
 
     @Inject override lateinit var presenter: SettingsPresenter
 
@@ -143,6 +145,69 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
             val newVal = !prefs.notifyDiscounts.get()
             prefs.notifyDiscounts.set(newVal)
             prefNotifyDiscounts.checkbox.isChecked = newVal
+        }
+
+        prefJalaliCalendar?.checkbox?.isChecked = prefs.jalaliCalendar.get()
+        prefJalaliCalendar?.setOnClickListener {
+            val newVal = !prefs.jalaliCalendar.get()
+            prefs.jalaliCalendar.set(newVal)
+            prefJalaliCalendar.checkbox.isChecked = newVal
+        }
+
+        prefMediaAsCloudLink?.checkbox?.isChecked = prefs.mediaAsCloudLink.get()
+        prefMediaAsCloudLink?.setOnClickListener {
+            val newVal = !prefs.mediaAsCloudLink.get()
+            prefs.mediaAsCloudLink.set(newVal)
+            prefMediaAsCloudLink.checkbox.isChecked = newVal
+        }
+
+        prefFilesIrToken?.summary = if (prefs.filesIrToken.get().isBlank()) "تنظیم نشده (استفاده از سرور عمومی)" else "تنظیم شده (••••••••)"
+        prefFilesIrToken?.setOnClickListener {
+            activity?.let { act ->
+                TextInputDialog(act, "توکن API سرور Files.ir") { text ->
+                    prefs.filesIrToken.set(text.trim())
+                    prefFilesIrToken.summary = if (text.isBlank()) "تنظیم نشده (استفاده از سرور عمومی)" else "تنظیم شده (••••••••)"
+                }.setText(prefs.filesIrToken.get()).show()
+            }
+        }
+
+        prefFilesIrEndpoint?.summary = prefs.filesIrEndpoint.get().ifBlank { "https://my.files.ir" }
+        prefFilesIrEndpoint?.setOnClickListener {
+            activity?.let { act ->
+                TextInputDialog(act, "آدرس دامنه سرور Files.ir") { text ->
+                    val url = text.trim().ifBlank { "https://my.files.ir" }
+                    prefs.filesIrEndpoint.set(url)
+                    prefFilesIrEndpoint.summary = url
+                }.setText(prefs.filesIrEndpoint.get()).show()
+            }
+        }
+
+        prefZayaApiKey?.summary = if (prefs.zayaApiKey.get().isBlank()) "تنظیم نشده" else "تنظیم شده (••••••••)"
+        prefZayaApiKey?.setOnClickListener {
+            activity?.let { act ->
+                TextInputDialog(act, "کلید API زایا (Zaya.io)") { text ->
+                    prefs.zayaApiKey.set(text.trim())
+                    prefZayaApiKey.summary = if (text.isBlank()) "تنظیم نشده" else "تنظیم شده (••••••••)"
+                }.setText(prefs.zayaApiKey.get()).show()
+            }
+        }
+
+        prefTestCloudConnection?.setOnClickListener {
+            prefTestCloudConnection.summary = "در حال بررسی ارتباط..."
+            cloudUploadManager.testConnection(
+                endpoint = prefs.filesIrEndpoint.get(),
+                filesToken = prefs.filesIrToken.get(),
+                zayaToken = prefs.zayaApiKey.get()
+            ) { success, result ->
+                prefTestCloudConnection?.summary = if (success) "ارتباط با موفقیت تایید شد" else "خطا در اتصال"
+                activity?.let { act ->
+                    AlertDialog.Builder(act)
+                        .setTitle("نتیجه تست ارتباط ابری")
+                        .setMessage(result)
+                        .setPositiveButton("باشه", null)
+                        .show()
+                }
+            }
         }
     }
 

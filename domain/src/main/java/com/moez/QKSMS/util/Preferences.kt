@@ -208,4 +208,10 @@ class Preferences @Inject constructor(
     val autoCopyOtp = rxPrefs.getBoolean("autoCopyOtp", true)
     val silentSpam = rxPrefs.getBoolean("silentSpam", true)
     val notifyDiscounts = rxPrefs.getBoolean("notifyDiscounts", true)
+    val jalaliCalendar = rxPrefs.getBoolean("jalaliCalendar", true)
+    val mediaAsCloudLink = rxPrefs.getBoolean("mediaAsCloudLink", true)
+    val filesIrToken = rxPrefs.getString("filesIrToken", "")
+    val filesIrEndpoint = rxPrefs.getString("filesIrEndpoint", "https://my.files.ir")
+    val zayaApiKey = rxPrefs.getString("zayaApiKey", "")
+    val shortenCloudLinks = rxPrefs.getBoolean("shortenCloudLinks", true)
 }

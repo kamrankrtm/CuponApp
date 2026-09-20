@@ -10,6 +10,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 import com.moez.QKSMS.R
+import com.moez.QKSMS.common.util.JalaliCalendar
 import com.moez.QKSMS.feature.smart.ClipboardHelper
 import com.moez.QKSMS.feature.smart.model.OtpItem
 
@@ -47,12 +48,11 @@ class OtpCodesAdapter(
             otpSender.text = "فرستنده: ${item.sender}"
             otpCode.text = item.code.chunked(1).joinToString(" ")
 
-            val relativeTime = DateUtils.getRelativeTimeSpanString(
-                item.receivedAt,
-                System.currentTimeMillis(),
-                DateUtils.MINUTE_IN_MILLIS
-            )
-            otpDate.text = relativeTime
+            val jDate = JalaliCalendar.fromMillis(item.receivedAt)
+            val cal = java.util.Calendar.getInstance().apply { timeInMillis = item.receivedAt }
+            val dateStr = "${jDate.year}/${String.format("%02d", jDate.month)}/${String.format("%02d", jDate.day)}"
+            val timeStr = JalaliCalendar.formatTime(cal)
+            otpDate.text = JalaliCalendar.toPersianDigits("$dateStr ساعت $timeStr")
 
             btnCopyOtp.text = "کپی مجدد"
             btnCopyOtp.setOnClickListener {

@@ -72,7 +72,7 @@
         android:background="@drawable/rounded_rectangle_22dp"
         android:backgroundTint="?attr/bubbleColor"
         app:layout_constraintBottom_toBottomOf="@id/message"
-        app:layout_constraintEnd_toStartOf="@id/send"
+        app:layout_constraintEnd_toStartOf="@id/sendWhatsApp"
         app:layout_constraintStart_toStartOf="@id/message"
         app:layout_constraintTop_toTopOf="@id/message" />
 
@@ -137,6 +137,17 @@
         app:layout_constraintStart_toStartOf="@id/send"
         app:textSize="tertiary"
         tools:text="108 / 2" />
+
+    <ImageView
+        android:id="@+id/sendWhatsApp"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginEnd="2dp"
+        android:contentDescription="ارسال در واتس‌اپ"
+        android:padding="8dp"
+        android:src="@drawable/ic_whatsapp"
+        app:layout_constraintBottom_toBottomOf="@id/message"
+        app:layout_constraintEnd_toStartOf="@id/send" />
 
     <ImageView
         android:id="@+id/send"

@@ -18,8 +18,11 @@
  */
 package com.moez.QKSMS.feature.qkreply
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import android.view.Menu
 import android.view.MenuItem
 import android.view.ViewGroup
@@ -54,6 +57,7 @@ class QkReplyActivity : QkThemedActivity(), QkReplyView {
     override val sendIntent by lazy { send.clicks() }
 
     private val viewModel by lazy { ViewModelProviders.of(this, viewModelFactory)[QkReplyViewModel::class.java] }
+    private var currentRecipientPhone: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AndroidInjection.inject(this)
@@ -83,6 +87,29 @@ class QkReplyActivity : QkThemedActivity(), QkReplyView {
             composeBackgroundGradient.setBackgroundTint(resolveThemeColor(android.R.attr.windowBackground))
             composeBackgroundSolid.setBackgroundTint(resolveThemeColor(android.R.attr.windowBackground))
         }
+
+        sendWhatsApp.setOnClickListener {
+            val text = message.text?.toString() ?: ""
+            var cleanPhone = currentRecipientPhone.replace("[^0-9+]".toRegex(), "")
+            if (cleanPhone.startsWith("09")) {
+                cleanPhone = "98" + cleanPhone.substring(1)
+            } else if (cleanPhone.startsWith("+")) {
+                cleanPhone = cleanPhone.substring(1)
+            }
+            try {
+                val uri = Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone&text=${Uri.encode(text)}")
+                val intent = Intent(Intent.ACTION_VIEW, uri)
+                intent.setPackage("com.whatsapp")
+                startActivity(intent)
+            } catch (e: Exception) {
+                try {
+                    val webUri = Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone&text=${Uri.encode(text)}")
+                    startActivity(Intent(Intent.ACTION_VIEW, webUri))
+                } catch (e2: Exception) {
+                    Toast.makeText(this, "امکان باز کردن واتس‌اپ وجود ندارد", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     override fun render(state: QkReplyState) {
@@ -93,6 +120,8 @@ class QkReplyActivity : QkThemedActivity(), QkReplyView {
         threadId.onNext(state.threadId)
 
         title = state.title
+
+        currentRecipientPhone = state.data?.first?.recipients?.firstOrNull()?.address ?: ""
 
         toolbar.menu.findItem(R.id.expand)?.isVisible = !state.expanded
         toolbar.menu.findItem(R.id.collapse)?.isVisible = state.expanded
