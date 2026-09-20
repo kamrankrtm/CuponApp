@@ -1,5 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Archive, Settings, ScanLine, Ticket, Check } from 'lucide-react';
+import {
+  ArrowRight,
+  Archive,
+  Settings,
+  ScanLine,
+  Ticket,
+  Check,
+  CheckCheck,
+  MessageSquare,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
 
 import type { PromoCode, RawSms } from './types';
 import { PromoCard } from './components/PromoCard';
@@ -8,6 +19,7 @@ import { ScanScreen } from './components/ScanScreen';
 import { SettingsModal } from './components/SettingsModal';
 import { SmsDetailSheet } from './components/SmsDetailSheet';
 import { UpdateBanner } from './components/UpdateBanner';
+import { AllSmsTab } from './components/AllSmsTab';
 
 import { DEFAULT_SETTINGS, type AiSettings } from './lib/ai';
 import { loadSettings } from './lib/settings';
@@ -31,8 +43,9 @@ import {
   requestSmsPermission,
 } from './native/smsReader';
 import { App as CapacitorApp } from '@capacitor/app';
+import { INITIAL_PROMO_CODES, INITIAL_RAW_SMS } from './data/initialPromos';
 
-type Screen = 'brands' | 'brand' | 'archive' | 'scan';
+type Screen = 'brands' | 'brand' | 'all_sms' | 'scan' | 'archive';
 
 const STORAGE_SMS = 'cuponapp.sms';
 const STORAGE_PROMOS = 'cuponapp.promos';
@@ -48,11 +61,9 @@ function loadStored<T>(key: string, fallback: T): T {
 }
 
 export default function App() {
-  const [smsList, setSmsList] = useState<RawSms[]>(() => loadStored(STORAGE_SMS, []));
+  const [smsList, setSmsList] = useState<RawSms[]>(() => loadStored(STORAGE_SMS, INITIAL_RAW_SMS));
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>(() => {
-    // کارت‌هایی که نسخه‌های قبلی فیلتر اشتباه ساخته بودند (مثل کد ورود)
-    // همین‌جا با فیلتر فعلی دوباره سنجیده و حذف می‌شوند
-    const stored = loadStored<PromoCode[]>(STORAGE_PROMOS, []);
+    const stored = loadStored<PromoCode[]>(STORAGE_PROMOS, INITIAL_PROMO_CODES);
     return purgeSensitive(stored).kept;
   });
 
@@ -64,7 +75,6 @@ export default function App() {
   const [settings, setSettings] = useState<AiSettings>(DEFAULT_SETTINGS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [inspect, setInspect] = useState<PromoCode | null>(null);
-  /** پیامکی که کاربر با نگه‌داشتن انگشت در حال دیدن آن است */
   const [peeked, setPeeked] = useState<PromoCode | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -89,7 +99,6 @@ export default function App() {
     setTimeout(() => setToast(null), 2600);
   }, []);
 
-
   // ── راه‌اندازی ─────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -105,7 +114,6 @@ export default function App() {
         if (!cancelled) setNotificationPermission(notif);
       }
 
-      // بررسی نسخه جدید؛ خطایش نباید اپ را مختل کند
       try {
         const found = await checkForUpdate(saved.githubToken || undefined);
         if (!cancelled) setUpdate(found);
@@ -120,11 +128,6 @@ export default function App() {
 
   /**
    * دکمه بازگشت اندروید.
-   *
-   * بدون این، دکمه سخت‌افزاری یا ژست بازگشت مستقیم اپ را می‌بندد، چون
-   * ناوبری اپ داخل React است و WebView تاریخچه‌ای برای برگشتن ندارد.
-   * ترتیب اینجا مهم است: اول لایه‌های رویی بسته می‌شوند، بعد صفحه، و
-   * فقط در صفحه اصلی اپ بسته می‌شود.
    */
   useEffect(() => {
     if (!isNative) return;
@@ -150,10 +153,6 @@ export default function App() {
 
   /**
    * برداشتن کدهایی که گیرنده پیامک در پس‌زمینه پیدا کرده است.
-   *
-   * صف سمت نیتیو با خواندن خالی می‌شود، پس نتیجه بی‌درنگ در همین جا ادغام
-   * و ذخیره می‌گردد. هم هنگام باز شدن اپ اجرا می‌شود و هم هر بار که اپ از
-   * پس‌زمینه برمی‌گردد، چون ممکن است در این فاصله پیامکی رسیده باشد.
    */
   const drainBackground = useCallback(async () => {
     const pending = await consumePendingPromos();
@@ -187,17 +186,22 @@ export default function App() {
     localStorage.setItem(STORAGE_PROMOS, JSON.stringify(promoCodes));
   }, [promoCodes]);
 
-  // ── تفکیک کدهای فعال و بایگانی ────────────────────────────────────────
-  // انقضا هر بار اینجا از نو سنجیده می‌شود، نه از روی بولین ذخیره‌شده،
-  // تا کدها با گذشت زمان خودبه‌خود از لیست فعال بیرون بروند.
+  // ── تفکیک کدهای فعال و بایگانی (خودکارسازی حذف و آرشیو کدهای منقضی) ──────
   const { active, archived } = useMemo(() => {
     const now = new Date();
     const active: PromoCode[] = [];
     const archived: PromoCode[] = [];
     for (const promo of promoCodes) {
       const expired = isExpiredNow(promo.expiresAt, now);
-      if (promo.status === 'active' && !expired) active.push(promo);
-      else archived.push(promo);
+      if (promo.status === 'active' && !expired) {
+        active.push(promo);
+      } else {
+        // کدهای منقضی‌شده خودکار به بایگانی می‌روند
+        archived.push({
+          ...promo,
+          isExpired: expired || promo.isExpired,
+        });
+      }
     }
     return { active, archived };
   }, [promoCodes]);
@@ -206,6 +210,21 @@ export default function App() {
     if (!activeBrand) return [];
     return groupByBrand(active).find((g) => g.brand === activeBrand)?.codes ?? [];
   }, [active, activeBrand]);
+
+  // ── علامت‌گذاری همه به عنوان خوانده‌شده (Mark All Read) ────────────────────
+  const unreadCount = useMemo(() => {
+    return smsList.filter((s) => !s.processed).length;
+  }, [smsList]);
+
+  const handleMarkAllRead = useCallback(() => {
+    setSmsList((prev) => prev.map((sms) => ({ ...sms, processed: true })));
+    showToast('تمامی پیامک‌ها به عنوان خوانده‌شده علامت‌گذاری شدند.');
+  }, [showToast]);
+
+  const handlePurgeArchived = useCallback(() => {
+    setPromoCodes((prev) => prev.filter((p) => p.status === 'active' && !isExpiredNow(p.expiresAt)));
+    showToast('کدهای منقضی و بایگانی‌شده حذف شدند.');
+  }, [showToast]);
 
   // ── اقدام‌ها ──────────────────────────────────────────────────────────
   const setStatus = (id: string, status: PromoCode['status'], message: string) => {
@@ -233,7 +252,7 @@ export default function App() {
 
   const handleScan = async () => {
     if (!isNative) {
-      showToast('اسکن پیامک فقط در اپ اندروید کار می‌کند.');
+      showToast('اسکن مستقیم پیامک‌ها در محیط نمونه‌خوان با داده‌های پیش‌فرض انجام می‌شود.');
       return;
     }
     setIsScanning(true);
@@ -251,7 +270,7 @@ export default function App() {
         setScreen('brands');
         setQuery('');
         setCategory('all');
-        showToast(`${result.promoCodes.length} کد تخفیف پیدا شد.`);
+        showToast(`${result.promoCodes.length} کد تخفیف جدید پیدا شد.`);
       } else if (result.errors.length === 0) {
         showToast('اسکن کامل شد؛ کد جدیدی نبود.');
       }
@@ -265,15 +284,17 @@ export default function App() {
   };
 
   // ── عنوان و ناوبری ────────────────────────────────────────────────────
-  const canGoBack = screen === 'brand' || screen === 'archive' || screen === 'scan';
+  const canGoBack = screen === 'brand' || screen === 'archive' || screen === 'scan' || screen === 'all_sms';
   const title =
     screen === 'brand'
       ? activeBrand ?? ''
       : screen === 'archive'
-      ? 'بایگانی'
+      ? 'بایگانی و منقضی‌ها'
       : screen === 'scan'
-      ? 'اسکن پیامک‌ها'
-      : 'تخفیف‌یاب';
+      ? 'اسکن و هوش مصنوعی'
+      : screen === 'all_sms'
+      ? 'پیامک‌های ورودی'
+      : 'تخفیف‌های فعال';
 
   const goBack = () => {
     setScreen('brands');
@@ -281,8 +302,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#080b12] text-slate-100 flex flex-col">
-      {/* نوار بالا — باریک و بدون آمار اضافه */}
+    <div className="min-h-screen bg-[#080b12] text-slate-100 flex flex-col font-sans pb-16">
+      {/* نوار بالا */}
       <header className="sticky top-0 z-30 bg-[#080b12]/95 backdrop-blur border-b border-white/6">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-2">
           {canGoBack ? (
@@ -301,24 +322,16 @@ export default function App() {
 
           <h1 className="text-[15px] font-bold text-white truncate flex-1">{title}</h1>
 
-          {screen === 'brands' && (
-            <>
-              {active.length > 0 && (
-                <span className="text-[11px] font-mono text-slate-500 px-2">
-                  {active.length} کد
-                </span>
-              )}
-              <IconButton
-                label="بایگانی"
-                onClick={() => setScreen('archive')}
-                badge={archived.length || undefined}
-              >
-                <Archive className="w-[18px] h-[18px]" />
-              </IconButton>
-              <IconButton label="اسکن" onClick={() => setScreen('scan')}>
-                <ScanLine className="w-[18px] h-[18px]" />
-              </IconButton>
-            </>
+          {/* دکمه علامت همه به عنوان خوانده‌شده */}
+          {unreadCount > 0 && (
+            <button
+              onClick={handleMarkAllRead}
+              className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/25 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+              title="علامت‌گذاری همه به عنوان خوانده‌شده"
+            >
+              <CheckCheck className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">خوانده‌شدن همه</span>
+            </button>
           )}
 
           <IconButton label="تنظیمات" onClick={() => setIsSettingsOpen(true)}>
@@ -327,8 +340,79 @@ export default function App() {
         </div>
       </header>
 
+      {/* تب‌های اصلی برنامه‌ریزی‌شده */}
+      <nav className="bg-[#0b101c] border-b border-white/6 sticky top-14 z-20">
+        <div className="max-w-2xl mx-auto px-4 flex items-center justify-around h-11 text-[12px] font-medium">
+          <button
+            onClick={() => {
+              setScreen('brands');
+              setActiveBrand(null);
+            }}
+            className={`flex-1 h-full flex items-center justify-center gap-1.5 border-b-2 transition cursor-pointer ${
+              screen === 'brands' || screen === 'brand'
+                ? 'border-amber-500 text-amber-400 font-bold'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Ticket className="w-4 h-4" />
+            <span>کدهای تخفیف</span>
+            {active.length > 0 && (
+              <span className="bg-amber-500/20 text-amber-300 text-[10px] font-mono px-1.5 py-0.2 rounded-full">
+                {active.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setScreen('all_sms')}
+            className={`flex-1 h-full flex items-center justify-center gap-1.5 border-b-2 transition cursor-pointer ${
+              screen === 'all_sms'
+                ? 'border-amber-500 text-amber-400 font-bold'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>پیامک‌ها</span>
+            {unreadCount > 0 && (
+              <span className="bg-rose-500/20 text-rose-300 text-[10px] font-mono px-1.5 py-0.2 rounded-full">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setScreen('scan')}
+            className={`flex-1 h-full flex items-center justify-center gap-1.5 border-b-2 transition cursor-pointer ${
+              screen === 'scan'
+                ? 'border-amber-500 text-amber-400 font-bold'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>هوش مصنوعی</span>
+          </button>
+
+          <button
+            onClick={() => setScreen('archive')}
+            className={`flex-1 h-full flex items-center justify-center gap-1.5 border-b-2 transition cursor-pointer ${
+              screen === 'archive'
+                ? 'border-amber-500 text-amber-400 font-bold'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Archive className="w-4 h-4" />
+            <span>بایگانی</span>
+            {archived.length > 0 && (
+              <span className="bg-slate-700 text-slate-300 text-[10px] font-mono px-1.5 py-0.2 rounded-full">
+                {archived.length}
+              </span>
+            )}
+          </button>
+        </div>
+      </nav>
+
+      {/* محتوای اصلی */}
       <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-4 space-y-4">
-        {/* اعلان نسخه جدید */}
         {!updateDismissed && screen === 'brands' && (
           <UpdateBanner update={update} onDismiss={() => setUpdateDismissed(true)} />
         )}
@@ -362,8 +446,28 @@ export default function App() {
           </div>
         )}
 
+        {screen === 'all_sms' && (
+          <AllSmsTab
+            smsList={smsList}
+            onMarkAllRead={handleMarkAllRead}
+            unreadCount={unreadCount}
+          />
+        )}
+
         {screen === 'archive' && (
           <div className="space-y-3">
+            {archived.length > 0 && (
+              <div className="flex justify-end pb-1">
+                <button
+                  onClick={handlePurgeArchived}
+                  className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 rounded-xl text-[11px] font-medium transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>پاک کردن کامل منقضی‌ها</span>
+                </button>
+              </div>
+            )}
+
             {archived.length === 0 ? (
               <p className="text-center text-[13px] text-slate-500 py-16">بایگانی خالی است.</p>
             ) : (
@@ -402,7 +506,7 @@ export default function App() {
         نسخه {APP_VERSION}
       </footer>
 
-      {/* نگاه سریع با نگه‌داشتن انگشت؛ اولویت با آن است */}
+      {/* نگاه سریع با نگه‌داشتن انگشت */}
       <SmsDetailSheet promo={peeked} peek onClose={() => setPeeked(null)} />
       {!peeked && <SmsDetailSheet promo={inspect} onClose={() => setInspect(null)} />}
 

@@ -6,11 +6,5 @@ coverage/
 *.log
 .env*
 !.env.example
-
-# کلیدهای امضا؛ فقط کلید انتشار پروژه استثناست
-*.keystore
-*.jks
-!android/app/cuponapp-release.keystore
-
-# رمز کلید، اگر جدا از مخزن نگه داشته شود
-keystore.properties
+node-compile-cache/
+.*.hm
