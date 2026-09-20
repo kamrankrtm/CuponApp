@@ -1,4 +1,7 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
+import java.util.Locale
+Locale.setDefault(Locale.US)
+try { Locale.setDefault(Locale.Category.FORMAT, Locale.US) } catch (Throwable ignored) {}
 
 buildscript {
     ext.androidx_appcompat_version = '1.1.0'
@@ -79,6 +82,8 @@ subprojects {
                 javacOptions {
                     option("-source", "8")
                     option("-target", "8")
+                    option("-J-Duser.language=en")
+                    option("-J-Duser.country=US")
                 }
             }
         }

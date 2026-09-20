@@ -95,6 +95,23 @@ tasks.whenTaskAdded { task ->
     }
 }
 
+afterEvaluate {
+    android.applicationVariants.all { variant ->
+        def variantName = variant.name.capitalize()
+        def mergeTask = tasks.findByName("merge${variantName}NativeLibs")
+        def packageTask = tasks.findByName("package${variantName}")
+
+        if (mergeTask != null && packageTask != null) {
+            def copyTask = tasks.create("copy${variantName}NativeLibs", Copy) {
+                from "${buildDir}/intermediates/merged_native_libs/${variant.name}/out"
+                into "${buildDir}/intermediates/stripped_native_libs/${variant.name}/out"
+                dependsOn mergeTask
+            }
+            packageTask.dependsOn copyTask
+        }
+    }
+}
+
 androidExtensions {
     experimental = true
 }
