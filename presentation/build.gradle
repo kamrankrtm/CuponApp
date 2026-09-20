@@ -89,7 +89,11 @@ android {
     }
 }
 
-
+tasks.whenTaskAdded { task ->
+    if (task.name.startsWith("strip")) {
+        task.enabled = false
+    }
+}
 
 androidExtensions {
     experimental = true

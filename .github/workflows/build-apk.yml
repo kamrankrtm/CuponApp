@@ -40,33 +40,35 @@ jobs:
       - name: Locate and Rename APK
         run: |
           mkdir -p build-output
-          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/smsPRO-1.0.13.apk \;
-          cp build-output/smsPRO-1.0.13.apk build-output/smsPRO-debug.apk
-          cp build-output/smsPRO-1.0.13.apk build-output/CuponApp-debug.apk
+          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/smsPRO-1.0.14.apk \;
+          cp build-output/smsPRO-1.0.14.apk build-output/smsPRO-debug.apk
+          cp build-output/smsPRO-1.0.14.apk build-output/CuponApp-debug.apk
           ls -la build-output/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: smsPRO-debug-apk
-          path: build-output/smsPRO-1.0.13.apk
+          path: build-output/smsPRO-1.0.14.apk
           retention-days: 30
 
       - name: Create GitHub Release (on every main push)
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.13-${{ github.run_number }}
-          name: smsPRO v1.0.13 (build ${{ github.run_number }})
+          tag_name: v1.0.14-${{ github.run_number }}
+          name: smsPRO v1.0.14 (build ${{ github.run_number }})
           body: |
-            ## smsPRO v1.0.13 - Samsung S25 / Launch Crash Fix
-            - Fixed MaterialComponents theme crash on launch (TabLayout + missing theme attrs)
-            - Upgraded Material library to 1.3.0 for Bridge theme support
-            - Hardcoded TabLayout colors to avoid attr resolution crashes
-            - Hardened ReceiveSms and notification Call action against null/empty data
+            ## smsPRO v1.0.14 - Samsung S25 / Android 15 & Instant Inbox Update
+            - Added `android:extractNativeLibs="true"` to resolve Realm UnsatisfiedLinkError on Android 15 / Samsung S25
+            - Crash process isolation via `isCrashProcess()` guard in QKApplication to prevent secondary crash loops
+            - Instant Inbox view: default tab (index 0) set to "همه" (All Messages) with immediate data rendering
+            - Tab order: All ("همه"), Personal ("شخصی"), Banking ("بانکی"), OTP ("رمز ورود"), Promo Codes ("کدهای تخفیف"), Spam ("تبلیغات")
+            - Safe NDK symbol handling to guarantee all native Realm libraries are packed
           files: |
-            build-output/smsPRO-1.0.13.apk
+            build-output/smsPRO-1.0.14.apk
             build-output/smsPRO-debug.apk
             build-output/CuponApp-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
