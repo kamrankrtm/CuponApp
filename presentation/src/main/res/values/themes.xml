@@ -29,6 +29,10 @@
         <item name="android:navigationBarColor">@color/backgroundDark</item>
         <item name="android:statusBarColor">@color/backgroundDark</item>
         <item name="android:windowBackground">@color/backgroundDark</item>
+        <item name="colorPrimary">@color/backgroundDark</item>
+        <item name="colorPrimaryDark">@color/backgroundDark</item>
+        <item name="colorSecondary">@color/blue_500</item>
+        <item name="colorAccent">@color/blue_500</item>
     </style>
 
     <style name="AppTheme" parent="AppBaseTheme" />
