@@ -40,24 +40,31 @@ jobs:
       - name: Locate and Rename APK
         run: |
           mkdir -p build-output
-          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/smsPRO-1.0.11.apk \;
-          cp build-output/smsPRO-1.0.11.apk build-output/smsPRO-debug.apk
-          cp build-output/smsPRO-1.0.11.apk build-output/CuponApp-debug.apk
+          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/smsPRO-1.0.12.apk \;
+          cp build-output/smsPRO-1.0.12.apk build-output/smsPRO-debug.apk
+          cp build-output/smsPRO-1.0.12.apk build-output/CuponApp-debug.apk
           ls -la build-output/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: smsPRO-debug-apk
-          path: build-output/smsPRO-1.0.11.apk
-          retention-days: 14
+          path: build-output/smsPRO-1.0.12.apk
+          retention-days: 30
 
-      - name: Create Release (if tag pushed)
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Create GitHub Release (on every main push)
         uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
         with:
+          tag_name: v1.0.12-${{ github.run_number }}
+          name: smsPRO v1.0.12 (build ${{ github.run_number }})
+          body: |
+            ## smsPRO v1.0.12 - Crash Fix Release
+            - Fixed launch crash: added colorSecondary/colorAccent to all MaterialComponents themes
+            - Fixed TabLayout style parent (MaterialComponents.Tab)
+            - Fixed AppLaunchTheme for MaterialComponents compatibility
           files: |
-            build-output/smsPRO-1.0.11.apk
+            build-output/smsPRO-1.0.12.apk
             build-output/smsPRO-debug.apk
             build-output/CuponApp-debug.apk
         env:
