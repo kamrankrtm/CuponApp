@@ -93,6 +93,16 @@ object SmartSmsClassifier {
 
     fun isPersonalNumber(sender: String): Boolean {
         val normalized = normalizeDigits(sender).replace("\\s+".toRegex(), "").replace("-", "")
+        val plain = when {
+            normalized.startsWith("+98") -> normalized.substring(3)
+            normalized.startsWith("98") -> normalized.substring(2)
+            normalized.startsWith("0") -> normalized.substring(1)
+            else -> normalized
+        }
+        // 0998 (Shatel Mobile) and 0999 (MVNOs) are heavily used for bulk commercial ads/spam
+        if (plain.startsWith("998") || plain.startsWith("999")) {
+            return false
+        }
         return PERSONAL_NUMBER_REGEX.matcher(normalized).matches()
     }
 

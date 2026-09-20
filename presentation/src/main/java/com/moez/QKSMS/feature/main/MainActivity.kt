@@ -99,6 +99,15 @@ class MainActivity : QkThemedActivity(), MainView {
     }
     private var currentTabPosition = 0
     private var currentConversationsList: List<Conversation> = emptyList()
+    private var cachedPersonalIds = HashSet<Long>()
+    private var cachedBankingIds = HashSet<Long>()
+    private var cachedSpamIds = HashSet<Long>()
+    private var isClassificationReady = false
+    private var isClassifying = false
+    private var pendingReclassify = false
+    private var lastScannedConversationCount = -1
+    private var lastScannedConversationId: Long = -1
+    private var lastSyncProgress: SyncRepository.SyncProgress = SyncRepository.SyncProgress.Idle
     private var currentState: MainState? = null
 
     override val onNewIntentIntent: Subject<Intent> = PublishSubject.create()
@@ -292,9 +301,18 @@ class MainActivity : QkThemedActivity(), MainView {
                     itemTouchHelper.attachToRecyclerView(recyclerView)
                     empty.setText(R.string.inbox_empty_text)
                 } else {
-                    currentConversationsList = state.page.data?.toList() ?: emptyList()
-                    conversationsAdapter.updateData(state.page.data)
-                    SmartDataManager.scanConversations(currentConversationsList)
+                    val rawData = state.page.data
+                    val count = rawData?.size ?: 0
+                    val firstId = rawData?.firstOrNull()?.id ?: -1L
+                    val dataChanged = count != lastScannedConversationCount || firstId != lastScannedConversationId
+
+                    if (dataChanged) {
+                        lastScannedConversationCount = count
+                        lastScannedConversationId = firstId
+                        currentConversationsList = rawData?.toList() ?: emptyList()
+                        conversationsAdapter.updateData(rawData)
+                        preClassifyConversations()
+                    }
                     applyTabFilter()
                 }
             }
@@ -328,6 +346,13 @@ class MainActivity : QkThemedActivity(), MainView {
         } else if (!drawerLayout.isDrawerVisible(GravityCompat.START) && state.drawerOpen) {
             drawerLayout.openDrawer(GravityCompat.START)
         }
+
+        val wasSyncing = lastSyncProgress is SyncRepository.SyncProgress.Running
+        val isNowIdle = state.syncing is SyncRepository.SyncProgress.Idle
+        if (wasSyncing && isNowIdle) {
+            preClassifyConversations()
+        }
+        lastSyncProgress = state.syncing
 
         when (state.syncing) {
             is SyncRepository.SyncProgress.Idle -> {
@@ -455,12 +480,16 @@ class MainActivity : QkThemedActivity(), MainView {
     private fun setupSmartTabs() {
         val tabs = smartTabLayout ?: return
         tabs.removeAllTabs()
-        tabs.addTab(tabs.newTab().setText("همه"))
-        tabs.addTab(tabs.newTab().setText("شخصی"))
-        tabs.addTab(tabs.newTab().setText("بانکی"))
-        tabs.addTab(tabs.newTab().setText("رمز ورود (OTP)"))
-        tabs.addTab(tabs.newTab().setText("کدهای تخفیف"))
-        tabs.addTab(tabs.newTab().setText("تبلیغات"))
+        tabs.addTab(tabs.newTab().setText("All"))
+        tabs.addTab(tabs.newTab().setText("Personal"))
+        tabs.addTab(tabs.newTab().setText("Banking"))
+        tabs.addTab(tabs.newTab().setText("OTP"))
+        tabs.addTab(tabs.newTab().setText("Discounts"))
+        tabs.addTab(tabs.newTab().setText("Spam"))
+
+        val defaultTab = prefs.defaultTab.get().coerceIn(0, 5)
+        currentTabPosition = defaultTab
+        tabs.getTabAt(defaultTab)?.select()
 
         tabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
@@ -478,6 +507,84 @@ class MainActivity : QkThemedActivity(), MainView {
         })
     }
 
+    private fun preClassifyConversations() {
+        if (isClassifying) {
+            pendingReclassify = true
+            return
+        }
+        isClassifying = true
+        pendingReclassify = false
+
+        io.reactivex.schedulers.Schedulers.io().scheduleDirect {
+            val realm = io.realm.Realm.getDefaultInstance()
+            try {
+                val conversations = realm.where(Conversation::class.java)
+                    .notEqualTo("id", 0L)
+                    .equalTo("archived", false)
+                    .equalTo("blocked", false)
+                    .isNotEmpty("recipients")
+                    .beginGroup()
+                    .isNotNull("lastMessage")
+                    .or()
+                    .isNotEmpty("draft")
+                    .endGroup()
+                    .sort(
+                        arrayOf("pinned", "draft", "lastMessage.date"),
+                        arrayOf(io.realm.Sort.DESCENDING, io.realm.Sort.DESCENDING, io.realm.Sort.DESCENDING)
+                    )
+                    .findAll()
+
+                val personal = HashSet<Long>(conversations.size)
+                val banking = HashSet<Long>()
+                val spam = HashSet<Long>()
+                val newPromos = mutableListOf<com.moez.QKSMS.feature.smart.model.PromoItem>()
+                val newOtps = mutableListOf<com.moez.QKSMS.feature.smart.model.OtpItem>()
+
+                for (conv in conversations) {
+                    if (!conv.isValid) continue
+                    val id = conv.id
+                    val hasSavedContact = conv.recipients.any { it.contact != null }
+                    val sender = conv.recipients.firstOrNull()?.address ?: ""
+                    val body = conv.lastMessage?.body ?: ""
+
+                    if (hasSavedContact) {
+                        personal.add(id)
+                    } else {
+                        when (val cat = SmartSmsClassifier.classify(sender, body)) {
+                            is SmsCategory.Personal -> personal.add(id)
+                            is SmsCategory.Banking -> banking.add(id)
+                            is SmsCategory.Spam -> spam.add(id)
+                            is SmsCategory.Promo -> newPromos.add(cat.promo)
+                            is SmsCategory.Otp -> newOtps.add(cat.otp)
+                        }
+                    }
+                }
+
+                SmartDataManager.setPromosAndOtps(newPromos, newOtps)
+
+                runOnUiThread {
+                    cachedPersonalIds = personal
+                    cachedBankingIds = banking
+                    cachedSpamIds = spam
+                    isClassificationReady = true
+                    isClassifying = false
+                    applyTabFilter()
+
+                    if (pendingReclassify) {
+                        preClassifyConversations()
+                    }
+                }
+            } catch (t: Throwable) {
+                android.util.Log.e("MainActivity", "Error in background classification", t)
+                runOnUiThread {
+                    isClassifying = false
+                }
+            } finally {
+                realm.close()
+            }
+        }
+    }
+
     private fun applyTabFilter() {
         try {
             val state = currentState ?: return
@@ -493,72 +600,58 @@ class MainActivity : QkThemedActivity(), MainView {
                     empty.setVisible(currentConversationsList.isEmpty())
                 }
                 1 -> {
-                    // Personal: 09... numbers or personal contacts
-                    val personal = currentConversationsList.filter { conv ->
-                        if (!conv.isValid) return@filter false
-                        val sender = conv.recipients.firstOrNull()?.address ?: ""
-                        val body = conv.lastMessage?.body ?: ""
-                        val cat = SmartSmsClassifier.classify(sender, body)
-                        cat is SmsCategory.Personal
+                    // Personal: Saved contacts or 09... personal numbers
+                    val list = if (isClassificationReady) {
+                        currentConversationsList.filter { cachedPersonalIds.contains(it.id) }
+                    } else {
+                        currentConversationsList
                     }
-                    filteredConversationsAdapter.data = personal
-                    recyclerView.adapter = filteredConversationsAdapter
+                    filteredConversationsAdapter.data = list
+                    if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
                     itemTouchHelper.attachToRecyclerView(null)
                     compose.setVisible(true)
-                    empty.text = "پیامک شخصی جدیدی وجود ندارد"
-                    empty.setVisible(personal.isEmpty())
+                    empty.text = "No personal messages"
+                    empty.setVisible(list.isEmpty() && isClassificationReady)
                 }
                 2 -> {
                     // Banking messages
-                    val banking = currentConversationsList.filter { conv ->
-                        if (!conv.isValid) return@filter false
-                        val sender = conv.recipients.firstOrNull()?.address ?: ""
-                        val body = conv.lastMessage?.body ?: ""
-                        val cat = SmartSmsClassifier.classify(sender, body)
-                        cat is SmsCategory.Banking
-                    }
-                    filteredConversationsAdapter.data = banking
-                    recyclerView.adapter = filteredConversationsAdapter
+                    val list = currentConversationsList.filter { cachedBankingIds.contains(it.id) }
+                    filteredConversationsAdapter.data = list
+                    if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
                     itemTouchHelper.attachToRecyclerView(null)
                     compose.setVisible(false)
-                    empty.text = "هیچ پیامک بانکی یافت نشد"
-                    empty.setVisible(banking.isEmpty())
+                    empty.text = "No banking messages"
+                    empty.setVisible(list.isEmpty() && isClassificationReady)
                 }
                 3 -> {
                     // OTP / Verification codes
                     val otps = SmartDataManager.getOtps()
                     otpCodesAdapter.updateData(otps)
-                    recyclerView.adapter = otpCodesAdapter
+                    if (recyclerView.adapter !== otpCodesAdapter) recyclerView.adapter = otpCodesAdapter
                     itemTouchHelper.attachToRecyclerView(null)
                     compose.setVisible(false)
-                    empty.text = "کد تایید یا رمز ورود دریافت نشده است"
+                    empty.text = "No OTP or verification codes"
                     empty.setVisible(otps.isEmpty())
                 }
                 4 -> {
                     // Discount Promo codes
                     val promos = SmartDataManager.getPromos()
                     promoCodesAdapter.updateData(promos)
-                    recyclerView.adapter = promoCodesAdapter
+                    if (recyclerView.adapter !== promoCodesAdapter) recyclerView.adapter = promoCodesAdapter
                     itemTouchHelper.attachToRecyclerView(null)
                     compose.setVisible(false)
-                    empty.text = "هیچ کد تخفیف فعالی یافت نشد"
+                    empty.text = "No active discount codes found"
                     empty.setVisible(promos.isEmpty())
                 }
                 5 -> {
-                    // Spam & promotional ads without promo codes
-                    val spam = currentConversationsList.filter { conv ->
-                        if (!conv.isValid) return@filter false
-                        val sender = conv.recipients.firstOrNull()?.address ?: ""
-                        val body = conv.lastMessage?.body ?: ""
-                        val cat = SmartSmsClassifier.classify(sender, body)
-                        cat is SmsCategory.Spam
-                    }
-                    filteredConversationsAdapter.data = spam
-                    recyclerView.adapter = filteredConversationsAdapter
+                    // Spam & promotional ads
+                    val list = currentConversationsList.filter { cachedSpamIds.contains(it.id) }
+                    filteredConversationsAdapter.data = list
+                    if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
                     itemTouchHelper.attachToRecyclerView(null)
                     compose.setVisible(false)
-                    empty.text = "صندوق تبلیغات و اسپم خالی است"
-                    empty.setVisible(spam.isEmpty())
+                    empty.text = "Spam inbox is empty"
+                    empty.setVisible(list.isEmpty() && isClassificationReady)
                 }
             }
         } catch (t: Throwable) {

@@ -91,7 +91,7 @@ class MainViewModel @Inject constructor(
 
         // Show the syncing UI
         disposables += syncRepository.syncProgress
-                .sample(16, TimeUnit.MILLISECONDS)
+                .sample(250, TimeUnit.MILLISECONDS)
                 .distinctUntilChanged()
                 .subscribe { syncing -> newState { copy(syncing = syncing) } }
 

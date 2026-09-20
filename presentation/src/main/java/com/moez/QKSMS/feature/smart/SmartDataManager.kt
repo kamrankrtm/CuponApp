@@ -1,42 +1,52 @@
 package com.moez.QKSMS.feature.smart
 
-import android.content.Context
 import com.moez.QKSMS.feature.smart.model.OtpItem
 import com.moez.QKSMS.feature.smart.model.PromoItem
+import com.moez.QKSMS.feature.smart.model.SmsCategory
 import com.moez.QKSMS.model.Conversation
+import java.util.Collections
 import java.util.concurrent.CopyOnWriteArrayList
 
 object SmartDataManager {
 
     private val promoList = CopyOnWriteArrayList<PromoItem>()
     private val otpList = CopyOnWriteArrayList<OtpItem>()
+    private val promoCodesSet = Collections.synchronizedSet(HashSet<String>())
+    private val otpCodesSet = Collections.synchronizedSet(HashSet<String>())
 
     fun getPromos(): List<PromoItem> = promoList.filter { !it.isUsed }
     fun getOtps(): List<OtpItem> = otpList
 
     fun addPromo(promo: PromoItem) {
-        if (promoList.none { it.code.equals(promo.code, ignoreCase = true) }) {
+        val key = promo.code.trim().toUpperCase()
+        if (promoCodesSet.add(key)) {
             promoList.add(0, promo)
         }
     }
 
     fun addOtp(otp: OtpItem) {
-        if (otpList.none { it.code == otp.code && it.sender == otp.sender }) {
+        val key = "${otp.sender}_${otp.code}"
+        if (otpCodesSet.add(key)) {
             otpList.add(0, otp)
         }
     }
 
-    fun scanConversations(conversations: List<Conversation>) {
-        for (conv in conversations) {
-            if (!conv.isValid) continue
-            val lastMsg = conv.lastMessage ?: continue
-            val sender = conv.recipients.firstOrNull()?.address ?: ""
-            val body = lastMsg.body
+    fun setPromosAndOtps(promos: List<PromoItem>, otps: List<OtpItem>) {
+        promoList.clear()
+        promoCodesSet.clear()
+        for (p in promos) {
+            val key = p.code.trim().toUpperCase()
+            if (promoCodesSet.add(key)) {
+                promoList.add(p)
+            }
+        }
 
-            when (val result = SmartSmsClassifier.classify(sender, body)) {
-                is com.moez.QKSMS.feature.smart.model.SmsCategory.Promo -> addPromo(result.promo)
-                is com.moez.QKSMS.feature.smart.model.SmsCategory.Otp -> addOtp(result.otp)
-                else -> Unit
+        otpList.clear()
+        otpCodesSet.clear()
+        for (o in otps) {
+            val key = "${o.sender}_${o.code}"
+            if (otpCodesSet.add(key)) {
+                otpList.add(o)
             }
         }
     }

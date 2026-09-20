@@ -238,15 +238,23 @@
 
         <com.moez.QKSMS.common.widget.QkTextView
             style="@style/PreferenceCategory"
-            android:text="هوشمندسازی پیامک‌ها (CuponApp)" />
+            android:text="Smart Messaging Features" />
+
+        <com.moez.QKSMS.common.widget.PreferenceView
+            android:id="@+id/prefDefaultTab"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:icon="@drawable/ic_inbox_black_24dp"
+            app:title="Default Startup Tab"
+            app:summary="Personal" />
 
         <com.moez.QKSMS.common.widget.PreferenceView
             android:id="@+id/prefAutoCopyOtp"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:icon="@drawable/ic_content_copy_black_24dp"
-            app:title="کپی خودکار کدهای تایید (OTP)"
-            app:summary="کپی شدن خودکار رمز یکبار مصرف در کلیپ‌بورد گوشی"
+            app:title="Auto-copy OTP verification codes"
+            app:summary="Automatically copy one-time passcodes to clipboard"
             app:widget="@layout/settings_switch_widget" />
 
         <com.moez.QKSMS.common.widget.PreferenceView
@@ -254,8 +262,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:icon="@drawable/ic_block_white_24dp"
-            app:title="بی‌صدا کردن پیام‌های تبلیغاتی (اسپم)"
-            app:summary="جلوگیری از ایجاد زنگ و مزاحمت پیام‌های تبلیغاتی بدون تخفیف"
+            app:title="Mute spam and promotional ads"
+            app:summary="Silence notifications for ad messages without discount codes"
             app:widget="@layout/settings_switch_widget" />
 
         <com.moez.QKSMS.common.widget.PreferenceView
@@ -263,8 +271,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:icon="@drawable/ic_local_offer_black_24dp"
-            app:title="اعلان ویژه برای کدهای تخفیف"
-            app:summary="نمایش نام برند و دکمه کپی مستقیم در نوتیفیکیشن"
+            app:title="Discount promo notifications"
+            app:summary="Show brand name and direct 1-click copy action in notification"
             app:widget="@layout/settings_switch_widget" />
 
         <com.moez.QKSMS.common.widget.PreferenceView
@@ -272,21 +280,21 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:icon="@drawable/ic_event_black_24dp"
-            app:title="نمایش تاریخ به هجری شمسی"
-            app:summary="نمایش تاریخ‌ها و ساعت‌ها با تقویم خورشیدی و ارقام فارسی"
+            app:title="Solar Jalali calendar"
+            app:summary="Display dates using Persian Jalali calendar"
             app:widget="@layout/settings_switch_widget" />
 
         <TextView
             style="@style/PreferenceCategory"
-            android:text="فضای ابری و ارسال عکس و فیلم (جایگزین MMS)" />
+            android:text="Cloud Media Sharing (MMS Alternative)" />
 
         <com.moez.QKSMS.common.widget.PreferenceView
             android:id="@+id/prefMediaAsCloudLink"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:icon="@drawable/ic_file_upload_black_24dp"
-            app:title="تبدیل خودکار عکس و فیلم به لینک ابری"
-            app:summary="آپلود فایل‌ها در فضای ابری به جای MMS و ارسال لینک در پیامک"
+            app:title="Upload media to cloud link"
+            app:summary="Upload photos and videos to cloud instead of MMS"
             app:widget="@layout/settings_switch_widget" />
 
         <com.moez.QKSMS.common.widget.PreferenceView
@@ -294,32 +302,32 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:icon="@drawable/ic_settings_black_24dp"
-            app:title="توکن اختصاصی Files.ir"
-            app:summary="کلید اتصال API جهت آپلود مستقیم در حساب کاربری فایلز (اختیاری)" />
+            app:title="Files.ir API Token"
+            app:summary="Optional user API key for direct account uploads" />
 
         <com.moez.QKSMS.common.widget.PreferenceView
             android:id="@+id/prefFilesIrEndpoint"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:icon="@drawable/ic_settings_black_24dp"
-            app:title="آدرس سرور Files.ir"
-            app:summary="پیش‌فرض: https://my.files.ir" />
+            app:title="Files.ir Server Endpoint"
+            app:summary="Default: https://my.files.ir" />
 
         <com.moez.QKSMS.common.widget.PreferenceView
             android:id="@+id/prefZayaApiKey"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:icon="@drawable/ic_settings_black_24dp"
-            app:title="کلید API زایا (Zaya.io)"
-            app:summary="کوتاه‌سازی خودکار لینک‌ها قبل از ارسال پیامک" />
+            app:title="Zaya.io API Key"
+            app:summary="Shorten links before sending SMS" />
 
         <com.moez.QKSMS.common.widget.PreferenceView
             android:id="@+id/prefTestCloudConnection"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:icon="@drawable/ic_sync_black_24dp"
-            app:title="تست اتصال سرور ابری و کوتاه‌کننده"
-            app:summary="بررسی وضعیت ارتباط با Files.ir و Zaya.io" />
+            app:title="Test Cloud &amp; Shortener Connection"
+            app:summary="Check server connectivity for media uploads" />
 
         <View
             android:layout_width="match_parent"

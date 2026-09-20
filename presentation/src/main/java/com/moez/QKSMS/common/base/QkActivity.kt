@@ -31,6 +31,16 @@ abstract class QkActivity : AppCompatActivity() {
 
     protected val menu: Subject<Menu> = BehaviorSubject.create()
 
+    override fun attachBaseContext(newBase: android.content.Context) {
+        val config = android.content.res.Configuration(newBase.resources.configuration)
+        val locale = java.util.Locale.US
+        java.util.Locale.setDefault(locale)
+        config.setLocale(locale)
+        config.setLayoutDirection(locale)
+        val context = newBase.createConfigurationContext(config)
+        super.attachBaseContext(context)
+    }
+
     @SuppressLint("InlinedApi")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

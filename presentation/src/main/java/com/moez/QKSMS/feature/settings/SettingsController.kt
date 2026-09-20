@@ -126,6 +126,22 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
         setTitle(R.string.title_settings)
         showBackButton(true)
 
+        val tabNames = arrayOf("All", "Personal", "Banking", "OTP", "Discounts", "Spam")
+        prefDefaultTab?.summary = tabNames.getOrElse(prefs.defaultTab.get()) { "Personal" }
+        prefDefaultTab?.setOnClickListener {
+            activity?.let { act ->
+                AlertDialog.Builder(act)
+                    .setTitle("Default Startup Tab")
+                    .setSingleChoiceItems(tabNames, prefs.defaultTab.get().coerceIn(0, 5)) { dialog, which ->
+                        prefs.defaultTab.set(which)
+                        prefDefaultTab?.summary = tabNames[which]
+                        dialog.dismiss()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        }
+
         prefAutoCopyOtp?.checkbox?.isChecked = prefs.autoCopyOtp.get()
         prefAutoCopyOtp?.setOnClickListener {
             val newVal = !prefs.autoCopyOtp.get()
@@ -161,12 +177,12 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
             prefMediaAsCloudLink.checkbox.isChecked = newVal
         }
 
-        prefFilesIrToken?.summary = if (prefs.filesIrToken.get().isBlank()) "تنظیم نشده (استفاده از سرور عمومی)" else "تنظیم شده (••••••••)"
+        prefFilesIrToken?.summary = if (prefs.filesIrToken.get().isBlank()) "Not configured (public upload)" else "Configured (••••••••)"
         prefFilesIrToken?.setOnClickListener {
             activity?.let { act ->
-                TextInputDialog(act, "توکن API سرور Files.ir") { text ->
+                TextInputDialog(act, "Files.ir API Token") { text ->
                     prefs.filesIrToken.set(text.trim())
-                    prefFilesIrToken.summary = if (text.isBlank()) "تنظیم نشده (استفاده از سرور عمومی)" else "تنظیم شده (••••••••)"
+                    prefFilesIrToken.summary = if (text.isBlank()) "Not configured (public upload)" else "Configured (••••••••)"
                 }.setText(prefs.filesIrToken.get()).show()
             }
         }
@@ -174,7 +190,7 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
         prefFilesIrEndpoint?.summary = prefs.filesIrEndpoint.get().ifBlank { "https://my.files.ir" }
         prefFilesIrEndpoint?.setOnClickListener {
             activity?.let { act ->
-                TextInputDialog(act, "آدرس دامنه سرور Files.ir") { text ->
+                TextInputDialog(act, "Files.ir Server Endpoint") { text ->
                     val url = text.trim().ifBlank { "https://my.files.ir" }
                     prefs.filesIrEndpoint.set(url)
                     prefFilesIrEndpoint.summary = url
@@ -182,29 +198,29 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
             }
         }
 
-        prefZayaApiKey?.summary = if (prefs.zayaApiKey.get().isBlank()) "تنظیم نشده" else "تنظیم شده (••••••••)"
+        prefZayaApiKey?.summary = if (prefs.zayaApiKey.get().isBlank()) "Not configured" else "Configured (••••••••)"
         prefZayaApiKey?.setOnClickListener {
             activity?.let { act ->
-                TextInputDialog(act, "کلید API زایا (Zaya.io)") { text ->
+                TextInputDialog(act, "Zaya.io API Key") { text ->
                     prefs.zayaApiKey.set(text.trim())
-                    prefZayaApiKey.summary = if (text.isBlank()) "تنظیم نشده" else "تنظیم شده (••••••••)"
+                    prefZayaApiKey.summary = if (text.isBlank()) "Not configured" else "Configured (••••••••)"
                 }.setText(prefs.zayaApiKey.get()).show()
             }
         }
 
         prefTestCloudConnection?.setOnClickListener {
-            prefTestCloudConnection.summary = "در حال بررسی ارتباط..."
+            prefTestCloudConnection.summary = "Checking connectivity..."
             cloudUploadManager.testConnection(
                 endpoint = prefs.filesIrEndpoint.get(),
                 filesToken = prefs.filesIrToken.get(),
                 zayaToken = prefs.zayaApiKey.get()
             ) { success, result ->
-                prefTestCloudConnection?.summary = if (success) "ارتباط با موفقیت تایید شد" else "خطا در اتصال"
+                prefTestCloudConnection?.summary = if (success) "Connection verified successfully" else "Connection failed"
                 activity?.let { act ->
                     AlertDialog.Builder(act)
-                        .setTitle("نتیجه تست ارتباط ابری")
+                        .setTitle("Cloud Connection Test Result")
                         .setMessage(result)
-                        .setPositiveButton("باشه", null)
+                        .setPositiveButton("OK", null)
                         .show()
                 }
             }

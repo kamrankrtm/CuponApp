@@ -3,6 +3,7 @@ package com.moez.QKSMS.feature.smart.ui
 import android.content.Context
 import android.graphics.Typeface
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.core.text.buildSpannedString
 import androidx.core.text.color
@@ -10,7 +11,6 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import com.moez.QKSMS.R
 import com.moez.QKSMS.common.Navigator
-import com.moez.QKSMS.common.base.QkAdapter
 import com.moez.QKSMS.common.base.QkViewHolder
 import com.moez.QKSMS.common.util.Colors
 import com.moez.QKSMS.common.util.DateFormatter
@@ -26,14 +26,31 @@ class FilteredConversationsAdapter(
     private val dateFormatter: DateFormatter,
     private val navigator: Navigator,
     private val phoneNumberUtils: PhoneNumberUtils
-) : QkAdapter<Conversation>() {
+) : RecyclerView.Adapter<QkViewHolder>() {
 
     init {
         setHasStableIds(true)
     }
 
+    var data: List<Conversation> = emptyList()
+        set(value) {
+            field = value
+            notifyDataSetChanged()
+            emptyView?.isVisible = value.isEmpty()
+        }
+
+    var emptyView: View? = null
+        set(value) {
+            field = value
+            field?.isVisible = data.isEmpty()
+        }
+
+    override fun getItemCount(): Int = data.size
+
+    fun getItem(position: Int): Conversation = data[position]
+
     override fun getItemId(position: Int): Long {
-        return getItem(position).id
+        return data.getOrNull(position)?.id ?: position.toLong()
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): QkViewHolder {

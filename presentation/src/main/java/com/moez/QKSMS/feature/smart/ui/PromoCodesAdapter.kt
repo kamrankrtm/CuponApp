@@ -54,15 +54,15 @@ class PromoCodesAdapter(
             promoDiscountAmount.text = item.discountAmount
             promoDescription.text = item.description
             promoCode.text = item.code
-            promoExpiry.text = "مهلت: ${JalaliCalendar.toPersianDigits(item.expiryDateText)}"
+            promoExpiry.text = "Expires: ${item.expiryDateText}"
 
-            btnCopyPromo.text = "کپی کد"
+            btnCopyPromo.text = "Copy Code"
             btnCopyPromo.setOnClickListener {
                 ClipboardHelper.copyToClipboard(context, item.code, "PROMO", showToast = false)
-                btnCopyPromo.text = "کپی شد ✓"
-                Toast.makeText(context, "کد ${item.code} با موفقیت کپی شد", Toast.LENGTH_SHORT).show()
+                btnCopyPromo.text = "Copied! ✓"
+                Toast.makeText(context, "Promo code ${item.code} copied to clipboard", Toast.LENGTH_SHORT).show()
                 btnCopyPromo.postDelayed({
-                    btnCopyPromo.text = "کپی کد"
+                    btnCopyPromo.text = "Copy Code"
                 }, 2000)
             }
 
@@ -72,18 +72,18 @@ class PromoCodesAdapter(
                 if (currentPos != RecyclerView.NO_POSITION) {
                     promos.removeAt(currentPos)
                     notifyItemRemoved(currentPos)
-                    Toast.makeText(context, "کد تخفیف به عنوان مصرف‌شده علامت‌گذاری شد", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Promo code marked as used", Toast.LENGTH_SHORT).show()
                 }
             }
 
             btnViewOriginal.setOnClickListener {
                 AlertDialog.Builder(context)
                     .setTitle(item.brand)
-                    .setMessage("فرستنده: ${item.sender}\n\nمتن پیامک:\n${item.body}\n\nراهنما:\n${item.instructions}")
-                    .setPositiveButton("کپی کد") { _, _ ->
+                    .setMessage("Sender: ${item.sender}\n\nMessage:\n${item.body}\n\nDetails:\n${item.instructions}")
+                    .setPositiveButton("Copy Code") { _, _ ->
                         ClipboardHelper.copyToClipboard(context, item.code, "PROMO")
                     }
-                    .setNegativeButton("بستن", null)
+                    .setNegativeButton("Close", null)
                     .show()
             }
         }

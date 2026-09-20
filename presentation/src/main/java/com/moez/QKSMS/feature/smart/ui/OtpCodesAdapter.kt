@@ -45,22 +45,18 @@ class OtpCodesAdapter(
 
         fun bind(item: OtpItem) {
             otpService.text = item.serviceName
-            otpSender.text = "فرستنده: ${item.sender}"
+            otpSender.text = "From: ${item.sender}"
             otpCode.text = item.code.chunked(1).joinToString(" ")
 
-            val jDate = JalaliCalendar.fromMillis(item.receivedAt)
-            val cal = java.util.Calendar.getInstance().apply { timeInMillis = item.receivedAt }
-            val dateStr = "${jDate.year}/${String.format("%02d", jDate.month)}/${String.format("%02d", jDate.day)}"
-            val timeStr = JalaliCalendar.formatTime(cal)
-            otpDate.text = JalaliCalendar.toPersianDigits("$dateStr ساعت $timeStr")
+            otpDate.text = java.text.SimpleDateFormat("MMM d, yyyy h:mm a", java.util.Locale.US).format(java.util.Date(item.receivedAt))
 
-            btnCopyOtp.text = "کپی مجدد"
+            btnCopyOtp.text = "Copy Code"
             btnCopyOtp.setOnClickListener {
                 ClipboardHelper.copyToClipboard(context, item.code, "OTP", showToast = false)
-                btnCopyOtp.text = "کپی شد ✓"
-                Toast.makeText(context, "کد تایید ${item.code} کپی شد", Toast.LENGTH_SHORT).show()
+                btnCopyOtp.text = "Copied! ✓"
+                Toast.makeText(context, "Verification code ${item.code} copied", Toast.LENGTH_SHORT).show()
                 btnCopyOtp.postDelayed({
-                    btnCopyOtp.text = "کپی مجدد"
+                    btnCopyOtp.text = "Copy Code"
                 }, 2000)
             }
         }

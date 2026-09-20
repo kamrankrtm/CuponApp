@@ -19,7 +19,7 @@ object ClipboardHelper {
                 Handler(Looper.getMainLooper()).post {
                     Toast.makeText(
                         context.applicationContext,
-                        "کد تایید ($text) در حافظه کپی شد",
+                        "Verification code ($text) copied to clipboard",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
