@@ -95,7 +95,6 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
     @Inject lateinit var messageAdapter: MessagesAdapter
     @Inject lateinit var navigator: Navigator
     @Inject lateinit var viewModelFactory: ViewModelProvider.Factory
-    @Inject lateinit var prefs: Preferences
     @Inject lateinit var cloudUploadManager: CloudUploadManager
 
     override val activityVisibleIntent: Subject<Boolean> = PublishSubject.create()
