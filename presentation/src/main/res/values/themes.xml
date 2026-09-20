@@ -46,6 +46,8 @@
         <item name="bubbleColor">@color/bubbleLight</item>
         <item name="colorPrimary">@color/backgroundLight</item>
         <item name="colorPrimaryDark">@color/backgroundLight</item>
+        <item name="colorSecondary">@color/blue_500</item>
+        <item name="colorAccent">@color/blue_500</item>
         <item name="selectableItemBackground">@drawable/ripple</item>
         <item name="switchThumbEnabled">@color/switchThumbEnabledLight</item>
         <item name="switchThumbDisabled">@color/switchThumbDisabledLight</item>
