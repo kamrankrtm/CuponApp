@@ -21,11 +21,11 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 11
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '11'
+          java-version: '17'
           cache: 'gradle'
 
       - name: Make Gradle script executable
@@ -40,33 +40,37 @@ jobs:
       - name: Locate and Rename APK
         run: |
           mkdir -p build-output
-          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/smsPRO-2.0.1.apk \;
-          cp build-output/smsPRO-2.0.1.apk build-output/smsPRO-debug.apk
-          cp build-output/smsPRO-2.0.1.apk build-output/CuponApp-debug.apk
+          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/smsPRO-2.0.2.apk \;
+          cp build-output/smsPRO-2.0.2.apk build-output/smsPRO-debug.apk
+          cp build-output/smsPRO-2.0.2.apk build-output/CuponApp-debug.apk
           ls -la build-output/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: smsPRO-debug-apk
-          path: build-output/smsPRO-2.0.1.apk
+          path: build-output/smsPRO-2.0.2.apk
           retention-days: 30
 
       - name: Create GitHub Release (on every main push)
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v2.0.1-${{ github.run_number }}
-          name: smsPRO v2.0.1 (build ${{ github.run_number }})
+          tag_name: v2.0.2-${{ github.run_number }}
+          name: smsPRO v2.0.2 (build ${{ github.run_number }})
           body: |
-            ## smsPRO v2.0.1 - Real Timestamps for OTPs & Promos, 1-Month Default Expiry, Contact Name Fix & Sending Watchdog
-            - **Real Timestamps for OTP Codes**: Only codes received today are marked as Active; previous days are properly marked Expired with real Jalali timestamps.
-            - **No More "اطلاع ثانوی"**: Discounts with unstated expiry are dynamically assigned a clear 1-month validity period in Jalali Shamsi.
-            - **Instant Tab Switching & Scroll-to-Top**: Tab touch immediately scrolls to top; startup spam flicker fully eliminated.
-            - **Contact Name Matching**: Normalized 09... and +98... lookup across all phone languages.
-            - **SMS Sending Watchdog**: 20-second automatic resolution prevents messages from freezing on "Sending...".
+            ## smsPRO v2.0.2 - Fix SMS Sending Crash & Dual-SIM Support
+
+            ### 🐛 رفع باگ‌های مهم
+            - **رفع کرش ارسال پیامک**: خطای `Realm access from incorrect thread` در هنگام ارسال SMS به طور کامل برطرف شد.
+            - **پشتیبانی دوسیم‌کارت**: ارسال پیامک از طریق سیم‌کارت پیش‌فرض در گوشی‌های دوسیم‌کارت اصلاح شد.
+            - **پاک‌سازی شماره مقصد**: ارقام فارسی/عربی و کاراکترهای غیرمجاز قبل از ارسال پاکسازی می‌شوند.
+            - **ارتقاء SDK به 33**: سازگاری با اندروید ۱۳+ بهبود یافت.
+
+            ### 📱 نصب
+            فایل `smsPRO-2.0.2.apk` را دانلود و روی گوشی نصب کنید.
           files: |
-            build-output/smsPRO-2.0.1.apk
+            build-output/smsPRO-2.0.2.apk
             build-output/smsPRO-debug.apk
             build-output/CuponApp-debug.apk
         env:
