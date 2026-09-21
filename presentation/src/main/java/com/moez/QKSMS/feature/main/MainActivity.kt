@@ -476,28 +476,6 @@ class MainActivity : QkThemedActivity(), MainView {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == R.id.mark_all_read) {
-            val realm = io.realm.Realm.getDefaultInstance()
-            try {
-                realm.executeTransaction {
-                    val unreadMessages = realm.where(com.moez.QKSMS.model.Message::class.java)
-                        .beginGroup()
-                        .equalTo("read", false)
-                        .or()
-                        .equalTo("seen", false)
-                        .endGroup()
-                        .findAll()
-                    unreadMessages.forEach { msg ->
-                        msg.read = true
-                        msg.seen = true
-                    }
-                }
-            } catch (t: Throwable) {
-                // ignore
-            } finally {
-                realm.close()
-            }
-            conversationsAdapter.notifyDataSetChanged()
-            filteredConversationsAdapter.notifyDataSetChanged()
             android.widget.Toast.makeText(this, "همه پیام‌ها خوانده شدند", android.widget.Toast.LENGTH_SHORT).show()
         }
         optionsItemIntent.onNext(item.itemId)
@@ -563,7 +541,7 @@ class MainActivity : QkThemedActivity(), MainView {
                     is SmsCategory.Personal -> personal.add(id)
                     is SmsCategory.Banking -> banking.add(id)
                     is SmsCategory.Spam -> spam.add(id)
-                    is SmsCategory.Promo -> newPromos.add(cat.promo)
+                    is SmsCategory.Promo -> if (!cat.promo.isExpired()) newPromos.add(cat.promo)
                     is SmsCategory.Otp -> newOtps.add(cat.otp)
                 }
             }
@@ -624,7 +602,7 @@ class MainActivity : QkThemedActivity(), MainView {
                             is SmsCategory.Personal -> personal.add(id)
                             is SmsCategory.Banking -> banking.add(id)
                             is SmsCategory.Spam -> spam.add(id)
-                            is SmsCategory.Promo -> newPromos.add(cat.promo)
+                            is SmsCategory.Promo -> if (!cat.promo.isExpired()) newPromos.add(cat.promo)
                             is SmsCategory.Otp -> newOtps.add(cat.otp)
                         }
                     }

@@ -105,7 +105,7 @@ class ComposeViewModel @Inject constructor(
 
     private val attachments: Subject<List<Attachment>> = BehaviorSubject.createDefault(sharedAttachments)
     private val chipsReducer: Subject<(List<Recipient>) -> List<Recipient>> = PublishSubject.create()
-    private val conversation: Subject<Conversation> = BehaviorSubject.create()
+    private val conversation: Subject<Conversation> = BehaviorSubject.createDefault(Conversation(0))
     private val messages: Subject<List<Message>> = BehaviorSubject.create()
     private val selectedChips: Subject<List<Recipient>> = BehaviorSubject.createDefault(listOf())
     private val searchResults: Subject<List<Message>> = BehaviorSubject.create()
@@ -641,69 +641,78 @@ class ComposeViewModel @Inject constructor(
                 .withLatestFrom(state, attachments, conversation, selectedChips) { body, state, attachments,
                                                                                    conversation, chips ->
                     val subId = state.subscription?.subscriptionId ?: -1
-                    val addresses = when (conversation.recipients.isNotEmpty()) {
-                        true -> conversation.recipients.map { it.address }
-                        false -> chips.map { chip -> chip.address }
-                    }
                     val delay = when (prefs.sendDelay.get()) {
                         Preferences.SEND_DELAY_SHORT -> 3000
                         Preferences.SEND_DELAY_MEDIUM -> 5000
                         Preferences.SEND_DELAY_LONG -> 10000
                         else -> 0
                     }
-                    val sendAsGroup = !state.editingMode || state.sendAsGroup
-                    val targetAddresses = when {
-                        addresses.isNotEmpty() -> addresses
-                        conversation.recipients.isNotEmpty() -> conversation.recipients.map { it.address }.filter { it.isNotBlank() }
-                        else -> listOf()
+
+                    val actualThreadId = when {
+                        conversation.id != 0L -> conversation.id
+                        threadId != 0L -> threadId
+                        else -> 0L
                     }
+
+                    val targetAddresses = when {
+                        chips.any { it.address.isNotBlank() } -> chips.map { it.address }.filter { it.isNotBlank() }
+                        conversation.recipients.any { it.address.isNotBlank() } -> conversation.recipients.map { it.address }.filter { it.isNotBlank() }
+                        conversation.recipients.any { it.contact?.numbers?.isNotEmpty() == true } -> conversation.recipients.mapNotNull { it.contact?.getDefaultNumber()?.address ?: it.contact?.numbers?.firstOrNull()?.address }.filter { it.isNotBlank() }
+                        conversation.lastMessage?.address?.isNotBlank() == true -> listOf(conversation.lastMessage!!.address)
+                        else -> emptyList()
+                    }
+
+                    val sendAsGroup = !state.editingMode || state.sendAsGroup
 
                     when {
                         // Scheduling a message
                         state.scheduled != 0L -> {
                             newState { copy(scheduled = 0) }
+
                             val uris = attachments
                                     .mapNotNull { it as? Attachment.Image }
                                     .map { it.getUri() }
                                     .map { it.toString() }
+
                             val params = AddScheduledMessage
                                     .Params(state.scheduled, subId, targetAddresses, sendAsGroup, body, uris)
                             addScheduledMessage.execute(params)
+
                             context.makeToast(R.string.compose_scheduled_toast)
                         }
 
                         // Sending a group message or message to existing conversation
                         sendAsGroup -> {
                             sendMessage.execute(SendMessage
-                                    .Params(subId, conversation.id, targetAddresses, body, attachments, delay))
+                                    .Params(subId, actualThreadId, targetAddresses, body, attachments, delay))
                         }
 
                         // Sending a message to an existing conversation with one recipient
-                        conversation.recipients.size == 1 -> {
-                            val address = conversation.recipients.map { it.address }
-                            sendMessage.execute(SendMessage.Params(subId, threadId, address, body, attachments, delay))
+                        targetAddresses.size == 1 -> {
+                            sendMessage.execute(SendMessage.Params(subId, actualThreadId, targetAddresses, body, attachments, delay))
                         }
 
-                        // Create a new conversation with one address
-                        targetAddresses.size == 1 -> {
+                        // Create a new conversation with addresses
+                        targetAddresses.isNotEmpty() -> {
                             sendMessage.execute(SendMessage
-                                    .Params(subId, threadId, targetAddresses, body, attachments, delay))
+                                    .Params(subId, actualThreadId, targetAddresses, body, attachments, delay))
                         }
 
                         // Send a message to multiple addresses
                         else -> {
                             targetAddresses.forEach { addr ->
-                                val threadId = tryOrNull(false) {
+                                val targetThreadId = tryOrNull(false) {
                                     TelephonyCompat.getOrCreateThreadId(context, addr)
                                 } ?: 0
+
                                 val address = listOf(conversationRepo
-                                        .getConversation(threadId)?.recipients?.firstOrNull()?.address ?: addr)
+                                        .getConversation(targetThreadId)?.recipients?.firstOrNull()?.address ?: addr)
+
                                 sendMessage.execute(SendMessage
-                                        .Params(subId, threadId, address, body, attachments, delay))
+                                        .Params(subId, targetThreadId, address, body, attachments, delay))
                             }
                         }
                     }
-
                     view.setDraft("")
                     this.attachments.onNext(ArrayList())
 

@@ -249,26 +249,30 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     override fun markRead(vararg threadIds: Long) {
-        Realm.getDefaultInstance()?.use { realm ->
-            val query = realm.where(Message::class.java)
-                .beginGroup()
-                .equalTo("read", false)
-                .or()
-                .equalTo("seen", false)
-                .endGroup()
+        try {
+            Realm.getDefaultInstance()?.use { realm ->
+                val query = realm.where(Message::class.java)
+                    .beginGroup()
+                    .equalTo("read", false)
+                    .or()
+                    .equalTo("seen", false)
+                    .endGroup()
 
-            if (threadIds.isNotEmpty()) {
-                query.beginGroup().anyOf("threadId", threadIds).endGroup()
-            }
+                if (threadIds.isNotEmpty()) {
+                    query.beginGroup().anyOf("threadId", threadIds).endGroup()
+                }
 
-            val messages = query.findAll()
+                val messages = query.findAll()
 
-            realm.executeTransaction {
-                messages.forEach { message ->
-                    message.seen = true
-                    message.read = true
+                realm.executeTransaction {
+                    messages.forEach { message ->
+                        message.seen = true
+                        message.read = true
+                    }
                 }
             }
+        } catch (t: Throwable) {
+            Timber.w(t)
         }
 
         val values = ContentValues()
@@ -308,6 +312,50 @@ class MessageRepositoryImpl @Inject constructor(
         }
     }
 
+    private fun resolveAddressesForThread(threadId: Long): List<String> {
+        if (threadId == 0L) return emptyList()
+        try {
+            Realm.getDefaultInstance()?.use { realm ->
+                val conv = realm.where(Conversation::class.java).equalTo("id", threadId).findFirst()
+                val addrs = conv?.recipients?.mapNotNull { it.address.takeIf { a -> a.isNotBlank() } }?.filter { it.isNotBlank() }
+                if (!addrs.isNullOrEmpty()) return addrs
+
+                val msg = realm.where(Message::class.java)
+                    .equalTo("threadId", threadId)
+                    .isNotEmpty("address")
+                    .sort("date", Sort.DESCENDING)
+                    .findFirst()
+                if (msg != null && msg.address.isNotBlank()) {
+                    val clean = phoneNumberUtils.cleanDestinationAddress(msg.address)
+                    if (clean.isNotBlank()) return listOf(clean)
+                }
+            }
+        } catch (t: Throwable) {
+            // ignore
+        }
+        try {
+            val cursor = context.contentResolver.query(
+                Telephony.Sms.CONTENT_URI,
+                arrayOf(Telephony.Sms.ADDRESS),
+                "${Telephony.Sms.THREAD_ID} = ?",
+                arrayOf(threadId.toString()),
+                "date DESC LIMIT 1"
+            )
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val addr = it.getString(0)
+                    if (!addr.isNullOrBlank()) {
+                        val clean = phoneNumberUtils.cleanDestinationAddress(addr)
+                        if (clean.isNotBlank()) return listOf(clean)
+                    }
+                }
+            }
+        } catch (t: Throwable) {
+            // ignore
+        }
+        return emptyList()
+    }
+
     override fun sendMessage(
         subId: Int,
         threadId: Long,
@@ -322,7 +370,15 @@ class MessageRepositoryImpl @Inject constructor(
             else -> prefs.signature.get()
         }
 
-        val cleanAddresses = addresses.map { phoneNumberUtils.cleanDestinationAddress(it) }
+        val cleanAddresses = addresses.map { phoneNumberUtils.cleanDestinationAddress(it) }.filter { it.isNotBlank() }.let { list ->
+            if (list.isNotEmpty()) {
+                list
+            } else if (threadId != 0L) {
+                resolveAddressesForThread(threadId)
+            } else {
+                emptyList()
+            }
+        }
 
         // Resolve active subscription for Dual SIM devices
         val subManager = tryOrNull { context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as? SubscriptionManager }

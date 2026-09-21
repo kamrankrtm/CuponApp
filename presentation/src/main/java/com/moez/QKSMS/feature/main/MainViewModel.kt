@@ -373,23 +373,27 @@ class MainViewModel @Inject constructor(
                 .filter { permissionManager.isDefaultSms().also { if (!it) view.requestDefaultSms() } }
                 .observeOn(Schedulers.io())
                 .doOnNext {
-                    val realm = Realm.getDefaultInstance()
                     try {
-                        val unreadMsgs = realm.where(com.moez.QKSMS.model.Message::class.java)
-                                .beginGroup()
-                                .equalTo("read", false)
-                                .or()
-                                .equalTo("seen", false)
-                                .endGroup()
-                                .findAll()
-                        val unreadIds = unreadMsgs.map { it.threadId }.distinct()
+                        val realm = Realm.getDefaultInstance()
+                        val unreadIds = try {
+                            val unreadMsgs = realm.where(com.moez.QKSMS.model.Message::class.java)
+                                    .beginGroup()
+                                    .equalTo("read", false)
+                                    .or()
+                                    .equalTo("seen", false)
+                                    .endGroup()
+                                    .findAll()
+                            unreadMsgs.map { it.threadId }.distinct()
+                        } finally {
+                            realm.close()
+                        }
                         if (unreadIds.isNotEmpty()) {
                             markRead.execute(unreadIds)
                         } else {
                             markRead.execute(emptyList())
                         }
-                    } finally {
-                        realm.close()
+                    } catch (t: Throwable) {
+                        Timber.e(t, "Failed to mark all as read")
                     }
                 }
                 .autoDisposable(view.scope())

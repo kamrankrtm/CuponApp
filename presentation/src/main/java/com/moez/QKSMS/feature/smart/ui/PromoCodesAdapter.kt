@@ -27,7 +27,7 @@ class PromoCodesAdapter(
 
     fun updateData(newPromos: List<PromoItem>) {
         allPromos.clear()
-        allPromos.addAll(newPromos)
+        allPromos.addAll(newPromos.filter { !it.isUsed && !it.isExpired() })
         applyFilter()
     }
 
@@ -42,6 +42,8 @@ class PromoCodesAdapter(
         val cat = currentCategory.toLowerCase()
 
         val filtered = allPromos.filter { promo ->
+            if (promo.isUsed || promo.isExpired()) return@filter false
+
             val b = promo.brand.toLowerCase()
             val d = promo.description.toLowerCase()
             val code = promo.code.toLowerCase()
@@ -117,7 +119,6 @@ class PromoCodesAdapter(
             promoBrand.text = item.brand
             promoDiscountAmount.text = item.discountAmount
             promoDescription.text = item.description
-
             promoCode.text = item.code
 
             // Format date with Jalali Shamsi (default to 1 month validity if unstated or 'اطلاع ثانوی')
@@ -131,6 +132,7 @@ class PromoCodesAdapter(
                 val j = JalaliCalendar.fromMillis(item.receivedAt + (30L * 24 * 60 * 60 * 1000L))
                 "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)} (۱ ماهه)"
             }
+
             promoExpiry.text = "مهلت استفاده: ${JalaliCalendar.toPersianDigits(expiryText)}"
 
             btnCopyPromo.text = "کپی کد"
@@ -172,7 +174,6 @@ class PromoCodesAdapter(
                 val jalaliReceived = "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)}"
                 val minOrderText = if (!item.minOrder.isNullOrBlank()) "\nشرایط: ${item.minOrder}" else ""
                 val instructionsText = if (item.instructions.isNotBlank()) "\n\n💡 راه و شرایط گرفتن تخفیف:\n${item.instructions}" else ""
-
                 AlertDialog.Builder(context)
                     .setTitle("${item.brand} (${item.discountAmount})")
                     .setMessage("فرستنده: ${item.sender}\nتاریخ دریافت: $jalaliReceived$minOrderText$instructionsText\n\n📄 متن کامل پیامک:\n${item.body}")
