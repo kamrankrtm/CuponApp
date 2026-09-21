@@ -229,6 +229,12 @@ class ComposeViewModel @Inject constructor(
 
     override fun bindView(view: ComposeView) {
         super.bindView(view)
+        val currentDraft = BehaviorSubject.createDefault("")
+        view.textChangedIntent
+                .map { it.toString() }
+                .autoDisposable(view.scope())
+                .subscribe(currentDraft)
+
 
         val sharing = sharedText.isNotEmpty() || sharedAttachments.isNotEmpty()
         if (shouldShowContacts) {
@@ -480,7 +486,7 @@ class ComposeViewModel @Inject constructor(
                 .withLatestFrom(conversation) { _, conversation -> conversation }
                 .mapNotNull { conversation -> conversation.takeIf { it.isValid }?.id }
                 .observeOn(Schedulers.io())
-                .withLatestFrom(view.textChangedIntent) { threadId, draft ->
+                .withLatestFrom(currentDraft) { threadId, draft ->
                     conversationRepo.saveDraft(threadId, draft.toString())
                 }
                 .autoDisposable(view.scope())
@@ -636,8 +642,7 @@ class ComposeViewModel @Inject constructor(
         view.sendIntent
                 .filter { permissionManager.isDefaultSms().also { if (!it) view.requestDefaultSms() } }
                 .filter { permissionManager.hasSendSms().also { if (!it) view.requestSmsPermission() } }
-                .withLatestFrom(view.textChangedIntent) { _, body -> body }
-                .map { body -> body.toString() }
+                .withLatestFrom(currentDraft) { _, body -> body }
                 .withLatestFrom(state, attachments, conversation, selectedChips) { body, state, attachments,
                                                                                    conversation, chips ->
                     val subId = state.subscription?.subscriptionId ?: -1
@@ -681,25 +686,8 @@ class ComposeViewModel @Inject constructor(
                             context.makeToast(R.string.compose_scheduled_toast)
                         }
 
-                        // Sending a group message or message to existing conversation
-                        sendAsGroup -> {
-                            sendMessage.execute(SendMessage
-                                    .Params(subId, actualThreadId, targetAddresses, body, attachments, delay))
-                        }
-
-                        // Sending a message to an existing conversation with one recipient
-                        targetAddresses.size == 1 -> {
-                            sendMessage.execute(SendMessage.Params(subId, actualThreadId, targetAddresses, body, attachments, delay))
-                        }
-
-                        // Create a new conversation with addresses
-                        targetAddresses.isNotEmpty() -> {
-                            sendMessage.execute(SendMessage
-                                    .Params(subId, actualThreadId, targetAddresses, body, attachments, delay))
-                        }
-
-                        // Send a message to multiple addresses
-                        else -> {
+                        // Broadcast / Individual delivery to multiple addresses when not sendAsGroup
+                        !sendAsGroup && targetAddresses.size > 1 -> {
                             targetAddresses.forEach { addr ->
                                 val targetThreadId = tryOrNull(false) {
                                     TelephonyCompat.getOrCreateThreadId(context, addr)
@@ -711,6 +699,12 @@ class ComposeViewModel @Inject constructor(
                                 sendMessage.execute(SendMessage
                                         .Params(subId, targetThreadId, address, body, attachments, delay))
                             }
+                        }
+
+                        // Standard send: works for single recipient, group, or existing conversation thread
+                        else -> {
+                            sendMessage.execute(SendMessage
+                                    .Params(subId, actualThreadId, targetAddresses, body, attachments, delay))
                         }
                     }
                     view.setDraft("")
