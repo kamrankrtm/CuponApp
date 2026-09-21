@@ -486,15 +486,8 @@ class MessageRepositoryImpl @Inject constructor(
         }
 
         val smsManager: SmsManager = when {
-            Build.VERSION.SDK_INT >= 31 -> {
-                val base = context.getSystemService(SmsManager::class.java) ?: SmsManager.getDefault()
-                if (effectiveSubId != -1 && effectiveSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
-                    base.createForSubscriptionId(effectiveSubId)
-                } else {
-                    base
-                }
-            }
             effectiveSubId != -1 && effectiveSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID && Build.VERSION.SDK_INT >= 22 -> {
+                @Suppress("DEPRECATION")
                 tryOrNull { SmsManager.getSmsManagerForSubscriptionId(effectiveSubId) } ?: SmsManager.getDefault()
             }
             else -> SmsManager.getDefault()
