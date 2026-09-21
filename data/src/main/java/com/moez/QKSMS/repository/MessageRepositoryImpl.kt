@@ -561,14 +561,13 @@ class MessageRepositoryImpl @Inject constructor(
                                 m.boxId = Sms.MESSAGE_TYPE_SENT
                             }
                         }
-                            if (messageUri != null) {
-                                val values = ContentValues()
-                                values.put(Sms.TYPE, Sms.MESSAGE_TYPE_SENT)
-                                try {
-                                    context.contentResolver.update(messageUri, values, null, null)
-                                } catch (t: Throwable) {
-                                    // ignore
-                                }
+                        if (messageUri != null) {
+                            val values = ContentValues()
+                            values.put(Sms.TYPE, Sms.MESSAGE_TYPE_SENT)
+                            try {
+                                context.contentResolver.update(messageUri, values, null, null)
+                            } catch (t: Throwable) {
+                                // ignore
                             }
                         }
                     }
