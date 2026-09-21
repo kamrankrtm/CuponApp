@@ -372,7 +372,7 @@
             app:icon="@drawable/ic_send_black_24dp"
             app:title="Auto-Send AI Replies"
             app:summary="Send generated AI reply immediately without prompt"
-            app:widgetLayout="@layout/preference_switch" />
+            app:widget="@layout/settings_switch_widget" />
 
         <View
             android:layout_width="match_parent"

@@ -60,7 +60,7 @@ object AiChatAssistant {
 
                 val sortedMessages = messages.reversed()
 
-                for (msg in sortedMessages) {
+                for ((index, msg) in sortedMessages.withIndex()) {
                     if (!msg.isValid) continue
                     val isMe = msg.isMe()
                     val body = msg.body.trim()
@@ -69,19 +69,25 @@ object AiChatAssistant {
                     val timestamp = msg.date
                     val j = JalaliCalendar.fromMillis(timestamp)
                     val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
-                    val timeStr = String.format("%02d:%02d", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE))
-                    val dateStr = "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)}"
+                    val timeStr = String.format("%02d:%02d:%02d", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND))
+                    val dateJalali = "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)}"
+                    val weekday = JalaliCalendar.getWeekdayName(j.dayOfWeek)
+                    val monthName = JalaliCalendar.getMonthName(j.month)
+                    val dateGregorian = String.format("%04d-%02d-%02d %02d:%02d:%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH), cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND))
 
                     val diffMinutes = (nowMillis - timestamp) / (1000 * 60)
                     val timeAgo = when {
-                        diffMinutes < 1 -> "just now"
-                        diffMinutes < 60 -> "$diffMinutes min ago"
-                        diffMinutes < 1440 -> "${diffMinutes / 60} hours ago"
-                        else -> "${diffMinutes / 1440} days ago"
+                        diffMinutes < 1 -> "همین الان (کمتر از یک دقیقه پیش / just now)"
+                        diffMinutes < 60 -> "$diffMinutes دقیقه پیش ($diffMinutes min ago)"
+                        diffMinutes < 1440 -> "${diffMinutes / 60} ساعت و ${diffMinutes % 60} دقیقه پیش (${diffMinutes / 60}h ${diffMinutes % 60}m ago)"
+                        else -> "${diffMinutes / 1440} روز پیش (${diffMinutes / 1440} days ago)"
                     }
 
-                    val senderTag = if (isMe) "Me" else "Sender ($contactName)"
-                    conversationHistory.append("[$dateStr $timeStr ($timeAgo)] $senderTag: $body\n")
+                    val senderTag = if (isMe) "کاربر / من (Me)" else "مخاطب: $contactName (Sender)"
+                    conversationHistory.append("[پیام ${index + 1}] $senderTag\n")
+                    conversationHistory.append("  - تاریخ و زمان ارسال: $weekday، ${j.day} $monthName ${j.year} ساعت $timeStr شمسی (میلادی: $dateGregorian)\n")
+                    conversationHistory.append("  - فاصله زمانی تا اکنون: $timeAgo\n")
+                    conversationHistory.append("  - متن پیام: $body\n\n")
                 }
             } catch (t: Throwable) {
                 android.util.Log.e("AiChatAssistant", "Error reading conversation history", t)
@@ -94,6 +100,23 @@ object AiChatAssistant {
                     callback(false, "No conversation history found to draft a reply.", threadId, address, contactName)
                 }
                 return@execute
+            }
+
+            val nowCal = Calendar.getInstance().apply { timeInMillis = nowMillis }
+            val nowJ = JalaliCalendar.fromMillis(nowMillis)
+            val nowWeekday = JalaliCalendar.getWeekdayName(nowJ.dayOfWeek)
+            val nowMonthName = JalaliCalendar.getMonthName(nowJ.month)
+            val nowTimeStr = String.format("%02d:%02d:%02d", nowCal.get(Calendar.HOUR_OF_DAY), nowCal.get(Calendar.MINUTE), nowCal.get(Calendar.SECOND))
+            val nowJalaliFull = "$nowWeekday، ${nowJ.day} $nowMonthName ${nowJ.year} ساعت $nowTimeStr"
+            val nowGregorian = String.format("%04d-%02d-%02d %s", nowCal.get(Calendar.YEAR), nowCal.get(Calendar.MONTH) + 1, nowCal.get(Calendar.DAY_OF_MONTH), nowTimeStr)
+
+            val hourOfDay = nowCal.get(Calendar.HOUR_OF_DAY)
+            val timeOfDayContext = when (hourOfDay) {
+                in 5..11 -> "صبح (Morning)"
+                in 12..14 -> "ظهر (Noon)"
+                in 15..18 -> "عصر (Afternoon)"
+                in 19..23 -> "شب (Evening / Night)"
+                else -> "نیمه‌شب و بامداد (Late Night / Midnight)"
             }
 
             var conn: HttpURLConnection? = null
@@ -111,27 +134,41 @@ object AiChatAssistant {
                 }
 
                 val systemPrompt = """
-                    You are an intelligent AI Smart Reply assistant for SMS and smartwatch notifications.
-                    You will be given the last 10 messages of a text conversation with sender tags and timestamps (including dates and how long ago each message was sent).
+                    You are an intelligent, context-aware AI Smart Reply assistant for SMS messages and smartwatch quick replies.
                     
-                    Your task:
-                    1. Carefully analyze the tone, communication style, relationship (casual, formal, affectionate, business), and vocabulary of the user ("Me").
-                    2. Check the language: if Persian, reply in fluent Persian. If English, reply in natural English.
-                    3. Consider the timestamps and elapsed time (e.g. immediate chat vs response after hours).
-                    4. Generate EXACTLY ONE natural, context-appropriate reply that the user would say to the last message.
+                    You will receive:
+                    1. CURRENT SEND TIME (تاریخ و زمان فعلی ارسال): Exact current Jalali date, Gregorian date, time, weekday, and period of day (e.g. morning, afternoon, night).
+                    2. CONVERSATION HISTORY (تاریخچه پیام‌ها): Up to the last 10 messages with exact timestamps of when each was sent (Jalali, Gregorian, time, and elapsed time relative to the current moment).
                     
-                    STRICT RULES:
-                    - Output ONLY the plain reply text.
-                    - Do NOT include any explanations, greetings to the user, quotes, or markdown code blocks.
-                    - Keep it crisp and suitable for mobile SMS or smartwatch quick send.
+                    CRITICAL INSTRUCTIONS:
+                    1. TEMPORAL & TIMING AWARENESS (آگاهی زمانی):
+                       - Observe when the last message was received vs the current time.
+                       - If received just now (a few minutes ago): this is an active live conversation; reply promptly and directly.
+                       - If received many hours or days ago: acknowledge the time gap naturally if suitable for the user's style (e.g. "سلام ببخشید دیر پاسخ دادم" or keep casual if user is informal).
+                       - If appropriate to greet, align with the CURRENT TIME OF DAY (e.g., "صبح بخیر", "عصر بخیر", "شب بخیر").
+                    2. TONE & VOCABULARY MATCHING:
+                       - Strictly analyze the user's past sent messages ("کاربر / من (Me)").
+                       - Adopt the exact tone (formal, friendly, intimate, slang, casual, or business).
+                       - Match abbreviation style, emoji usage (only if user uses emojis), and punctuation.
+                    3. LANGUAGE:
+                       - If the conversation is in Persian, reply in fluent, natural Persian (avoid robotic, literal translations).
+                       - If in English or Pinglish, reply in the same language.
+                    4. OUTPUT FORMAT:
+                       - Return ONLY the exact reply text to send to the recipient.
+                       - NO introductory text, NO explanations, NO quotes, NO markdown formatting.
                 """.trimIndent()
 
                 val userPrompt = """
-                    Contact Name: $contactName
-                    Conversation History (last 10 messages with timestamps):
+                    [اطلاعات زمان فعلی ارسال - CURRENT SENDING TIME]
+                    - تاریخ و زمان فعلی شمسی: $nowJalaliFull
+                    - تاریخ و زمان فعلی میلادی: $nowGregorian
+                    - موقعیت زمانی فعلی: $timeOfDayContext
+                    - مخاطب پیام: $contactName ($address)
+                    
+                    [تاریخچه پیام‌های قبلی به همراه تاریخ و زمان ارسال هر پیام - PREVIOUS MESSAGES WITH TIMESTAMPS]
                     $conversationHistory
                     
-                    Generate the reply:
+                    متن پاسخ مناسب برای ارسال در این لحظه (Reply text to send right now):
                 """.trimIndent()
 
                 val payload = JSONObject().apply {
