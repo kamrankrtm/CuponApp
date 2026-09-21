@@ -40,36 +40,35 @@ jobs:
       - name: Locate and Rename APK
         run: |
           mkdir -p build-output
-          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/smsPRO-1.0.15.apk \;
-          cp build-output/smsPRO-1.0.15.apk build-output/smsPRO-debug.apk
-          cp build-output/smsPRO-1.0.15.apk build-output/CuponApp-debug.apk
+          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/smsPRO-2.0.0.apk \;
+          cp build-output/smsPRO-2.0.0.apk build-output/smsPRO-debug.apk
+          cp build-output/smsPRO-2.0.0.apk build-output/CuponApp-debug.apk
           ls -la build-output/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: smsPRO-debug-apk
-          path: build-output/smsPRO-1.0.15.apk
+          path: build-output/smsPRO-2.0.0.apk
           retention-days: 30
 
       - name: Create GitHub Release (on every main push)
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.15-${{ github.run_number }}
-          name: smsPRO v1.0.15 (build ${{ github.run_number }})
+          tag_name: v2.0.0-${{ github.run_number }}
+          name: smsPRO v2.0.0 (build ${{ github.run_number }})
           body: |
-            ## smsPRO v1.0.15 - AI Discount Extraction Hub & Shamsi Jalali Calendar Update
-            - **AI Discount Extraction Hub**: Integrated AvalAI / OpenAI compatible AI coupon extractor with search bar and category chips (Food, Shopping, Travel, Entertainment)
-            - **Main Settings AI Section**: Added API key input, base URL, model selection, live connection test, and full inbox AI scan
-            - **Shamsi Solar Calendar Everywhere**: All tabs (All, Personal, Banking, OTP, Discounts, Spam) now display timestamps formatted in the Iranian Solar Jalali calendar
-            - **Mark All Read**: Instant 1-tap button on toolbar to mark all unread conversations and messages as read
-            - **Clean Discount Notifications**: Standardized clean notification styling matching other SMS messages with an ON/OFF toggle in Settings
-            - **Brand Cleanup**: Replaced all remaining user-facing references to QKSMS with smsPRO
+            ## smsPRO v2.0.0 - Major Release: AI Promo Extraction Hub, Shamsi Jalali Calendar & Modern Inbox
+            - **AI Discount Extraction Hub**: Integrated AvalAI / OpenAI compatible AI discount engine directly in the Discounts tab with search bar and category chips (Food, Shopping, Travel, Entertainment)
+            - **AI Main Settings Hub**: Direct configuration for API Key, Endpoint, Model Selection, live connection test, and full inbox AI scan
+            - **Jalali Shamsi Calendar Everywhere**: Native Iranian Solar calendar timestamps across all tabs (All, Personal, Banking, OTP, Discounts, Spam)
+            - **Mark All Read**: Instant 1-tap toolbar button to mark all unread conversations and messages as read
+            - **Clean SMS Notifications**: Standardized clean notification design matching other messages with on/off toggle in settings
+            - **Brand Refresh**: Clean smsPRO branding across all screens and user interface
           files: |
-            build-output/smsPRO-1.0.15.apk
+            build-output/smsPRO-2.0.0.apk
             build-output/smsPRO-debug.apk
             build-output/CuponApp-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
