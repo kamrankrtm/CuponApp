@@ -95,6 +95,26 @@ class PhoneNumberUtils @Inject constructor(context: Context) {
         return PhoneNumberUtils.stripSeparators(number)
     }
 
+    /**
+     * Cleans destination phone number before SMS transmission:
+     * 1. Converts Persian (۰-۹) and Arabic (٠-٩) digits to ASCII (0-9)
+     * 2. Strips all spaces, hyphens, brackets, parentheses
+     * 3. Preserves leading '+' for international numbers
+     */
+    fun cleanDestinationAddress(number: String): String {
+        var result = number.trim()
+        val persianDigits = charArrayOf('۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹')
+        val arabicDigits = charArrayOf('٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩')
+        for (i in 0..9) {
+            result = result.replace(persianDigits[i], '0' + i)
+            result = result.replace(arabicDigits[i], '0' + i)
+        }
+        val hasLeadingPlus = result.startsWith("+")
+        val digits = result.filter { it.isDigit() }
+        val cleaned = if (hasLeadingPlus) "+$digits" else digits
+        return if (cleaned.isNotEmpty()) cleaned else PhoneNumberUtils.stripSeparators(number.trim())
+    }
+
     private fun parse(number: CharSequence): Phonenumber.PhoneNumber? {
         return tryOrNull(false) { phoneNumberUtil.parse(number, countryCode) }
     }

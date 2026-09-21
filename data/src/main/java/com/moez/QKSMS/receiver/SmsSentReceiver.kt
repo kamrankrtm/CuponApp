@@ -42,27 +42,56 @@ class SmsSentReceiver : BroadcastReceiver() {
         val id = intent.getLongExtra("id", 0L)
         if (id == 0L) return
 
+        android.util.Log.d("SmsSentReceiver", "SMS sent callback: id=$id, resultCode=$resultCode")
+
         when (resultCode) {
             Activity.RESULT_OK -> {
                 val pendingResult = goAsync()
                 try {
                     markSent.execute(id) { pendingResult.finish() }
                 } catch (t: Throwable) {
-                    io.realm.Realm.getDefaultInstance()?.use { realm ->
-                        val msg = realm.where(com.moez.QKSMS.model.Message::class.java).equalTo("id", id).findFirst()
-                        msg?.let {
-                            realm.executeTransaction { msg.boxId = android.provider.Telephony.Sms.MESSAGE_TYPE_SENT }
+                    try {
+                        io.realm.Realm.getDefaultInstance()?.use { realm ->
+                            val msg = realm.where(com.moez.QKSMS.model.Message::class.java).equalTo("id", id).findFirst()
+                            msg?.let {
+                                realm.executeTransaction { msg.boxId = android.provider.Telephony.Sms.MESSAGE_TYPE_SENT }
+                                val values = android.content.ContentValues().apply {
+                                    put(android.provider.Telephony.Sms.TYPE, android.provider.Telephony.Sms.MESSAGE_TYPE_SENT)
+                                }
+                                try {
+                                    context.contentResolver.update(msg.getUri(), values, null, null)
+                                } catch (ignore: Throwable) {}
+                            }
                         }
-                    }
+                    } catch (ignore: Throwable) {}
                     pendingResult.finish()
                 }
             }
 
             else -> {
+                android.util.Log.w("SmsSentReceiver", "SMS send failed with resultCode: $resultCode for message id: $id")
                 val pendingResult = goAsync()
                 try {
                     markFailed.execute(MarkFailed.Params(id, resultCode)) { pendingResult.finish() }
                 } catch (t: Throwable) {
+                    try {
+                        io.realm.Realm.getDefaultInstance()?.use { realm ->
+                            val msg = realm.where(com.moez.QKSMS.model.Message::class.java).equalTo("id", id).findFirst()
+                            msg?.let {
+                                realm.executeTransaction {
+                                    msg.boxId = android.provider.Telephony.Sms.MESSAGE_TYPE_FAILED
+                                    msg.errorCode = resultCode
+                                }
+                                val values = android.content.ContentValues().apply {
+                                    put(android.provider.Telephony.Sms.TYPE, android.provider.Telephony.Sms.MESSAGE_TYPE_FAILED)
+                                    put(android.provider.Telephony.Sms.ERROR_CODE, resultCode)
+                                }
+                                try {
+                                    context.contentResolver.update(msg.getUri(), values, null, null)
+                                } catch (ignore: Throwable) {}
+                            }
+                        }
+                    } catch (ignore: Throwable) {}
                     pendingResult.finish()
                 }
             }

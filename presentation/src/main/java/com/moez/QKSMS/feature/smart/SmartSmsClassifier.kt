@@ -107,7 +107,7 @@ object SmartSmsClassifier {
         return PERSONAL_NUMBER_REGEX.matcher(normalized).matches()
     }
 
-    private fun isOtpMessage(body: String): Boolean {
+    fun isOtpMessage(body: String): Boolean {
         val lower = body.toLowerCase()
         return OTP_KEYWORDS.any { lower.contains(it.toLowerCase()) }
     }

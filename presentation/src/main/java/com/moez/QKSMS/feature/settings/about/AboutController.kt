@@ -39,8 +39,10 @@ class AboutController : QkController<AboutView, Unit, AboutPresenter>(), AboutVi
     }
 
     override fun onViewCreated() {
-        version.summary = BuildConfig.VERSION_NAME
+        version.summary = "${BuildConfig.VERSION_NAME} (ضربه برای بررسی به‌روزرسانی)"
     }
+
+    override fun getHostActivity(): android.app.Activity? = activity
 
     override fun onAttach(view: View) {
         super.onAttach(view)

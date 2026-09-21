@@ -340,8 +340,8 @@
     <string name="qksms_plus_thanks_title">Thank you for supporting smsPRO!</string>
     <string name="qksms_plus_thanks_summary">You now have access to all smsPRO+ features</string>
     <string name="qksms_plus_error">An error has occurred, please try again</string>
-    <string name="qksms_plus_free_title">smsPRO+ is free! If you\'d like to support development, a donation would be highly appreciated.</string>
-    <string name="qksms_plus_donate">Donate via PayPal</string>
+    <string name="qksms_plus_free_title">smsPRO is free and open source! If you\'d like to support development, a donation would be highly appreciated.</string>
+    <string name="qksms_plus_donate">حمایت از برنامه (Donate)</string>
     <string name="qksms_plus_coming_soon">Coming soon</string>
     <string name="qksms_plus_themes_title">Premium themes</string>
     <string name="qksms_plus_themes_summary">Unlock beautiful theme colors not available on the Material Design palette</string>
@@ -379,12 +379,12 @@
     <string name="theme_hex">HEX</string>
     <string name="theme_apply">Apply</string>
 
-    <string name="about_developer" translatable="false">Moez Bhatti</string>
-    <string name="about_source" translatable="false">https://github.com/moezbhatti/qksms</string>
-    <string name="about_changelog" translatable="false">https://github.com/moezbhatti/qksms/releases</string>
-    <string name="about_contact" translatable="false">moez@qklabs.com</string>
+    <string name="about_developer" translatable="false">کامران کراماتیان (Kamran Keramatian)</string>
+    <string name="about_source" translatable="false">https://github.com/kamrankrtm/CuponApp</string>
+    <string name="about_changelog" translatable="false">https://github.com/kamrankrtm/CuponApp/releases</string>
+    <string name="about_contact" translatable="false">k.keramatian@gmail.com</string>
     <string name="about_license" translatable="false">GNU General Public License v3.0</string>
-    <string name="about_copyright" translatable="false">© 2014–2019</string>
+    <string name="about_copyright" translatable="false">© 2026 Kamran Keramatian</string>
 
     <string name="changelog_title" translatable="false">New in smsPRO</string>
     <string name="changelog_version" translatable="false">Version %s</string>

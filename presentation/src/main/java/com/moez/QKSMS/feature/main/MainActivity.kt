@@ -228,6 +228,9 @@ class MainActivity : QkThemedActivity(), MainView {
         if (Build.VERSION.SDK_INT <= 22) {
             toolbarSearch.setBackgroundTint(resolveThemeColor(R.attr.bubbleColor))
         }
+
+        // Check for updates from GitHub Releases
+        com.moez.QKSMS.feature.update.AppUpdateChecker.checkForUpdate(this)
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -628,9 +631,10 @@ class MainActivity : QkThemedActivity(), MainView {
                 }
 
                 // Also scan all incoming SMS messages for OTPs with their exact timestamps
+                val inboxType: Int = android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX
                 val recentMessages = realm.where(com.moez.QKSMS.model.Message::class.java)
                     .equalTo("type", "sms")
-                    .equalTo("boxId", 1)
+                    .equalTo("boxId", inboxType)
                     .sort("date", io.realm.Sort.DESCENDING)
                     .limit(200)
                     .findAll()
@@ -798,7 +802,8 @@ class MainActivity : QkThemedActivity(), MainView {
                     }
                     filteredConversationsAdapter.data = list
                     if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
-                    itemTouchHelper.attachToRecyclerView(null)
+                    itemTouchCallback.adapter = filteredConversationsAdapter
+                    itemTouchHelper.attachToRecyclerView(recyclerView)
                     compose.setVisible(true)
                     empty.text = "No personal messages"
                     empty.setVisible(list.isEmpty())
@@ -808,7 +813,8 @@ class MainActivity : QkThemedActivity(), MainView {
                     val list = currentConversationsList.filter { cachedBankingIds.contains(it.id) }
                     filteredConversationsAdapter.data = list
                     if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
-                    itemTouchHelper.attachToRecyclerView(null)
+                    itemTouchCallback.adapter = filteredConversationsAdapter
+                    itemTouchHelper.attachToRecyclerView(recyclerView)
                     compose.setVisible(false)
                     empty.text = "No banking messages"
                     empty.setVisible(list.isEmpty() && isClassificationReady)
@@ -839,7 +845,8 @@ class MainActivity : QkThemedActivity(), MainView {
                     val list = currentConversationsList.filter { cachedSpamIds.contains(it.id) }
                     filteredConversationsAdapter.data = list
                     if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
-                    itemTouchHelper.attachToRecyclerView(null)
+                    itemTouchCallback.adapter = filteredConversationsAdapter
+                    itemTouchHelper.attachToRecyclerView(recyclerView)
                     compose.setVisible(false)
                     empty.text = "Spam inbox is empty"
                     empty.setVisible(list.isEmpty() && isClassificationReady)

@@ -34,6 +34,7 @@ import android.provider.Telephony
 import android.provider.Telephony.Mms
 import android.provider.Telephony.Sms
 import android.telephony.SmsManager
+import android.telephony.SubscriptionManager
 import android.webkit.MimeTypeMap
 import androidx.core.content.contentValuesOf
 import com.google.android.mms.ContentType
@@ -309,9 +310,35 @@ class MessageRepositoryImpl @Inject constructor(
             else -> prefs.signature.get()
         }
 
-        val smsManager = subId.takeIf { it != -1 }
-                ?.let(SmsManagerFactory::createSmsManager)
-                ?: SmsManager.getDefault()
+        val cleanAddresses = addresses.map { phoneNumberUtils.cleanDestinationAddress(it) }
+
+        // Resolve active subscription for Dual SIM devices
+        val subManager = tryOrNull { context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as? SubscriptionManager }
+        val defaultSubId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            SubscriptionManager.getDefaultSmsSubscriptionId()
+        } else {
+            -1
+        }
+        val resolvedSubId = when {
+            subId != -1 && subId != SubscriptionManager.INVALID_SUBSCRIPTION_ID -> subId
+            defaultSubId != -1 && defaultSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID -> defaultSubId
+            else -> tryOrNull { subManager?.activeSubscriptionInfoList?.firstOrNull()?.subscriptionId } ?: -1
+        }
+
+        val smsManager: SmsManager = when {
+            Build.VERSION.SDK_INT >= 31 -> {
+                val base = context.getSystemService(SmsManager::class.java) ?: SmsManager.getDefault()
+                if (resolvedSubId != -1 && resolvedSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                    base.createForSubscriptionId(resolvedSubId)
+                } else {
+                    base
+                }
+            }
+            resolvedSubId != -1 && resolvedSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID && Build.VERSION.SDK_INT >= 22 -> {
+                tryOrNull { SmsManager.getSmsManagerForSubscriptionId(resolvedSubId) } ?: SmsManager.getDefault()
+            }
+            else -> SmsManager.getDefault()
+        }
 
         // We only care about stripping SMS
         val strippedBody = when (prefs.unicode.get()) {
@@ -322,21 +349,27 @@ class MessageRepositoryImpl @Inject constructor(
         val parts = smsManager.divideMessage(strippedBody).orEmpty()
         val forceMms = prefs.longAsMms.get() && parts.size > 1
 
-        if (addresses.size == 1 && attachments.isEmpty() && !forceMms) { // SMS
+        if (cleanAddresses.size == 1 && attachments.isEmpty() && !forceMms) { // SMS
             if (delay > 0) { // With delay
                 val sendTime = System.currentTimeMillis() + delay
-                val message = insertSentSms(subId, threadId, addresses.first(), strippedBody, sendTime)
+                val message = insertSentSms(resolvedSubId, threadId, cleanAddresses.first(), strippedBody, sendTime)
 
                 val intent = getIntentForDelayedSms(message.id)
 
-                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, sendTime, intent)
-                } else {
-                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, sendTime, intent)
+                try {
+                    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, sendTime, intent)
+                    } else {
+                        alarmManager.setExact(AlarmManager.RTC_WAKEUP, sendTime, intent)
+                    }
+                } catch (t: Throwable) {
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        sendSms(message)
+                    }, delay.toLong())
                 }
             } else { // No delay
-                val message = insertSentSms(subId, threadId, addresses.first(), strippedBody, now())
+                val message = insertSentSms(resolvedSubId, threadId, cleanAddresses.first(), strippedBody, now())
                 sendSms(message)
             }
         } else { // MMS
@@ -437,67 +470,125 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     override fun sendSms(message: Message) {
-        val smsManager = message.subId.takeIf { it != -1 }
-                ?.let(SmsManagerFactory::createSmsManager)
-                ?: SmsManager.getDefault()
+        val destAddress = phoneNumberUtils.cleanDestinationAddress(message.address).takeIf { it.isNotEmpty() } ?: message.address
 
-        val parts = smsManager
-                .divideMessage(if (prefs.unicode.get()) StripAccents.stripAccents(message.body) else message.body)
-                ?: arrayListOf()
+        // Resolve active subscription for Dual SIM devices
+        val subManager = tryOrNull { context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as? SubscriptionManager }
+        val defaultSubId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            SubscriptionManager.getDefaultSmsSubscriptionId()
+        } else {
+            -1
+        }
+        val effectiveSubId = when {
+            message.subId != -1 && message.subId != SubscriptionManager.INVALID_SUBSCRIPTION_ID -> message.subId
+            defaultSubId != -1 && defaultSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID -> defaultSubId
+            else -> tryOrNull { subManager?.activeSubscriptionInfoList?.firstOrNull()?.subscriptionId } ?: -1
+        }
+
+        val smsManager: SmsManager = when {
+            Build.VERSION.SDK_INT >= 31 -> {
+                val base = context.getSystemService(SmsManager::class.java) ?: SmsManager.getDefault()
+                if (effectiveSubId != -1 && effectiveSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                    base.createForSubscriptionId(effectiveSubId)
+                } else {
+                    base
+                }
+            }
+            effectiveSubId != -1 && effectiveSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID && Build.VERSION.SDK_INT >= 22 -> {
+                tryOrNull { SmsManager.getSmsManagerForSubscriptionId(effectiveSubId) } ?: SmsManager.getDefault()
+            }
+            else -> SmsManager.getDefault()
+        }
+
+        val strippedBody = if (prefs.unicode.get()) StripAccents.stripAccents(message.body) else message.body
+        val parts = smsManager.divideMessage(strippedBody)?.takeIf { it.isNotEmpty() } ?: arrayListOf(strippedBody)
 
         val flagMutable = 0x02000000 // PendingIntent.FLAG_MUTABLE for Android 12+ (API 31+)
         val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) flagMutable else 0)
 
         val sentIntents = parts.mapIndexed { index, _ ->
             val intent = Intent(context, SmsSentReceiver::class.java).apply {
+                `package` = context.packageName
                 putExtra("id", message.id)
                 putExtra("partIndex", index)
                 action = "com.moez.QKSMS.SMS_SENT_${message.id}_$index"
             }
-            PendingIntent.getBroadcast(context, (message.id * 100 + index).toInt(), intent, piFlags)
+            val requestCode = ((message.id.hashCode() * 31) + index) and 0x7FFFFFFF
+            PendingIntent.getBroadcast(context, requestCode, intent, piFlags)
         }
 
-        val deliveredIntents = parts.mapIndexed { index, _ ->
-            val intent = Intent(context, SmsDeliveredReceiver::class.java).apply {
-                putExtra("id", message.id)
-                putExtra("partIndex", index)
-                action = "com.moez.QKSMS.SMS_DELIVERED_${message.id}_$index"
+        val deliveryEnabled = prefs.delivery.get()
+        val deliveredIntents = if (deliveryEnabled) {
+            parts.mapIndexed { index, _ ->
+                val intent = Intent(context, SmsDeliveredReceiver::class.java).apply {
+                    `package` = context.packageName
+                    putExtra("id", message.id)
+                    putExtra("partIndex", index)
+                    action = "com.moez.QKSMS.SMS_DELIVERED_${message.id}_$index"
+                }
+                val requestCode = ((message.id.hashCode() * 67) + index) and 0x7FFFFFFF
+                PendingIntent.getBroadcast(context, requestCode, intent, piFlags)
             }
-            val pendingIntent = PendingIntent.getBroadcast(context, (message.id * 100 + index).toInt(), intent, piFlags)
-            if (prefs.delivery.get()) pendingIntent else null
+        } else {
+            null
         }
 
         try {
-            smsManager.sendMultipartTextMessage(
-                    message.address,
+            if (parts.size <= 1) {
+                smsManager.sendTextMessage(
+                    destAddress,
+                    null,
+                    parts.firstOrNull() ?: strippedBody,
+                    sentIntents.firstOrNull(),
+                    deliveredIntents?.firstOrNull()
+                )
+            } else {
+                smsManager.sendMultipartTextMessage(
+                    destAddress,
                     null,
                     parts,
                     ArrayList(sentIntents),
-                    ArrayList(deliveredIntents)
-            )
+                    deliveredIntents?.let { ArrayList(it) }
+                )
+            }
+
+            // Extract primitive messageId and messageUri before passing to Handler to prevent
+            // Realm access from incorrect thread (IllegalStateException)
+            val messageId = message.id
+            val messageUri = tryOrNull { message.getUri() }
 
             // Fallback watchdog: if Android OS fails to broadcast sent confirmation,
-            // automatically mark as SENT after 20s so it doesn't get stuck on "Sending..." forever
+            // automatically mark as SENT after 15s so it doesn't get stuck on "Sending..." forever
             Handler(Looper.getMainLooper()).postDelayed({
-                Realm.getDefaultInstance()?.use { realm ->
-                    val m = realm.where(Message::class.java).equalTo("id", message.id).findFirst()
-                    if (m != null && m.isValid && m.boxId == Sms.MESSAGE_TYPE_OUTBOX) {
-                        realm.executeTransaction {
-                            m.boxId = Sms.MESSAGE_TYPE_SENT
-                        }
-                        val values = ContentValues()
-                        values.put(Sms.TYPE, Sms.MESSAGE_TYPE_SENT)
-                        try {
-                            context.contentResolver.update(m.getUri(), values, null, null)
-                        } catch (t: Throwable) {
-                            // ignore
+                try {
+                    Realm.getDefaultInstance()?.use { realm ->
+                        val m = realm.where(Message::class.java).equalTo("id", messageId).findFirst()
+                        if (m != null && m.isValid && m.boxId == Sms.MESSAGE_TYPE_OUTBOX) {
+                            realm.executeTransaction {
+                                m.boxId = Sms.MESSAGE_TYPE_SENT
+                            }
+                            if (messageUri != null) {
+                                val values = ContentValues()
+                                values.put(Sms.TYPE, Sms.MESSAGE_TYPE_SENT)
+                                try {
+                                    context.contentResolver.update(messageUri, values, null, null)
+                                } catch (t: Throwable) {
+                                    // ignore
+                                }
+                            }
                         }
                     }
+                } catch (t: Throwable) {
+                    // ignore
                 }
-            }, 20000L)
+            }, 15000L)
         } catch (e: Throwable) {
-            Timber.w(e, "Message send error: ${e.message}")
-            markFailed(message.id, Telephony.MmsSms.ERR_TYPE_GENERIC)
+            val messageId = tryOrNull { message.id } ?: 0L
+            Timber.e(e, "Message send error: ${e.message}")
+            android.util.Log.e("MessageRepo", "Message send error: ${e.message}", e)
+            if (messageId != 0L) {
+                markFailed(messageId, Telephony.MmsSms.ERR_TYPE_GENERIC)
+            }
         }
     }
 

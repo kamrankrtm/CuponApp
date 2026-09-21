@@ -1,39 +1,114 @@
-![QKSMS](https://user-images.githubusercontent.com/4358785/39079306-a5a409b6-44e5-11e8-8589-b4acd63b636e.jpg)
+# 📱 اپلیکیشن پیام‌رسان هوشمند smsPRO (CuponApp Native Android)
 
-# QKSMS
+[![Release](https://img.shields.io/github/v/release/kamrankrtm/CuponApp?color=blue&label=smsPRO%20Release)](https://github.com/kamrankrtm/CuponApp/releases)
+[![Platform](https://img.shields.io/badge/Platform-Native%20Android%20%28Kotlin%29-green.svg)](https://developer.android.com)
+[![License](https://img.shields.io/badge/License-GPLv3-orange.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/kamrankrtm/CuponApp?style=social)](https://github.com/kamrankrtm/CuponApp)
 
-[![Build Status](https://circleci.com/gh/moezbhatti/qksms/tree/master.svg?style=svg)](https://circleci.com/gh/moezbhatti/qksms/tree/master)
-[![Crowdin](https://badges.crowdin.net/qksms/localized.svg)](https://crowdin.com/project/qksms)
-[![Liberapay donation](https://img.shields.io/badge/donate-liberapay-yellow.svg)](https://liberapay.com/moezbhatti/)
-[![Bitcoin donation](https://img.shields.io/badge/donate-bitcoin-yellow.svg)](https://qklabs.com/donate-btc/)
-[![PayPal donation](https://img.shields.io/badge/donate-paypal-yellow.svg)](https://qklabs.com/donate)
+> **smsPRO (کوپن‌اپ)** یک پیام‌رسان بومی، فوق‌سریع و مدرن برای سیستم‌عامل اندروید است که برای نخستین‌بار پیامک‌های ورودی را با موتور هوش مصنوعی و پردازش زبان طبیعی محلی (On-Device NLP) تجزیه و تحلیل کرده و در ۵ زبانه هوشمند تفکیک می‌کند. با این اپلیکیشن هیچ کد تخفیفی منقضی نمی‌شود، ورود با رمز یکبارمصرف (OTP) بی‌درنگ انجام شده و اسپم‌های تبلیغاتی مزاحم بی‌صدا می‌شوند.
 
-QKSMS is an open source replacement to the [stock messaging app](https://github.com/android/platform_packages_apps_mms) on Android. It is currently available on the [Google Play Store](https://play.google.com/store/apps/details?id=com.moez.QKSMS) and on [F-Droid](https://f-droid.org/repository/browse/?fdid=com.moez.QKSMS)
+---
 
-<a href="https://play.google.com/store/apps/details?id=com.moez.QKSMS"><img src="https://play.google.com/intl/en_us/badges/images/generic/en_badge_web_generic.png" alt="Download on Google Play" height="100"></a><a href="https://f-droid.org/repository/browse/?fdid=com.moez.QKSMS"><img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="100"></a>
+## 📸 تصاویر محیط برنامه (Screenshots)
 
-## Reporting bugs
+<p align="center">
+  <img src="assets/tab_discounts.png" width="30%" alt="تب کدهای تخفیف" />
+  <img src="assets/tab_otp.jpg" width="30%" alt="تب کدهای ورود و تایید" />
+  <img src="assets/tab_personal.jpg" width="30%" alt="تب پیام‌های شخصی و تفکیک گفتگوها" />
+</p>
 
-A great bug report contains a description of the problem and steps to reproduce the problem. We need to know what we're looking for and where to look for it.
+---
 
-When reporting a bug, please make sure to provide the following information:
-- Steps to reproduce the issue
-- QKSMS version
-- Device / OS information
+## ✨ قابلیت‌های منحصربه‌فرد smsPRO
 
-## Translations
+### ۱. 🎁 مرکز کدهای تخفیف و جشنواره‌ها (Discounts Hub)
+- **استخراج بلادرنگ کدهای تخفیف:** تشخیص خودکار نام برندها (اسنپ‌فود، تپسی‌فود، دیجی‌کالا، فیلیمو، سینماتیکت، اکالا، اسنپ‌اکسپرس، باسلام و...).
+- **کارت‌های شکیل و مدرن:** نمایش نام برند، درصد یا مبلغ تخفیف، کد تخفیف با دکمه کپی ۱-کلیکه.
+- **راه و شرایط استفاده از تخفیف:** دیالوگ اختصاصی راهنمای گام‌به‌گام نحوه اعمال کد و شرایط حداقل سفارش.
+- **تاریخ انقضای هوشمند:** جایگزینی عبارات مبهم نظیر «تا اطلاع ثانوی» با اعتبار پیش‌فرض ۱ ماهه خورشیدی از لحظه دریافت.
+- **جستجو و فیلتر موضوعی:** دسته‌بندی ۵گانه غذا و رستوران، فروشگاهی، سوپرمارکت، سفر و حمل‌ونقل، فیلم و سرگرمی به همراه جستجوی لحظه‌ای.
 
-If you'd like to add translations to QKSMS, please join the project on [Crowdin](https://crowdin.com/project/qksms). Translations that are committed directly to source files will not be accepted.
+### ۲. 🔑 مرکز کدهای ورود و تایید هویت (Smart OTP)
+- **استخراج آنی عدد تایید:** تشخیص ارقام ۴ تا ۸ رقمی رمز یکبارمصرف، رمز پویا و کدهای ورود به همراه نام سرویس.
+- **کپی خودکار به کلیپ‌بورد (Auto-Copy):** به محض دریافت پیامک، کد کپی شده و پیام راهنمای فارسی نمایش داده می‌شود.
+- **تفکیک کدهای امروز و منقضی‌شده:** کدهای دریافتی امروز پررنگ و فعال، و کدهای روزهای گذشته برای جلوگیری از اشتباه به شکل خودکار کم‌رنگ و با برچسب «(منقضی)» مشخص می‌شوند.
 
-## Thank you
+### ۳. 🗂️ تفکیک ۵گانه و هوشمند زبانه‌ها (Smart Tabs)
+1. **همه (All):** نمایش تمامی گفتگوها و پیامک‌ها.
+2. **شخصی (Personal):** صرفاً شماره‌های شخصی (`09...`) و مخاطبین ذخیره‌شده دفترچه تلفن.
+3. **بانکی (Banking):** پیامک‌های تراکنش‌های مالی، واریز، برداشت، مانده حساب و کارت‌های عضو شتاب.
+4. **کدهای ورود (OTP):** دسترسی تجمیعی و سریع به آخرین کدهای تایید هویت.
+5. **تخفیف‌ها (Discounts):** ویترین کدهای تخفیف استخراج‌شده.
+6. **اسپم و تبلیغات (Spam):** پیامک‌های تبلیغاتی انبوه بدون تخفیف که به صورت خودکار بی‌صدا می‌شوند تا مزاحمتی ایجاد نکنند.
 
-A special thank you to Jake ([@klinker41](https://github.com/klinker41)) and Luke Klinker ([@klinker24](https://github.com/klinker24)) for their work on [android-smsmms](https://github.com/klinker41/android-smsmms), which has been an unspeakably large help in implementing MMS into QKSMS.
+### ۴. 📅 تقویم خورشیدی و ارقام فارسی (Jalali Calendar)
+- تبدیل دقیق ۳۳ ساله میلادی به شمسی بدون نیاز به اینترنت و بدون کتابخانه‌های سنگین خارجی.
+- نمایش تاریخ شمسی و ارقام فارسی در تمامی صفحات گفتگو، لیست‌ها و نوتیفیکیشن‌ها.
 
+### ۵. 🤖 پاسخ هوشمند با هوش مصنوعی (AI Smart Reply)
+- دکمه اکشن اختصاصی «پاسخ هوشمند» در اعلان پیامک‌ها و پشتیبانی کامل از ساعت‌های هوشمند (Wear OS).
+- تحلیل زمینه ۱۰ پیام اخیر و فاصله‌های زمانی گفتگو برای تولید پاسخی طبیعی، مودبانه و مرتبط به زبان فارسی.
 
-## Contact
+### ۶. 💬 ارسال مستقیم در واتس‌اپ (WhatsApp Direct Send)
+- آیکون شکیل واتس‌اپ در صفحه چت برای باز کردن فوری صفحه گفتگو در واتس‌اپ بدون نیاز به ذخیره کردن شماره مخاطب.
 
-QKSMS is developed and maintained by [Moez Bhatti](https://github.com/moezbhatti). Feel free to reach out to moez@qklabs.com
+### ۷. ☁️ موتور ابری جایگزین MMS
+- تبدیل خودکار عکس‌ها و ویدیوها به لینک دانلود در سرور ابری [Files.ir](https://my.files.ir) و کوتاه‌سازی خودکار لینک با API اختصاصی زایا ([zaya.io](https://zaya.io)) جهت ارسال رایگان و بدون دردسر در بستر پیامک معمولی.
 
-## License
+### ۸. 🚀 بررسی خودکار و درون‌برنامه‌ای آپدیت (Auto Update Checker)
+- بررسی منظم آخرین نسخه منتشرشده در صفحه GitHub Releases و نمایش دیالوگ به‌روزرسانی همراه با لیست تغییرات و لینک مستقیم دانلود.
 
-QKSMS is released under the **The GNU General Public License v3.0 (GPLv3)**, which can be found in the `LICENSE` file in the root of this project.
+---
+
+## 📥 دانلود و نصب آخرین نسخه (Download APK)
+
+جدیدترین فایل نصبی برنامه را می‌توانید همواره از بخش [Releases](https://github.com/kamrankrtm/CuponApp/releases) دریافت کنید:
+
+| نسخه | نام فایل | معماری | وضعیت بیلد | لینک دانلود |
+| :--- | :--- | :--- | :--- | :--- |
+| **v2.0.1** | `smsPRO-2.0.1.apk` | Universal (همه پردازنده‌ها) | ![Build](https://github.com/kamrankrtm/CuponApp/actions/workflows/build-apk.yml/badge.svg) | [دانلود نسخه ۲.۰.۱](https://github.com/kamrankrtm/CuponApp/releases/latest) |
+
+---
+
+## 🛠️ ساخت و کامپایل پروژه (Build from Source)
+
+این پروژه با Gradle و پلتفرم کاملاً بومی اندروید توسعه یافته است:
+
+```bash
+# کلون کردن رپازیتوری
+git clone https://github.com/kamrankrtm/CuponApp.git
+cd CuponApp
+
+# اجرای بیلد نسخه Debug بدون نیاز به آنالیتیکس
+./gradlew assembleNoAnalyticsDebug
+```
+
+فایل نصبی تولیدشده در مسیر زیر قرار خواهد گرفت:
+```
+presentation/build/outputs/apk/noAnalytics/debug/presentation-noAnalytics-debug.apk
+```
+
+---
+
+## ☕ حمایت از توسعه برنامه (Donate & Support)
+
+smsPRO یک پروژه **متن‌باز و رایگان** است. چنانچه این برنامه برای شما کاربردی و مفید بوده است، می‌توانید با روش‌های زیر از توسعه ادامه‌دار آن حمایت کنید:
+
+1. ⭐ **ستاره دادن به مخزن گیت‌هاب:** با زدن دکمه Star در بالای همین صفحه، به دیده‌شدن بیشتر پروژه کمک کنید.
+2. 💳 **حمایت مالی درون ایران:** 
+   - حمایت از طریق پلتفرم [ری‌میت (Reymit)](https://reymit.ir) یا درگاه شخصی [زرین‌پال (ZarinPal)](https://zarinpal.com).
+   - برای دریافت شماره کارت یا لینک حمایت مالی می‌توانید از طریق ایمیل توسعه‌دهنده در ارتباط باشید.
+
+---
+
+## 👤 توسعه‌دهنده (Developer)
+
+- **کامران کراماتیان (Kamran Keramatian)**
+- گیت‌هاب: [@kamrankrtm](https://github.com/kamrankrtm)
+- ایمیل پشتیبانی: `k.keramatian@gmail.com`
+
+---
+
+## 📄 لایسنس (License)
+
+این نرم‌افزار تحت مجوز **GNU General Public License v3.0 (GPLv3)** منتشر شده است. اطلاعات بیشتر در فایل [LICENSE](LICENSE) در دسترس است.

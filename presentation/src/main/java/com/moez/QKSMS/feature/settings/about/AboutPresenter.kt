@@ -36,6 +36,12 @@ class AboutPresenter @Inject constructor(
                 .autoDisposable(view.scope())
                 .subscribe { preference ->
                     when (preference.id) {
+                        R.id.version -> {
+                            view.getHostActivity()?.let { activity ->
+                                com.moez.QKSMS.feature.update.AppUpdateChecker.checkForUpdate(activity, manualCheck = true)
+                            }
+                        }
+
                         R.id.developer -> navigator.showDeveloper()
 
                         R.id.source -> navigator.showSourceCode()
