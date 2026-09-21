@@ -174,6 +174,7 @@ class MainActivity : QkThemedActivity(), MainView {
         toggle.syncState()
         try {
             setupSmartTabs()
+            setupDiscountsFilterBar()
         } catch (t: Throwable) {
             android.util.Log.e("MainActivity", "Error setting up smart tabs", t)
         }
@@ -276,6 +277,7 @@ class MainActivity : QkThemedActivity(), MainView {
         toolbar.menu.findItem(R.id.read)?.isVisible = markRead && selectedConversations != 0
         toolbar.menu.findItem(R.id.unread)?.isVisible = !markRead && selectedConversations != 0
         toolbar.menu.findItem(R.id.block)?.isVisible = selectedConversations != 0
+        toolbar.menu.findItem(R.id.mark_all_read)?.isVisible = state.page is Inbox && selectedConversations == 0
 
         listOf(plusBadge1, plusBadge2).forEach { badge ->
             badge.isVisible = drawerBadgesExperiment.variant && !state.upgraded
@@ -469,6 +471,9 @@ class MainActivity : QkThemedActivity(), MainView {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == R.id.mark_all_read) {
+            android.widget.Toast.makeText(this, "Marking all conversations as read...", android.widget.Toast.LENGTH_SHORT).show()
+        }
         optionsItemIntent.onNext(item.itemId)
         return true
     }
@@ -585,10 +590,105 @@ class MainActivity : QkThemedActivity(), MainView {
         }
     }
 
+    private var activePromoCategory = "all"
+
+    private fun setupDiscountsFilterBar() {
+        etPromoSearch?.textChanges()
+            ?.autoDisposable(scope())
+            ?.subscribe { text ->
+                promoCodesAdapter.filter(query = text.toString(), category = activePromoCategory)
+            }
+
+        val chips = listOf(
+            Triple(chipCatAll, "all", "All Codes"),
+            Triple(chipCatFood, "food", "🍔 Food"),
+            Triple(chipCatShopping, "shopping", "🛍️ Shopping"),
+            Triple(chipCatTravel, "travel", "✈️ Travel"),
+            Triple(chipCatEnt, "entertainment", "🎬 Entertainment")
+        )
+
+        fun updateChipsUi(selectedCategory: String) {
+            activePromoCategory = selectedCategory
+            val accentColor = android.graphics.Color.parseColor("#0088FF")
+            val bubbleColor = resolveThemeColor(R.attr.bubbleColor)
+            val textColorSecondary = resolveThemeColor(android.R.attr.textColorSecondary)
+
+            chips.forEach { (view, cat, _) ->
+                if (view == null) return@forEach
+                if (cat == selectedCategory) {
+                    view.backgroundTintList = ColorStateList.valueOf(accentColor)
+                    view.setTextColor(android.graphics.Color.WHITE)
+                    view.setTypeface(null, android.graphics.Typeface.BOLD)
+                } else {
+                    view.backgroundTintList = ColorStateList.valueOf(bubbleColor)
+                    view.setTextColor(textColorSecondary)
+                    view.setTypeface(null, android.graphics.Typeface.NORMAL)
+                }
+            }
+            promoCodesAdapter.filter(query = etPromoSearch?.text?.toString() ?: "", category = selectedCategory)
+        }
+
+        chips.forEach { (view, cat, _) ->
+            view?.setOnClickListener {
+                updateChipsUi(cat)
+            }
+        }
+
+        btnQuickAiScan?.setOnClickListener {
+            val apiKey = prefs.aiApiKey.get()
+            if (apiKey.isBlank()) {
+                val input = android.widget.EditText(this).apply {
+                    hint = "AvalAI (aa-...) or OpenAI API key"
+                    setPadding(48, 32, 48, 32)
+                }
+                androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("AI Discount Setup")
+                    .setMessage("Enter your AvalAI / OpenAI API key to scan SMS and extract discount coupons:")
+                    .setView(input)
+                    .setPositiveButton("Save & Scan") { _, _ ->
+                        val key = input.text.toString().trim()
+                        if (key.isNotBlank()) {
+                            prefs.aiApiKey.set(key)
+                            startAiScan()
+                        }
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            } else {
+                startAiScan()
+            }
+        }
+    }
+
+    private fun startAiScan() {
+        val progressDialog = android.app.ProgressDialog(this).apply {
+            setMessage("AI is scanning SMS for discounts & coupons...")
+            setCancelable(false)
+            show()
+        }
+
+        com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.extractPromos(this, prefs) { success, msg, count ->
+            progressDialog.dismiss()
+            if (success) {
+                val updatedPromos = com.moez.QKSMS.feature.smart.SmartDataManager.getPromos()
+                promoCodesAdapter.updateData(updatedPromos)
+                empty?.setVisible(updatedPromos.isEmpty())
+                android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_LONG).show()
+            } else {
+                android.widget.Toast.makeText(this, "AI Scan failed: $msg", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     private fun applyTabFilter() {
         try {
             val state = currentState ?: return
-            if (state.page !is Inbox || state.page.selected > 0) return
+            if (state.page !is Inbox || state.page.selected > 0) {
+                discountsFilterBar?.visibility = View.GONE
+                return
+            }
+
+            discountsFilterBar?.visibility = if (currentTabPosition == 4) View.VISIBLE else View.GONE
 
             when (currentTabPosition) {
                 0 -> {
@@ -637,6 +737,7 @@ class MainActivity : QkThemedActivity(), MainView {
                     // Discount Promo codes
                     val promos = SmartDataManager.getPromos()
                     promoCodesAdapter.updateData(promos)
+                    promoCodesAdapter.filter(query = etPromoSearch?.text?.toString() ?: "", category = activePromoCategory)
                     if (recyclerView.adapter !== promoCodesAdapter) recyclerView.adapter = promoCodesAdapter
                     itemTouchHelper.attachToRecyclerView(null)
                     compose.setVisible(false)

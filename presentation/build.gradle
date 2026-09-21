@@ -32,7 +32,7 @@ android {
         minSdkVersion 21
         targetSdkVersion 29
         versionCode 2225
-        versionName "1.0.14"
+        versionName "1.0.15"
         setProperty("archivesBaseName", "smsPRO-v${versionName}")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

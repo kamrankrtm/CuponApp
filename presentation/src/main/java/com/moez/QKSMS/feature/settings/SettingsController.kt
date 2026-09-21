@@ -225,6 +225,83 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
                 }
             }
         }
+
+        prefAiApiKey?.summary = if (prefs.aiApiKey.get().isBlank()) "Not configured" else "Configured (••••••••)"
+        prefAiApiKey?.setOnClickListener {
+            activity?.let { act ->
+                TextInputDialog(act, "AI API Key (AvalAI / OpenAI)") { text ->
+                    prefs.aiApiKey.set(text.trim())
+                    prefAiApiKey.summary = if (text.isBlank()) "Not configured" else "Configured (••••••••)"
+                }.setText(prefs.aiApiKey.get()).show()
+            }
+        }
+
+        prefAiBaseUrl?.summary = prefs.aiBaseUrl.get().ifBlank { "https://api.avalai.ir/v1" }
+        prefAiBaseUrl?.setOnClickListener {
+            activity?.let { act ->
+                TextInputDialog(act, "AI Service Endpoint") { text ->
+                    val url = text.trim().ifBlank { "https://api.avalai.ir/v1" }
+                    prefs.aiBaseUrl.set(url)
+                    prefAiBaseUrl.summary = url
+                }.setText(prefs.aiBaseUrl.get()).show()
+            }
+        }
+
+        prefAiModel?.summary = prefs.aiModel.get().ifBlank { "gemini-2.5-flash-lite" }
+        prefAiModel?.setOnClickListener {
+            activity?.let { act ->
+                val models = arrayOf("gemini-2.5-flash-lite", "gpt-4o-mini", "gpt-3.5-turbo", "claude-3-haiku")
+                val current = prefs.aiModel.get()
+                val selectedIndex = models.indexOf(current).takeIf { it >= 0 } ?: 0
+                AlertDialog.Builder(act)
+                    .setTitle("Select AI Model")
+                    .setSingleChoiceItems(models, selectedIndex) { dialog, which ->
+                        val chosen = models[which]
+                        prefs.aiModel.set(chosen)
+                        prefAiModel.summary = chosen
+                        dialog.dismiss()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        }
+
+        prefTestAiConnection?.setOnClickListener {
+            prefTestAiConnection.summary = "Testing AI connection..."
+            com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.testConnection(
+                apiKey = prefs.aiApiKey.get(),
+                baseUrl = prefs.aiBaseUrl.get()
+            ) { success, msg ->
+                prefTestAiConnection?.summary = if (success) "Connection verified" else "Failed"
+                activity?.let { act ->
+                    AlertDialog.Builder(act)
+                        .setTitle(if (success) "AI Connection Successful" else "AI Connection Failed")
+                        .setMessage(msg)
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+        }
+
+        prefRunAiScan?.setOnClickListener {
+            activity?.let { act ->
+                if (prefs.aiApiKey.get().isBlank()) {
+                    android.widget.Toast.makeText(act, "Please configure AI API Key first", android.widget.Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                prefRunAiScan.summary = "Scanning inbox with AI..."
+                android.widget.Toast.makeText(act, "AI promo extraction started in background...", android.widget.Toast.LENGTH_LONG).show()
+
+                com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.extractPromos(act, prefs) { success, msg, count ->
+                    prefRunAiScan?.summary = if (success) "Extracted $count promo codes" else "Scan failed"
+                    AlertDialog.Builder(act)
+                        .setTitle(if (success) "AI Scan Completed" else "AI Scan Failed")
+                        .setMessage(msg)
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+        }
     }
 
     override fun preferenceClicks(): Observable<PreferenceView> = (0 until preferences.childCount)

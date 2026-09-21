@@ -327,6 +327,9 @@ class NotificationManagerImpl @Inject constructor(
         // Smart Notification Styling for Promos, OTP, and Spam
         when (smartCategory) {
             is SmsCategory.Promo -> {
+                if (!prefs.notifyDiscounts.get()) {
+                    return
+                }
                 val promo = smartCategory.promo
                 val copyIntent = Intent(context, CopyClipReceiver::class.java).apply {
                     putExtra(CopyClipReceiver.EXTRA_TEXT, promo.code)
@@ -338,11 +341,7 @@ class NotificationManagerImpl @Inject constructor(
                     copyIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT
                 )
-
-                notification.setContentTitle("🎉 تخفیف ${promo.discountAmount} ویژه ${promo.brand}")
-                notification.setContentText("کد: ${promo.code} | ${promo.expiryDateText}")
-                notification.setChannelId(DISCOUNT_CHANNEL_ID)
-                notification.addAction(R.drawable.ic_content_copy_black_24dp, "کپی کد تخفیف", copyPI)
+                notification.addAction(R.drawable.ic_content_copy_black_24dp, "Copy Code (${promo.code})", copyPI)
             }
             is SmsCategory.Otp -> {
                 val otp = smartCategory.otp

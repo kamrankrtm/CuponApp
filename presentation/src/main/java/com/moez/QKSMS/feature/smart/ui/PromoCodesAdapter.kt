@@ -14,15 +14,55 @@ import com.moez.QKSMS.R
 import com.moez.QKSMS.common.util.JalaliCalendar
 import com.moez.QKSMS.feature.smart.ClipboardHelper
 import com.moez.QKSMS.feature.smart.model.PromoItem
+import java.util.Calendar
 
 class PromoCodesAdapter(
-    private val context: Context,
-    private var promos: MutableList<PromoItem> = mutableListOf()
+    private val context: Context
 ) : RecyclerView.Adapter<PromoCodesAdapter.PromoViewHolder>() {
 
+    private var allPromos: MutableList<PromoItem> = mutableListOf()
+    private var displayedPromos: MutableList<PromoItem> = mutableListOf()
+    private var currentQuery: String = ""
+    private var currentCategory: String = "all"
+
     fun updateData(newPromos: List<PromoItem>) {
-        promos.clear()
-        promos.addAll(newPromos)
+        allPromos.clear()
+        allPromos.addAll(newPromos)
+        applyFilter()
+    }
+
+    fun filter(query: String = currentQuery, category: String = currentCategory) {
+        currentQuery = query
+        currentCategory = category
+        applyFilter()
+    }
+
+    private fun applyFilter() {
+        val q = currentQuery.trim().toLowerCase()
+        val cat = currentCategory.toLowerCase()
+
+        val filtered = allPromos.filter { promo ->
+            val matchesQuery = q.isEmpty() ||
+                    promo.brand.toLowerCase().contains(q) ||
+                    promo.code.toLowerCase().contains(q) ||
+                    promo.description.toLowerCase().contains(q)
+
+            val b = promo.brand
+            val d = promo.description
+            val matchesCat = when (cat) {
+                "all" -> true
+                "food" -> b.contains("فود") || b.contains("اسنپ‌فود") || b.contains("تپسی‌فود") || d.contains("غذا") || d.contains("رستوران")
+                "shopping" -> b.contains("دیجی") || b.contains("باسلام") || b.contains("اکالا") || b.contains("تکنولایف") || d.contains("خرید") || d.contains("فروشگاه")
+                "travel" -> (b.contains("اسنپ") && !b.contains("فود")) || (b.contains("تپسی") && !b.contains("فود")) || b.contains("علی‌بابا") || d.contains("سفر") || d.contains("تاکسی")
+                "entertainment" -> b.contains("فیلیمو") || b.contains("نماوا") || b.contains("سینما") || d.contains("فیلم") || d.contains("سریال")
+                else -> true
+            }
+
+            matchesQuery && matchesCat
+        }
+
+        displayedPromos.clear()
+        displayedPromos.addAll(filtered)
         notifyDataSetChanged()
     }
 
@@ -32,11 +72,10 @@ class PromoCodesAdapter(
     }
 
     override fun onBindViewHolder(holder: PromoViewHolder, position: Int) {
-        val item = promos[position]
-        holder.bind(item)
+        holder.bind(displayedPromos[position])
     }
 
-    override fun getItemCount(): Int = promos.size
+    override fun getItemCount(): Int = displayedPromos.size
 
     inner class PromoViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val brandIcon: ImageView = itemView.findViewById(R.id.brandIcon)
@@ -53,8 +92,17 @@ class PromoCodesAdapter(
             promoBrand.text = item.brand
             promoDiscountAmount.text = item.discountAmount
             promoDescription.text = item.description
+
             promoCode.text = item.code
-            promoExpiry.text = "Expires: ${item.expiryDateText}"
+
+            // Format date with Jalali Shamsi
+            val expiryText = if (item.expiryDateText.isNotBlank() && item.expiryDateText != "نامشخص") {
+                item.expiryDateText
+            } else {
+                val j = JalaliCalendar.fromMillis(item.receivedAt)
+                "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)}"
+            }
+            promoExpiry.text = "Expires: $expiryText"
 
             btnCopyPromo.text = "Copy Code"
             btnCopyPromo.setOnClickListener {
@@ -69,17 +117,20 @@ class PromoCodesAdapter(
             btnMarkUsed.setOnClickListener {
                 item.isUsed = true
                 val currentPos = adapterPosition
-                if (currentPos != RecyclerView.NO_POSITION) {
-                    promos.removeAt(currentPos)
+                if (currentPos != RecyclerView.NO_POSITION && currentPos in 0 until displayedPromos.size) {
+                    displayedPromos.removeAt(currentPos)
+                    allPromos.remove(item)
                     notifyItemRemoved(currentPos)
                     Toast.makeText(context, "Promo code marked as used", Toast.LENGTH_SHORT).show()
                 }
             }
 
             btnViewOriginal.setOnClickListener {
+                val j = JalaliCalendar.fromMillis(item.receivedAt)
+                val jalaliReceived = "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)}"
                 AlertDialog.Builder(context)
                     .setTitle(item.brand)
-                    .setMessage("Sender: ${item.sender}\n\nMessage:\n${item.body}\n\nDetails:\n${item.instructions}")
+                    .setMessage("Sender: ${item.sender}\nDate: $jalaliReceived\n\nMessage:\n${item.body}\n\nDetails:\n${item.instructions}")
                     .setPositiveButton("Copy Code") { _, _ ->
                         ClipboardHelper.copyToClipboard(context, item.code, "PROMO")
                     }

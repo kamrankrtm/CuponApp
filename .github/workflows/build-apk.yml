@@ -40,33 +40,34 @@ jobs:
       - name: Locate and Rename APK
         run: |
           mkdir -p build-output
-          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/smsPRO-1.0.14.apk \;
-          cp build-output/smsPRO-1.0.14.apk build-output/smsPRO-debug.apk
-          cp build-output/smsPRO-1.0.14.apk build-output/CuponApp-debug.apk
+          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/smsPRO-1.0.15.apk \;
+          cp build-output/smsPRO-1.0.15.apk build-output/smsPRO-debug.apk
+          cp build-output/smsPRO-1.0.15.apk build-output/CuponApp-debug.apk
           ls -la build-output/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: smsPRO-debug-apk
-          path: build-output/smsPRO-1.0.14.apk
+          path: build-output/smsPRO-1.0.15.apk
           retention-days: 30
 
       - name: Create GitHub Release (on every main push)
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.14-${{ github.run_number }}
-          name: smsPRO v1.0.14 (build ${{ github.run_number }})
+          tag_name: v1.0.15-${{ github.run_number }}
+          name: smsPRO v1.0.15 (build ${{ github.run_number }})
           body: |
-            ## smsPRO v1.0.14 - Samsung S25 / Android 15 & Instant Inbox Update
-            - Added `android:extractNativeLibs="true"` to resolve Realm UnsatisfiedLinkError on Android 15 / Samsung S25
-            - Crash process isolation via `isCrashProcess()` guard in QKApplication to prevent secondary crash loops
-            - Instant Inbox view: default tab (index 0) set to "همه" (All Messages) with immediate data rendering
-            - Tab order: All ("همه"), Personal ("شخصی"), Banking ("بانکی"), OTP ("رمز ورود"), Promo Codes ("کدهای تخفیف"), Spam ("تبلیغات")
-            - Safe NDK symbol handling to guarantee all native Realm libraries are packed
+            ## smsPRO v1.0.15 - AI Discount Extraction Hub & Shamsi Jalali Calendar Update
+            - **AI Discount Extraction Hub**: Integrated AvalAI / OpenAI compatible AI coupon extractor with search bar and category chips (Food, Shopping, Travel, Entertainment)
+            - **Main Settings AI Section**: Added API key input, base URL, model selection, live connection test, and full inbox AI scan
+            - **Shamsi Solar Calendar Everywhere**: All tabs (All, Personal, Banking, OTP, Discounts, Spam) now display timestamps formatted in the Iranian Solar Jalali calendar
+            - **Mark All Read**: Instant 1-tap button on toolbar to mark all unread conversations and messages as read
+            - **Clean Discount Notifications**: Standardized clean notification styling matching other SMS messages with an ON/OFF toggle in Settings
+            - **Brand Cleanup**: Replaced all remaining user-facing references to QKSMS with smsPRO
           files: |
-            build-output/smsPRO-1.0.14.apk
+            build-output/smsPRO-1.0.15.apk
             build-output/smsPRO-debug.apk
             build-output/CuponApp-debug.apk
         env:

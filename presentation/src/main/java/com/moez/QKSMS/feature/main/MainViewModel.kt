@@ -368,6 +368,27 @@ class MainViewModel @Inject constructor(
                 .autoDisposable(view.scope())
                 .subscribe()
 
+        view.optionsItemIntent
+                .filter { itemId -> itemId == R.id.mark_all_read }
+                .filter { permissionManager.isDefaultSms().also { if (!it) view.requestDefaultSms() } }
+                .observeOn(Schedulers.io())
+                .doOnNext {
+                    val realm = Realm.getDefaultInstance()
+                    try {
+                        val convs = realm.where(com.moez.QKSMS.model.Conversation::class.java)
+                                .equalTo("archived", false)
+                                .findAll()
+                        val unreadIds = convs.filter { it.unread }.map { it.id }
+                        if (unreadIds.isNotEmpty()) {
+                            markRead.execute(unreadIds)
+                        }
+                    } finally {
+                        realm.close()
+                    }
+                }
+                .autoDisposable(view.scope())
+                .subscribe()
+
         view.plusBannerIntent
                 .autoDisposable(view.scope())
                 .subscribe {

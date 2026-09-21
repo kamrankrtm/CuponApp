@@ -321,13 +321,49 @@
             app:title="Zaya.io API Key"
             app:summary="Shorten links before sending SMS" />
 
+        <TextView
+            style="@style/PreferenceCategory"
+            android:text="AI Discount Extraction" />
+
         <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefTestCloudConnection"
+            android:id="@+id/prefAiApiKey"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:icon="@drawable/ic_security_black_24dp"
+            app:title="AI API Key (AvalAI / OpenAI)"
+            app:summary="Enter your API key to extract promo codes using AI" />
+
+        <com.moez.QKSMS.common.widget.PreferenceView
+            android:id="@+id/prefAiBaseUrl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:icon="@drawable/ic_settings_black_24dp"
+            app:title="AI Service Endpoint"
+            app:summary="Default: https://api.avalai.ir/v1" />
+
+        <com.moez.QKSMS.common.widget.PreferenceView
+            android:id="@+id/prefAiModel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:icon="@drawable/ic_local_offer_black_24dp"
+            app:title="AI Model"
+            app:summary="Default: gemini-2.5-flash-lite" />
+
+        <com.moez.QKSMS.common.widget.PreferenceView
+            android:id="@+id/prefTestAiConnection"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:icon="@drawable/ic_sync_black_24dp"
-            app:title="Test Cloud &amp; Shortener Connection"
-            app:summary="Check server connectivity for media uploads" />
+            app:title="Test AI Connection"
+            app:summary="Verify API key and server connection" />
+
+        <com.moez.QKSMS.common.widget.PreferenceView
+            android:id="@+id/prefRunAiScan"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:icon="@drawable/ic_search_black_24dp"
+            app:title="Scan Inbox with AI"
+            app:summary="Extract active discount codes from promotional SMS" />
 
         <View
             android:layout_width="match_parent"

@@ -48,7 +48,9 @@ class OtpCodesAdapter(
             otpSender.text = "From: ${item.sender}"
             otpCode.text = item.code.chunked(1).joinToString(" ")
 
-            otpDate.text = java.text.SimpleDateFormat("MMM d, yyyy h:mm a", java.util.Locale.US).format(java.util.Date(item.receivedAt))
+            val j = JalaliCalendar.fromMillis(item.receivedAt)
+            val time = JalaliCalendar.formatTime(java.util.Calendar.getInstance().apply { timeInMillis = item.receivedAt })
+            otpDate.text = "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)}  $time"
 
             btnCopyOtp.text = "Copy Code"
             btnCopyOtp.setOnClickListener {

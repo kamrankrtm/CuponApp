@@ -208,11 +208,16 @@ class Preferences @Inject constructor(
     val autoCopyOtp = rxPrefs.getBoolean("autoCopyOtp", true)
     val silentSpam = rxPrefs.getBoolean("silentSpam", true)
     val notifyDiscounts = rxPrefs.getBoolean("notifyDiscounts", true)
-    val jalaliCalendar = rxPrefs.getBoolean("jalaliCalendar", false)
+    val jalaliCalendar = rxPrefs.getBoolean("jalaliCalendar", true)
     val defaultTab = rxPrefs.getInteger("defaultTab_v2", 1)
     val mediaAsCloudLink = rxPrefs.getBoolean("mediaAsCloudLink", true)
     val filesIrToken = rxPrefs.getString("filesIrToken", "")
     val filesIrEndpoint = rxPrefs.getString("filesIrEndpoint", "https://my.files.ir")
     val zayaApiKey = rxPrefs.getString("zayaApiKey", "")
     val shortenCloudLinks = rxPrefs.getBoolean("shortenCloudLinks", true)
+
+    // AI Promo Extraction Settings
+    val aiApiKey = rxPrefs.getString("aiApiKey", "")
+    val aiBaseUrl = rxPrefs.getString("aiBaseUrl", "https://api.avalai.ir/v1")
+    val aiModel = rxPrefs.getString("aiModel", "gemini-2.5-flash-lite")
 }
