@@ -321,6 +321,14 @@
             app:title="Zaya.io API Key"
             app:summary="Shorten links before sending SMS" />
 
+        <com.moez.QKSMS.common.widget.PreferenceView
+            android:id="@+id/prefTestCloudConnection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:icon="@drawable/ic_file_upload_black_24dp"
+            app:title="Test Cloud Connection"
+            app:summary="Test connectivity to Files.ir and Zaya.io" />
+
         <TextView
             style="@style/PreferenceCategory"
             android:text="AI Discount Extraction" />

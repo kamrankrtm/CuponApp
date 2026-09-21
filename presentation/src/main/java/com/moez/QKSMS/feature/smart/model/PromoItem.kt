@@ -3,9 +3,9 @@ package com.moez.QKSMS.feature.smart.model
 data class PromoItem(
     val id: String,
     val brand: String,
-    val brandEn: String,
-    val category: String,
-    val categorySlug: String,
+    val brandEn: String = "",
+    val category: String = "سایر",
+    val categorySlug: String = "all",
     val code: String,
     val discountAmount: String,
     val description: String,

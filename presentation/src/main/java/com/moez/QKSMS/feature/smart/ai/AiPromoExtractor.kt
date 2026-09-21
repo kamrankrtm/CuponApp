@@ -229,11 +229,14 @@ object AiPromoExtractor {
                             val promo = PromoItem(
                                 id = "ai-${System.currentTimeMillis()}-$i",
                                 brand = item.optString("brand", "تخفیف"),
+                                brandEn = item.optString("brandEn", ""),
+                                category = item.optString("category", "عمومی"),
+                                categorySlug = item.optString("categorySlug", "all"),
                                 code = code,
                                 discountAmount = item.optString("discountAmount", "تخفیف ویژه"),
                                 description = item.optString("description", ""),
                                 expiryDateText = item.optString("expiryDateText", "نامشخص"),
-                                originalBody = "",
+                                body = item.optString("body", ""),
                                 receivedAt = System.currentTimeMillis()
                             )
                             parsedPromos.add(promo)
