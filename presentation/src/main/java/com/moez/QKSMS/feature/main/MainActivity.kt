@@ -551,11 +551,12 @@ class MainActivity : QkThemedActivity(), MainView {
             val hasSavedContact = conv.recipients.any { it.contact != null }
             val sender = conv.recipients.firstOrNull()?.address ?: ""
             val body = conv.lastMessage?.body ?: ""
+            val msgDate = conv.lastMessage?.date ?: System.currentTimeMillis()
 
             if (hasSavedContact) {
                 personal.add(id)
             } else {
-                when (val cat = SmartSmsClassifier.classify(sender, body)) {
+                when (val cat = SmartSmsClassifier.classify(sender, body, msgDate)) {
                     is SmsCategory.Personal -> personal.add(id)
                     is SmsCategory.Banking -> banking.add(id)
                     is SmsCategory.Spam -> spam.add(id)
@@ -611,11 +612,12 @@ class MainActivity : QkThemedActivity(), MainView {
                     val hasSavedContact = conv.recipients.any { it.contact != null }
                     val sender = conv.recipients.firstOrNull()?.address ?: ""
                     val body = conv.lastMessage?.body ?: ""
+                    val msgDate = conv.lastMessage?.date ?: System.currentTimeMillis()
 
                     if (hasSavedContact) {
                         personal.add(id)
                     } else {
-                        when (val cat = SmartSmsClassifier.classify(sender, body)) {
+                        when (val cat = SmartSmsClassifier.classify(sender, body, msgDate)) {
                             is SmsCategory.Personal -> personal.add(id)
                             is SmsCategory.Banking -> banking.add(id)
                             is SmsCategory.Spam -> spam.add(id)
@@ -624,6 +626,28 @@ class MainActivity : QkThemedActivity(), MainView {
                         }
                     }
                 }
+
+                // Also scan all incoming SMS messages for OTPs with their exact timestamps
+                val recentMessages = realm.where(com.moez.QKSMS.model.Message::class.java)
+                    .equalTo("type", "sms")
+                    .equalTo("boxId", 1)
+                    .sort("date", io.realm.Sort.DESCENDING)
+                    .limit(200)
+                    .findAll()
+
+                for (msg in recentMessages) {
+                    if (!msg.isValid) continue
+                    val text = msg.body.trim()
+                    if (SmartSmsClassifier.isOtpMessage(text)) {
+                        val cat = SmartSmsClassifier.classify(msg.address, text, msg.date)
+                        if (cat is SmsCategory.Otp) {
+                            newOtps.add(cat.otp)
+                        }
+                    }
+                }
+
+                newOtps.sortByDescending { it.receivedAt }
+                newPromos.sortByDescending { it.receivedAt }
 
                 SmartDataManager.setPromosAndOtps(newPromos, newOtps)
 

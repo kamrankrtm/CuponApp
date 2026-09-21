@@ -122,7 +122,8 @@ class NotificationManagerImpl @Inject constructor(
         val lastMessage = conversation.lastMessage
         val sender = lastRecipient?.address ?: ""
         val body = lastMessage?.body ?: ""
-        val smartCategory = SmartSmsClassifier.classify(sender, body)
+        val msgDate = lastMessage?.date ?: System.currentTimeMillis()
+        val smartCategory = SmartSmsClassifier.classify(sender, body, msgDate)
 
         // Silent Spam: if spam and silentSpam is enabled, do not display notification
         if (smartCategory is SmsCategory.Spam && prefs.silentSpam.get()) {

@@ -42,19 +42,44 @@ class PromoCodesAdapter(
         val cat = currentCategory.toLowerCase()
 
         val filtered = allPromos.filter { promo ->
-            val matchesQuery = q.isEmpty() ||
-                    promo.brand.toLowerCase().contains(q) ||
-                    promo.code.toLowerCase().contains(q) ||
-                    promo.description.toLowerCase().contains(q)
+            val b = promo.brand.toLowerCase()
+            val d = promo.description.toLowerCase()
+            val code = promo.code.toLowerCase()
+            val body = promo.body.toLowerCase()
+            val amount = promo.discountAmount.toLowerCase()
+            val inst = promo.instructions.toLowerCase()
+            val sender = promo.sender.toLowerCase()
+            val minOrder = promo.minOrder?.toLowerCase() ?: ""
+            val catSlug = promo.categorySlug.toLowerCase()
 
-            val b = promo.brand
-            val d = promo.description
+            val matchesQuery = q.isEmpty() ||
+                    b.contains(q) ||
+                    code.contains(q) ||
+                    d.contains(q) ||
+                    amount.contains(q) ||
+                    inst.contains(q) ||
+                    body.contains(q) ||
+                    sender.contains(q) ||
+                    minOrder.contains(q)
+
             val matchesCat = when (cat) {
                 "all" -> true
-                "food" -> b.contains("فود") || b.contains("اسنپ‌فود") || b.contains("تپسی‌فود") || d.contains("غذا") || d.contains("رستوران")
-                "shopping" -> b.contains("دیجی") || b.contains("باسلام") || b.contains("اکالا") || b.contains("تکنولایف") || d.contains("خرید") || d.contains("فروشگاه")
-                "travel" -> (b.contains("اسنپ") && !b.contains("فود")) || (b.contains("تپسی") && !b.contains("فود")) || b.contains("علی‌بابا") || d.contains("سفر") || d.contains("تاکسی")
-                "entertainment" -> b.contains("فیلیمو") || b.contains("نماوا") || b.contains("سینما") || d.contains("فیلم") || d.contains("سریال")
+                "food" -> catSlug == "food" || b.contains("فود") || b.contains("غذا") || b.contains("رستوران") ||
+                        d.contains("غذا") || d.contains("رستوران") || body.contains("غذا") || body.contains("پیتزا") ||
+                        body.contains("رستوران") || body.contains("شام") || body.contains("ناهار") || body.contains("کافه")
+                "shopping", "ecommerce" -> catSlug == "ecommerce" || catSlug == "shopping" || b.contains("دیجی") ||
+                        b.contains("باسلام") || b.contains("اکالا") || b.contains("تکنولایف") || b.contains("بانی") ||
+                        b.contains("خانومی") || d.contains("خرید") || d.contains("فروشگاه") || body.contains("خرید") ||
+                        body.contains("فروشگاه") || body.contains("پوشاک") || body.contains("کالا")
+                "supermarket" -> catSlug == "supermarket" || b.contains("مارکت") || b.contains("کوروش") || b.contains("اکالا") ||
+                        d.contains("سوپرمارکت") || body.contains("سوپرمارکت") || body.contains("هایپراستار")
+                "travel", "transport" -> (catSlug == "transport" || catSlug == "travel") ||
+                        ((b.contains("اسنپ") || b.contains("تپسی")) && !b.contains("فود") && !b.contains("مارکت")) ||
+                        b.contains("علی‌بابا") || b.contains("فلای") || b.contains("سفر") || b.contains("بلیط") ||
+                        d.contains("سفر") || d.contains("تاکسی") || body.contains("سفر") || body.contains("تاکسی")
+                "entertainment" -> catSlug == "entertainment" || b.contains("فیلیمو") || b.contains("نماوا") ||
+                        b.contains("سینما") || d.contains("فیلم") || d.contains("سریال") || body.contains("فیلم") ||
+                        body.contains("سینما") || body.contains("سرگرمی")
                 else -> true
             }
 
@@ -95,22 +120,26 @@ class PromoCodesAdapter(
 
             promoCode.text = item.code
 
-            // Format date with Jalali Shamsi (default to 1 month validity if unstated)
-            val expiryText = if (item.expiryDateText.isNotBlank() && item.expiryDateText != "نامشخص") {
+            // Format date with Jalali Shamsi (default to 1 month validity if unstated or 'اطلاع ثانوی')
+            val isGenericOrBlank = item.expiryDateText.isBlank() ||
+                    item.expiryDateText == "نامشخص" ||
+                    item.expiryDateText.contains("اطلاع ثانوی")
+
+            val expiryText = if (!isGenericOrBlank) {
                 item.expiryDateText
             } else {
                 val j = JalaliCalendar.fromMillis(item.receivedAt + (30L * 24 * 60 * 60 * 1000L))
                 "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)} (۱ ماهه)"
             }
-            promoExpiry.text = "مهلت استفاده: $expiryText"
+            promoExpiry.text = "مهلت استفاده: ${JalaliCalendar.toPersianDigits(expiryText)}"
 
-            btnCopyPromo.text = "Copy Code"
+            btnCopyPromo.text = "کپی کد"
             btnCopyPromo.setOnClickListener {
                 ClipboardHelper.copyToClipboard(context, item.code, "PROMO", showToast = false)
-                btnCopyPromo.text = "Copied! ✓"
-                Toast.makeText(context, "Promo code ${item.code} copied to clipboard", Toast.LENGTH_SHORT).show()
+                btnCopyPromo.text = "کپی شد ✓"
+                Toast.makeText(context, "کد تخفیف ${item.code} کپی شد", Toast.LENGTH_SHORT).show()
                 btnCopyPromo.postDelayed({
-                    btnCopyPromo.text = "Copy Code"
+                    btnCopyPromo.text = "کپی کد"
                 }, 2000)
             }
 
@@ -121,20 +150,36 @@ class PromoCodesAdapter(
                     displayedPromos.removeAt(currentPos)
                     allPromos.remove(item)
                     notifyItemRemoved(currentPos)
-                    Toast.makeText(context, "Promo code marked as used", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "کد تخفیف به عنوان «استفاده شد» علامت‌گذاری شد", Toast.LENGTH_SHORT).show()
                 }
+            }
+
+            btnMarkUsed.setOnLongClickListener {
+                item.isInvalid = true
+                item.isUsed = true
+                val currentPos = adapterPosition
+                if (currentPos != RecyclerView.NO_POSITION && currentPos in 0 until displayedPromos.size) {
+                    displayedPromos.removeAt(currentPos)
+                    allPromos.remove(item)
+                    notifyItemRemoved(currentPos)
+                    Toast.makeText(context, "کد تخفیف به عنوان «منقضی / کار نمی‌کنه» گزارش شد", Toast.LENGTH_SHORT).show()
+                }
+                true
             }
 
             btnViewOriginal.setOnClickListener {
                 val j = JalaliCalendar.fromMillis(item.receivedAt)
                 val jalaliReceived = "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)}"
+                val minOrderText = if (!item.minOrder.isNullOrBlank()) "\nشرایط: ${item.minOrder}" else ""
+                val instructionsText = if (item.instructions.isNotBlank()) "\n\n💡 راه و شرایط گرفتن تخفیف:\n${item.instructions}" else ""
+
                 AlertDialog.Builder(context)
-                    .setTitle(item.brand)
-                    .setMessage("Sender: ${item.sender}\nDate: $jalaliReceived\n\nMessage:\n${item.body}\n\nDetails:\n${item.instructions}")
-                    .setPositiveButton("Copy Code") { _, _ ->
+                    .setTitle("${item.brand} (${item.discountAmount})")
+                    .setMessage("فرستنده: ${item.sender}\nتاریخ دریافت: $jalaliReceived$minOrderText$instructionsText\n\n📄 متن کامل پیامک:\n${item.body}")
+                    .setPositiveButton("کپی کد (${item.code})") { _, _ ->
                         ClipboardHelper.copyToClipboard(context, item.code, "PROMO")
                     }
-                    .setNegativeButton("Close", null)
+                    .setNegativeButton("بستن", null)
                     .show()
             }
         }

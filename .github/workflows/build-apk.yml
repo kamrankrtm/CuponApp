@@ -40,34 +40,33 @@ jobs:
       - name: Locate and Rename APK
         run: |
           mkdir -p build-output
-          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/smsPRO-2.0.0.apk \;
-          cp build-output/smsPRO-2.0.0.apk build-output/smsPRO-debug.apk
-          cp build-output/smsPRO-2.0.0.apk build-output/CuponApp-debug.apk
+          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/smsPRO-2.0.1.apk \;
+          cp build-output/smsPRO-2.0.1.apk build-output/smsPRO-debug.apk
+          cp build-output/smsPRO-2.0.1.apk build-output/CuponApp-debug.apk
           ls -la build-output/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: smsPRO-debug-apk
-          path: build-output/smsPRO-2.0.0.apk
+          path: build-output/smsPRO-2.0.1.apk
           retention-days: 30
 
       - name: Create GitHub Release (on every main push)
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v2.0.0-${{ github.run_number }}
-          name: smsPRO v2.0.0 (build ${{ github.run_number }})
+          tag_name: v2.0.1-${{ github.run_number }}
+          name: smsPRO v2.0.1 (build ${{ github.run_number }})
           body: |
-            ## smsPRO v2.0.0 - Major Release: AI Promo Extraction Hub, Shamsi Jalali Calendar & Modern Inbox
-            - **AI Discount Extraction Hub**: Integrated AvalAI / OpenAI compatible AI discount engine directly in the Discounts tab with search bar and category chips (Food, Shopping, Travel, Entertainment)
-            - **AI Main Settings Hub**: Direct configuration for API Key, Endpoint, Model Selection, live connection test, and full inbox AI scan
-            - **Jalali Shamsi Calendar Everywhere**: Native Iranian Solar calendar timestamps across all tabs (All, Personal, Banking, OTP, Discounts, Spam)
-            - **Mark All Read**: Instant 1-tap toolbar button to mark all unread conversations and messages as read
-            - **Clean SMS Notifications**: Standardized clean notification design matching other messages with on/off toggle in settings
-            - **Brand Refresh**: Clean smsPRO branding across all screens and user interface
+            ## smsPRO v2.0.1 - Real Timestamps for OTPs & Promos, 1-Month Default Expiry, Contact Name Fix & Sending Watchdog
+            - **Real Timestamps for OTP Codes**: Only codes received today are marked as Active; previous days are properly marked Expired with real Jalali timestamps.
+            - **No More "اطلاع ثانوی"**: Discounts with unstated expiry are dynamically assigned a clear 1-month validity period in Jalali Shamsi.
+            - **Instant Tab Switching & Scroll-to-Top**: Tab touch immediately scrolls to top; startup spam flicker fully eliminated.
+            - **Contact Name Matching**: Normalized 09... and +98... lookup across all phone languages.
+            - **SMS Sending Watchdog**: 20-second automatic resolution prevents messages from freezing on "Sending...".
           files: |
-            build-output/smsPRO-2.0.0.apk
+            build-output/smsPRO-2.0.1.apk
             build-output/smsPRO-debug.apk
             build-output/CuponApp-debug.apk
         env:

@@ -34,7 +34,7 @@ object SmartSmsClassifier {
     /**
      * Main classification method
      */
-    fun classify(sender: String, body: String): SmsCategory {
+    fun classify(sender: String, body: String, date: Long = System.currentTimeMillis()): SmsCategory {
         val cleanSender = sender.trim()
         val cleanBody = body.trim()
 
@@ -44,11 +44,12 @@ object SmartSmsClassifier {
             if (code != null) {
                 val service = extractServiceName(cleanSender, cleanBody)
                 val otp = OtpItem(
-                    id = "otp-${System.currentTimeMillis()}-${code.hashCode()}",
+                    id = "otp-$date-${code.hashCode()}",
                     code = code,
                     serviceName = service,
                     sender = cleanSender,
-                    body = cleanBody
+                    body = cleanBody,
+                    receivedAt = date
                 )
                 return SmsCategory.Otp(otp)
             }
@@ -56,7 +57,7 @@ object SmartSmsClassifier {
 
         // 2. Check for Discount Code / Promotion
         if (hasDiscountCode(cleanBody)) {
-            val promo = extractPromo(cleanSender, cleanBody)
+            val promo = extractPromo(cleanSender, cleanBody, date)
             if (promo != null) {
                 return SmsCategory.Promo(promo)
             }
@@ -306,7 +307,7 @@ object SmartSmsClassifier {
         return DISCOUNT_KEYWORDS.any { lower.contains(it.toLowerCase()) }
     }
 
-    fun extractPromo(sender: String, body: String): PromoItem? {
+    fun extractPromo(sender: String, body: String, date: Long = System.currentTimeMillis()): PromoItem? {
         // Brand identification
         var brand = "سایر فروشگاه‌ها"
         var brandEn = "Store"
@@ -417,15 +418,21 @@ object SmartSmsClassifier {
         val minOrder = if (minOrderMatcher.find()) "حداقل خرید " + minOrderMatcher.group(1)?.trim() else null
 
         // Expiry extraction
-        val expiryPattern = Pattern.compile("(?:اعتبار تا|مهلت تا|انقضا:?|تا پایان)\\s*([^\\.\\n]+)", Pattern.CASE_INSENSITIVE)
+        val expiryPattern = Pattern.compile("(?:اعتبار تا|مهلت تا|انقضا:?|تا پایان|فقط تا|مهلت استفاده تا|معتبر تا|تا تاریخ|اعتبار فقط تا)\\s*([^\\.\\n,،]+)", Pattern.CASE_INSENSITIVE)
         val expiryMatcher = expiryPattern.matcher(body)
-        val expiryDateText = if (expiryMatcher.find()) expiryMatcher.group(1)?.trim() ?: "معتبر تا اطلاع ثانوی" else "معتبر تا اطلاع ثانوی"
+        val rawExpiry = if (expiryMatcher.find()) expiryMatcher.group(1)?.trim() ?: "" else ""
+        val expiryDateText = if (rawExpiry.isNotBlank() && !rawExpiry.contains("اطلاع ثانوی")) {
+            rawExpiry
+        } else {
+            val jExp = com.moez.QKSMS.common.util.JalaliCalendar.fromMillis(date + (30L * 24 * 60 * 60 * 1000L))
+            "${jExp.year}/${String.format("%02d", jExp.month)}/${String.format("%02d", jExp.day)} (۱ ماهه)"
+        }
 
         val description = "تخفیف $discountAmount ویژه $brand"
         val instructions = "وارد اپلیکیشن یا سایت $brand شوید، سفارش خود را تکمیل کرده و در صفحه پرداخت کد $code را وارد کنید."
 
         return PromoItem(
-            id = "promo-${System.currentTimeMillis()}-${code.hashCode()}",
+            id = "promo-$date-${code.hashCode()}",
             brand = brand,
             brandEn = brandEn,
             category = category,
@@ -437,7 +444,8 @@ object SmartSmsClassifier {
             instructions = instructions,
             expiryDateText = expiryDateText,
             sender = sender,
-            body = body
+            body = body,
+            receivedAt = date
         )
     }
 
