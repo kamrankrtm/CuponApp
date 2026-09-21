@@ -501,7 +501,7 @@ class MessageRepositoryImpl @Inject constructor(
 
         val sentIntents = parts.mapIndexed { index, _ ->
             val intent = Intent(context, SmsSentReceiver::class.java).apply {
-                `package` = context.packageName
+                setPackage(context.packageName)
                 putExtra("id", message.id)
                 putExtra("partIndex", index)
                 action = "com.moez.QKSMS.SMS_SENT_${message.id}_$index"
@@ -514,7 +514,7 @@ class MessageRepositoryImpl @Inject constructor(
         val deliveredIntents = if (deliveryEnabled) {
             parts.mapIndexed { index, _ ->
                 val intent = Intent(context, SmsDeliveredReceiver::class.java).apply {
-                    `package` = context.packageName
+                    setPackage(context.packageName)
                     putExtra("id", message.id)
                     putExtra("partIndex", index)
                     action = "com.moez.QKSMS.SMS_DELIVERED_${message.id}_$index"
@@ -555,11 +555,12 @@ class MessageRepositoryImpl @Inject constructor(
             Handler(Looper.getMainLooper()).postDelayed({
                 try {
                     Realm.getDefaultInstance()?.use { realm ->
-                        val m = realm.where(Message::class.java).equalTo("id", messageId).findFirst()
-                        if (m != null && m.isValid && m.boxId == Sms.MESSAGE_TYPE_OUTBOX) {
-                            realm.executeTransaction {
+                        realm.executeTransaction {
+                            val m = realm.where(Message::class.java).equalTo("id", messageId).findFirst()
+                            if (m != null && m.isValid && m.boxId == Sms.MESSAGE_TYPE_OUTBOX) {
                                 m.boxId = Sms.MESSAGE_TYPE_SENT
                             }
+                        }
                             if (messageUri != null) {
                                 val values = ContentValues()
                                 values.put(Sms.TYPE, Sms.MESSAGE_TYPE_SENT)
