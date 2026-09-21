@@ -23,16 +23,16 @@ apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
 
 android {
-    compileSdkVersion 29
-    buildToolsVersion "29.0.3"
+    compileSdkVersion 33
+    buildToolsVersion "33.0.1"
     flavorDimensions "analytics"
 
     defaultConfig {
         applicationId "com.moez.QKSMS"
         minSdkVersion 21
-        targetSdkVersion 29
-        versionCode 2301
-        versionName "2.0.1"
+        targetSdkVersion 33
+        versionCode 2302
+        versionName "2.0.2"
         setProperty("archivesBaseName", "smsPRO-v${versionName}")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
