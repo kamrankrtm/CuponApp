@@ -45,21 +45,35 @@ class OtpCodesAdapter(
 
         fun bind(item: OtpItem) {
             otpService.text = item.serviceName
-            otpSender.text = "From: ${item.sender}"
+            otpSender.text = "فرستنده: ${item.sender}"
             otpCode.text = item.code.chunked(1).joinToString(" ")
 
+            val isToday = DateUtils.isToday(item.receivedAt)
             val j = JalaliCalendar.fromMillis(item.receivedAt)
             val time = JalaliCalendar.formatTime(java.util.Calendar.getInstance().apply { timeInMillis = item.receivedAt })
-            otpDate.text = "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)}  $time"
+            val dateStr = "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)}"
 
-            btnCopyOtp.text = "Copy Code"
-            btnCopyOtp.setOnClickListener {
-                ClipboardHelper.copyToClipboard(context, item.code, "OTP", showToast = false)
-                btnCopyOtp.text = "Copied! ✓"
-                Toast.makeText(context, "Verification code ${item.code} copied", Toast.LENGTH_SHORT).show()
-                btnCopyOtp.postDelayed({
-                    btnCopyOtp.text = "Copy Code"
-                }, 2000)
+            if (isToday) {
+                otpDate.text = "امروز  $time (فعال)"
+                itemView.alpha = 1.0f
+                btnCopyOtp.isEnabled = true
+                btnCopyOtp.alpha = 1.0f
+                btnCopyOtp.text = "کپی کد"
+                btnCopyOtp.setOnClickListener {
+                    ClipboardHelper.copyToClipboard(context, item.code, "OTP", showToast = false)
+                    btnCopyOtp.text = "کپی شد ✓"
+                    Toast.makeText(context, "کد تایید ${item.code} کپی شد", Toast.LENGTH_SHORT).show()
+                    btnCopyOtp.postDelayed({
+                        btnCopyOtp.text = "کپی کد"
+                    }, 2000)
+                }
+            } else {
+                otpDate.text = "$dateStr  $time (منقضی)"
+                itemView.alpha = 0.55f
+                btnCopyOtp.isEnabled = false
+                btnCopyOtp.alpha = 0.5f
+                btnCopyOtp.text = "منقضی شده"
+                btnCopyOtp.setOnClickListener(null)
             }
         }
     }

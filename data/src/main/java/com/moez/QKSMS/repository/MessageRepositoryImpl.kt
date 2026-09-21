@@ -445,7 +445,8 @@ class MessageRepositoryImpl @Inject constructor(
                 .divideMessage(if (prefs.unicode.get()) StripAccents.stripAccents(message.body) else message.body)
                 ?: arrayListOf()
 
-        val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0)
+        val flagMutable = 0x02000000 // PendingIntent.FLAG_MUTABLE for Android 12+ (API 31+)
+        val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) flagMutable else 0)
 
         val sentIntents = parts.mapIndexed { index, _ ->
             val intent = Intent(context, SmsSentReceiver::class.java).apply {
