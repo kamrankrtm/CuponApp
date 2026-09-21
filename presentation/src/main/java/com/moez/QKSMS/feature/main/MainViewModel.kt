@@ -375,12 +375,18 @@ class MainViewModel @Inject constructor(
                 .doOnNext {
                     val realm = Realm.getDefaultInstance()
                     try {
-                        val convs = realm.where(com.moez.QKSMS.model.Conversation::class.java)
-                                .equalTo("archived", false)
+                        val unreadMsgs = realm.where(com.moez.QKSMS.model.Message::class.java)
+                                .beginGroup()
+                                .equalTo("read", false)
+                                .or()
+                                .equalTo("seen", false)
+                                .endGroup()
                                 .findAll()
-                        val unreadIds = convs.filter { it.unread }.map { it.id }
+                        val unreadIds = unreadMsgs.map { it.threadId }.distinct()
                         if (unreadIds.isNotEmpty()) {
                             markRead.execute(unreadIds)
+                        } else {
+                            markRead.execute(emptyList())
                         }
                     } finally {
                         realm.close()

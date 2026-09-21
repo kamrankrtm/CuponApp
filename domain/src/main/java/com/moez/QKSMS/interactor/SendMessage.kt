@@ -43,23 +43,31 @@ class SendMessage @Inject constructor(
         val delay: Int = 0
     )
 
-    override fun buildObservable(params: Params): Flowable<*> = Flowable.just(Unit)
-            .filter { params.addresses.isNotEmpty() }
-            .doOnNext {
-                // If a threadId isn't provided, try to obtain one
-                val threadId = when (params.threadId) {
-                    0L -> TelephonyCompat.getOrCreateThreadId(context, params.addresses.toSet())
-                    else -> params.threadId
+    override fun buildObservable(params: Params): Flowable<*> = Flowable.just(params)
+            .map { p ->
+                val addresses = when {
+                    p.addresses.isNotEmpty() -> p.addresses
+                    p.threadId != 0L -> conversationRepo.getConversation(p.threadId)
+                            ?.recipients?.map { it.address }?.filter { it.isNotBlank() }.orEmpty()
+                    else -> listOf()
                 }
-                messageRepo.sendMessage(params.subId, threadId, params.addresses, params.body, params.attachments,
-                        params.delay)
+                Pair(addresses, p)
             }
-            .mapNotNull {
+            .filter { (addresses, _) -> addresses.isNotEmpty() }
+            .doOnNext { (addresses, p) ->
+                // If a threadId isn't provided, try to obtain one
+                val threadId = when (p.threadId) {
+                    0L -> TelephonyCompat.getOrCreateThreadId(context, addresses.toSet())
+                    else -> p.threadId
+                }
+                messageRepo.sendMessage(p.subId, threadId, addresses, p.body, p.attachments, p.delay)
+            }
+            .mapNotNull { (addresses, p) ->
                 // If the threadId wasn't provided, then it's probably because it doesn't exist in Realm.
                 // Sync it now and get the id
-                when (params.threadId) {
-                    0L -> conversationRepo.getOrCreateConversation(params.addresses)?.id
-                    else -> params.threadId
+                when (p.threadId) {
+                    0L -> conversationRepo.getOrCreateConversation(addresses)?.id
+                    else -> p.threadId
                 }
             }
             .doOnNext { threadId -> conversationRepo.updateConversations(threadId) }

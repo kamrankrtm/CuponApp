@@ -250,14 +250,18 @@ class MessageRepositoryImpl @Inject constructor(
 
     override fun markRead(vararg threadIds: Long) {
         Realm.getDefaultInstance()?.use { realm ->
-            val messages = realm.where(Message::class.java)
-                    .anyOf("threadId", threadIds)
-                    .beginGroup()
-                    .equalTo("read", false)
-                    .or()
-                    .equalTo("seen", false)
-                    .endGroup()
-                    .findAll()
+            val query = realm.where(Message::class.java)
+                .beginGroup()
+                .equalTo("read", false)
+                .or()
+                .equalTo("seen", false)
+                .endGroup()
+
+            if (threadIds.isNotEmpty()) {
+                query.beginGroup().anyOf("threadId", threadIds).endGroup()
+            }
+
+            val messages = query.findAll()
 
             realm.executeTransaction {
                 messages.forEach { message ->
@@ -271,13 +275,21 @@ class MessageRepositoryImpl @Inject constructor(
         values.put(Sms.SEEN, true)
         values.put(Sms.READ, true)
 
-        threadIds.forEach { threadId ->
-            try {
-                val uri = ContentUris.withAppendedId(Telephony.MmsSms.CONTENT_CONVERSATIONS_URI, threadId)
-                context.contentResolver.update(uri, values, "${Sms.READ} = 0", null)
-            } catch (exception: Exception) {
-                Timber.w(exception)
+        try {
+            if (threadIds.isEmpty()) {
+                context.contentResolver.update(Telephony.Sms.CONTENT_URI, values, "${Sms.READ} = 0 OR ${Sms.SEEN} = 0", null)
+            } else {
+                threadIds.forEach { threadId ->
+                    try {
+                        val uri = ContentUris.withAppendedId(Telephony.MmsSms.CONTENT_CONVERSATIONS_URI, threadId)
+                        context.contentResolver.update(uri, values, "${Sms.READ} = 0", null)
+                    } catch (exception: Exception) {
+                        Timber.w(exception)
+                    }
+                }
             }
+        } catch (t: Throwable) {
+            Timber.w(t)
         }
     }
 

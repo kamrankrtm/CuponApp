@@ -652,6 +652,11 @@ class ComposeViewModel @Inject constructor(
                         else -> 0
                     }
                     val sendAsGroup = !state.editingMode || state.sendAsGroup
+                    val targetAddresses = when {
+                        addresses.isNotEmpty() -> addresses
+                        conversation.recipients.isNotEmpty() -> conversation.recipients.map { it.address }.filter { it.isNotBlank() }
+                        else -> listOf()
+                    }
 
                     when {
                         // Scheduling a message
@@ -662,15 +667,15 @@ class ComposeViewModel @Inject constructor(
                                     .map { it.getUri() }
                                     .map { it.toString() }
                             val params = AddScheduledMessage
-                                    .Params(state.scheduled, subId, addresses, sendAsGroup, body, uris)
+                                    .Params(state.scheduled, subId, targetAddresses, sendAsGroup, body, uris)
                             addScheduledMessage.execute(params)
                             context.makeToast(R.string.compose_scheduled_toast)
                         }
 
-                        // Sending a group message
+                        // Sending a group message or message to existing conversation
                         sendAsGroup -> {
                             sendMessage.execute(SendMessage
-                                    .Params(subId, conversation.id, addresses, body, attachments, delay))
+                                    .Params(subId, conversation.id, targetAddresses, body, attachments, delay))
                         }
 
                         // Sending a message to an existing conversation with one recipient
@@ -680,14 +685,14 @@ class ComposeViewModel @Inject constructor(
                         }
 
                         // Create a new conversation with one address
-                        addresses.size == 1 -> {
+                        targetAddresses.size == 1 -> {
                             sendMessage.execute(SendMessage
-                                    .Params(subId, threadId, addresses, body, attachments, delay))
+                                    .Params(subId, threadId, targetAddresses, body, attachments, delay))
                         }
 
                         // Send a message to multiple addresses
                         else -> {
-                            addresses.forEach { addr ->
+                            targetAddresses.forEach { addr ->
                                 val threadId = tryOrNull(false) {
                                     TelephonyCompat.getOrCreateThreadId(context, addr)
                                 } ?: 0

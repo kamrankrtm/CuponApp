@@ -69,11 +69,14 @@ class PhoneNumberUtils @Inject constructor(context: Context) {
     }
 
     private fun normalizeForComparison(number: String): String {
-        val digits = number.replace("[^0-9]".toRegex(), "")
+        // Convert Persian/Arabic digits first
+        var result = cleanDestinationAddress(number)
+        val digits = result.filter { it.isDigit() }
         return when {
             digits.startsWith("0098") -> digits.substring(4)
-            digits.startsWith("98") -> digits.substring(2)
-            digits.startsWith("0") -> digits.substring(1)
+            digits.startsWith("098") -> digits.substring(3)
+            digits.startsWith("98") && digits.length >= 12 -> digits.substring(2)
+            digits.startsWith("0") && digits.length >= 11 -> digits.substring(1)
             else -> digits
         }
     }
@@ -87,8 +90,11 @@ class PhoneNumberUtils @Inject constructor(context: Context) {
     }
 
     fun formatNumber(number: CharSequence): String {
-        // PhoneNumberUtil doesn't maintain country code input
-        return PhoneNumberUtils.formatNumber(number.toString(), countryCode) ?: number.toString()
+        var numStr = cleanDestinationAddress(number.toString())
+        if (numStr.startsWith("989") && numStr.length == 12 && numStr.all { it.isDigit() }) {
+            numStr = "0" + numStr.substring(2)
+        }
+        return PhoneNumberUtils.formatNumber(numStr, countryCode) ?: numStr
     }
 
     fun normalizeNumber(number: String): String {

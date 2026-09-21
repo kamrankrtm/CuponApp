@@ -33,8 +33,15 @@ open class Recipient(
     /**
      * Return a string that can be displayed to represent the name of this contact
      */
-    fun getDisplayName(): String = contact?.name?.takeIf { it.isNotBlank() }
-            ?: PhoneNumberUtils.formatNumber(address, Locale.getDefault().country) // TODO: Use our own PhoneNumberUtils
-            ?: address
+    fun getDisplayName(): String {
+        val contactName = contact?.name?.takeIf { it.isNotBlank() }
+        if (contactName != null) return contactName
+
+        var numStr = address.trim()
+        if (numStr.startsWith("989") && numStr.length == 12 && numStr.all { it.isDigit() }) {
+            numStr = "0" + numStr.substring(2)
+        }
+        return PhoneNumberUtils.formatNumber(numStr, Locale.getDefault().country) ?: numStr
+    }
 
 }
