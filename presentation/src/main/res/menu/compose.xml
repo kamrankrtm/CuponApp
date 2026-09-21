@@ -90,4 +90,11 @@
         android:visible="false"
         app:showAsAction="always" />
 
+    <item
+        android:id="@+id/debug_logs"
+        android:icon="@drawable/ic_info_black_24dp"
+        android:title="گزارش ارسال (لاگ دیباگ)"
+        android:visible="true"
+        app:showAsAction="never" />
+
 </menu>

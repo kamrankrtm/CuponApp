@@ -99,8 +99,18 @@ class SendMessage @Inject constructor(
                 }
                 Pair(addresses, p)
             }
+            .doOnNext { (addresses, _) ->
+                if (addresses.isEmpty()) {
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        try {
+                            android.widget.Toast.makeText(context, "خطا: شماره گیرنده برای ارسال پیامک یافت نشد", android.widget.Toast.LENGTH_LONG).show()
+                        } catch (t: Throwable) {}
+                    }
+                }
+            }
             .filter { (addresses, _) -> addresses.isNotEmpty() }
             .doOnNext { (addresses, p) ->
+                com.moez.QKSMS.common.util.SendDebugLogger.log("SendMessage: calling messageRepo.sendMessage. addresses=$addresses, threadId=${p.threadId}, subId=${p.subId}, body length=${p.body.length}")
                 // If a threadId isn't provided, try to obtain one
                 val threadId = when (p.threadId) {
                     0L -> TelephonyCompat.getOrCreateThreadId(context, addresses.toSet())

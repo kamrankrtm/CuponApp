@@ -18,11 +18,13 @@
  */
 package com.moez.QKSMS.interactor
 
+import com.moez.QKSMS.repository.ConversationRepository
 import com.moez.QKSMS.repository.MessageRepository
 import io.reactivex.Flowable
 import javax.inject.Inject
 
 class MarkUnread @Inject constructor(
+    private val conversationRepo: ConversationRepository,
     private val messageRepo: MessageRepository,
     private val updateBadge: UpdateBadge
 ) : Interactor<List<Long>>() {
@@ -30,6 +32,7 @@ class MarkUnread @Inject constructor(
     override fun buildObservable(params: List<Long>): Flowable<*> {
         return Flowable.just(params.toLongArray())
                 .doOnNext { threadId -> messageRepo.markUnread(*threadId) }
+                .doOnNext { threadId -> conversationRepo.updateConversations(*threadId) }
                 .flatMap { updateBadge.buildObservable(Unit) } // Update the badge
     }
 

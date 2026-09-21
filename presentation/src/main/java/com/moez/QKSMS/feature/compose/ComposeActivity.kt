@@ -120,7 +120,15 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
     override val scheduleSelectedIntent: Subject<Long> = PublishSubject.create()
     override val changeSimIntent by lazy { sim.clicks() }
     override val scheduleCancelIntent by lazy { scheduledCancel.clicks() }
-    override val sendIntent by lazy { send.clicks() }
+    override val sendIntent by lazy {
+        send.clicks().doOnNext {
+            val text = message.text?.toString() ?: ""
+            SendDebugLogger.log("ComposeActivity: send clicked. text='$text'")
+            if (text.isBlank() && (lastRenderedState?.attachments?.isEmpty() != false)) {
+                android.widget.Toast.makeText(this, "متن پیامک خالی است", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     override val viewQksmsPlusIntent: Subject<Unit> = PublishSubject.create()
     override val backPressedIntent: Subject<Unit> = PublishSubject.create()
 
@@ -139,6 +147,18 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         contentView.layoutTransition = LayoutTransition().apply {
             disableTransitionType(LayoutTransition.CHANGING)
         }
+
+        message.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val hasInput = !s.isNullOrBlank() || (attachmentAdapter.itemCount > 0)
+                send.isEnabled = hasInput
+                send.imageAlpha = if (hasInput) 255 else 128
+                sendWhatsApp.isEnabled = hasInput
+                sendWhatsApp.imageAlpha = if (hasInput) 255 else 128
+            }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
 
         chipsAdapter.view = chips
 
@@ -261,11 +281,14 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
 
         lastRenderedState = state
 
-        send.isEnabled = state.canSend
-        send.imageAlpha = if (state.canSend) 255 else 128
+        val hasInput = message.text?.isNotBlank() == true || state.attachments.isNotEmpty()
+        val canSend = state.canSend || hasInput
 
-        sendWhatsApp.isEnabled = state.canSend || message.text?.isNotBlank() == true
-        sendWhatsApp.imageAlpha = if (sendWhatsApp.isEnabled) 255 else 128
+        send.isEnabled = canSend
+        send.imageAlpha = if (canSend) 255 else 128
+
+        sendWhatsApp.isEnabled = canSend
+        sendWhatsApp.imageAlpha = if (canSend) 255 else 128
     }
 
     override fun clearSelection() = messageAdapter.clearSelection()
@@ -382,8 +405,30 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == R.id.debug_logs) {
+            showDebugLogsDialog()
+            return true
+        }
         optionsItemIntent.onNext(item.itemId)
         return true
+    }
+
+    private fun showDebugLogsDialog() {
+        val logs = SendDebugLogger.getLogs()
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("گزارش و لاگ‌های ارسال پیامک")
+            .setMessage(logs)
+            .setPositiveButton("کپی لاگ") { _, _ ->
+                val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("SMS_DEBUG_LOG", logs))
+                android.widget.Toast.makeText(this, "لاگ در کلیپ‌بورد کپی شد", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("بستن", null)
+            .setNeutralButton("پاک‌سازی") { _, _ ->
+                SendDebugLogger.clear()
+                android.widget.Toast.makeText(this, "لاگ‌ها پاک شدند", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            .show()
     }
 
     override fun getColoredMenuItems(): List<Int> {

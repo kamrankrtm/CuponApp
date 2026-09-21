@@ -33,11 +33,20 @@ abstract class Interactor<in Params> : Disposable {
     abstract fun buildObservable(params: Params): Flowable<*>
 
     fun execute(params: Params, onComplete: () -> Unit = {}) {
+        com.moez.QKSMS.common.util.SendDebugLogger.log("${javaClass.simpleName}: execute called")
         disposables += buildObservable(params)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .doOnComplete(onComplete)
-                .subscribe({}, Timber::w)
+                .doOnComplete {
+                    com.moez.QKSMS.common.util.SendDebugLogger.log("${javaClass.simpleName}: onComplete")
+                    onComplete()
+                }
+                .subscribe({
+                    com.moez.QKSMS.common.util.SendDebugLogger.log("${javaClass.simpleName}: item processed")
+                }, { error ->
+                    com.moez.QKSMS.common.util.SendDebugLogger.log("${javaClass.simpleName} ERROR: ${error.javaClass.simpleName}: ${error.message}")
+                    Timber.w(error)
+                })
     }
 
     override fun dispose() {

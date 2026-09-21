@@ -376,24 +376,7 @@ class MainViewModel @Inject constructor(
                 .observeOn(Schedulers.io())
                 .doOnNext {
                     try {
-                        val realm = Realm.getDefaultInstance()
-                        val unreadIds = try {
-                            val unreadMsgs = realm.where(com.moez.QKSMS.model.Message::class.java)
-                                    .beginGroup()
-                                    .equalTo("read", false)
-                                    .or()
-                                    .equalTo("seen", false)
-                                    .endGroup()
-                                    .findAll()
-                            unreadMsgs.map { it.threadId }.distinct()
-                        } finally {
-                            realm.close()
-                        }
-                        if (unreadIds.isNotEmpty()) {
-                            markRead.execute(unreadIds)
-                        } else {
-                            markRead.execute(emptyList())
-                        }
+                        markRead.execute(emptyList())
                     } catch (t: Throwable) {
                         Timber.e(t, "Failed to mark all as read")
                     }
@@ -463,8 +446,16 @@ class MainViewModel @Inject constructor(
                         Preferences.SWIPE_ACTION_DELETE -> view.showDeleteDialog(listOf(threadId))
                         Preferences.SWIPE_ACTION_BLOCK -> view.showBlockingDialog(listOf(threadId), true)
                         Preferences.SWIPE_ACTION_CALL -> conversationRepo.getConversation(threadId)?.recipients?.firstOrNull()?.address?.let(navigator::makePhoneCall)
-                        Preferences.SWIPE_ACTION_READ -> markRead.execute(listOf(threadId))
-                        Preferences.SWIPE_ACTION_UNREAD -> markUnread.execute(listOf(threadId))
+                        Preferences.SWIPE_ACTION_READ -> {
+                            markRead.execute(listOf(threadId)) {
+                                conversationRepo.updateConversations(threadId)
+                            }
+                        }
+                        Preferences.SWIPE_ACTION_UNREAD -> {
+                            markUnread.execute(listOf(threadId)) {
+                                conversationRepo.updateConversations(threadId)
+                            }
+                        }
                     }
                 }
 

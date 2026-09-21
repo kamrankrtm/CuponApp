@@ -640,8 +640,18 @@ class ComposeViewModel @Inject constructor(
 
         // Send a message when the send button is clicked, and disable editing mode if it's enabled
         view.sendIntent
-                .filter { permissionManager.isDefaultSms().also { if (!it) view.requestDefaultSms() } }
-                .filter { permissionManager.hasSendSms().also { if (!it) view.requestSmsPermission() } }
+                .filter {
+                    val isDefault = permissionManager.isDefaultSms()
+                    SendDebugLogger.log("ComposeViewModel: isDefaultSms=$isDefault")
+                    if (!isDefault) view.requestDefaultSms()
+                    isDefault
+                }
+                .filter {
+                    val hasPerm = permissionManager.hasSendSms()
+                    SendDebugLogger.log("ComposeViewModel: hasSendSms=$hasPerm")
+                    if (!hasPerm) view.requestSmsPermission()
+                    hasPerm
+                }
                 .withLatestFrom(currentDraft) { _, body -> body }
                 .withLatestFrom(state, attachments, conversation, selectedChips) { body, state, attachments,
                                                                                    conversation, chips ->
@@ -666,6 +676,8 @@ class ComposeViewModel @Inject constructor(
                         conversation.lastMessage?.address?.isNotBlank() == true -> listOf(conversation.lastMessage!!.address)
                         else -> emptyList()
                     }
+
+                    SendDebugLogger.log("ComposeViewModel: send dispatch. body='$body', threadId=$actualThreadId, addresses=$targetAddresses, subId=$subId, attachments=${attachments.size}")
 
                     val sendAsGroup = !state.editingMode || state.sendAsGroup
 

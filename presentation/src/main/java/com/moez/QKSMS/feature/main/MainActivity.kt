@@ -309,13 +309,14 @@ class MainActivity : QkThemedActivity(), MainView {
                     val rawData = state.page.data
                     val count = rawData?.size ?: 0
                     val firstId = rawData?.firstOrNull()?.id ?: -1L
-                    val dataChanged = count != lastScannedConversationCount || firstId != lastScannedConversationId
+                    val countOrStructureChanged = count != lastScannedConversationCount || firstId != lastScannedConversationId
 
-                    if (dataChanged) {
+                    currentConversationsList = rawData?.toList() ?: emptyList()
+                    conversationsAdapter.updateData(rawData)
+
+                    if (countOrStructureChanged) {
                         lastScannedConversationCount = count
                         lastScannedConversationId = firstId
-                        currentConversationsList = rawData?.toList() ?: emptyList()
-                        conversationsAdapter.updateData(rawData)
                         classifyConversationsImmediately(currentConversationsList)
                         preClassifyConversations()
                     }
@@ -477,6 +478,10 @@ class MainActivity : QkThemedActivity(), MainView {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == R.id.mark_all_read) {
             android.widget.Toast.makeText(this, "همه پیام‌ها خوانده شدند", android.widget.Toast.LENGTH_SHORT).show()
+            recyclerView.postDelayed({
+                conversationsAdapter.notifyDataSetChanged()
+                filteredConversationsAdapter.notifyDataSetChanged()
+            }, 300)
         }
         optionsItemIntent.onNext(item.itemId)
         return true

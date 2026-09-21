@@ -141,7 +141,13 @@ class ConversationItemTouchCallback @Inject constructor(
         // This will trigger the animation back to neutral state
         val action = if (direction == ItemTouchHelper.RIGHT) rightAction else leftAction
         if (action != Preferences.SWIPE_ACTION_ARCHIVE) {
-            adapter?.notifyItemChanged(viewHolder.adapterPosition)
+            val pos = viewHolder.adapterPosition
+            adapter?.notifyItemChanged(pos)
+            if (pos != RecyclerView.NO_POSITION) {
+                viewHolder.itemView.postDelayed({
+                    adapter?.notifyItemChanged(pos)
+                }, 300L)
+            }
         }
     }
 

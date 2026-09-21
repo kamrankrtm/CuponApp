@@ -44,6 +44,7 @@ import com.google.android.mms.pdu_alt.PduPersister
 import com.klinker.android.send_message.SmsManagerFactory
 import com.klinker.android.send_message.StripAccents
 import com.klinker.android.send_message.Transaction
+import com.moez.QKSMS.common.util.SendDebugLogger
 import com.moez.QKSMS.common.util.extensions.now
 import com.moez.QKSMS.compat.TelephonyCompat
 import com.moez.QKSMS.extensions.anyOf
@@ -251,23 +252,34 @@ class MessageRepositoryImpl @Inject constructor(
     override fun markRead(vararg threadIds: Long) {
         try {
             Realm.getDefaultInstance()?.use { realm ->
-                val query = realm.where(Message::class.java)
-                    .beginGroup()
-                    .equalTo("read", false)
-                    .or()
-                    .equalTo("seen", false)
-                    .endGroup()
-
-                if (threadIds.isNotEmpty()) {
-                    query.beginGroup().anyOf("threadId", threadIds).endGroup()
-                }
-
-                val messages = query.findAll()
-
                 realm.executeTransaction {
+                    val query = realm.where(Message::class.java)
+                        .beginGroup()
+                        .equalTo("read", false)
+                        .or()
+                        .equalTo("seen", false)
+                        .endGroup()
+
+                    if (threadIds.isNotEmpty()) {
+                        query.beginGroup().anyOf("threadId", threadIds).endGroup()
+                    }
+
+                    val messages = query.findAll()
                     messages.forEach { message ->
                         message.seen = true
                         message.read = true
+                    }
+
+                    val convQuery = realm.where(Conversation::class.java)
+                    if (threadIds.isNotEmpty()) {
+                        convQuery.anyOf("id", threadIds)
+                    }
+                    convQuery.findAll().forEach { conv ->
+                        conv.lastMessage?.let { last ->
+                            last.seen = true
+                            last.read = true
+                            conv.lastMessage = last
+                        }
                     }
                 }
             }
@@ -282,6 +294,9 @@ class MessageRepositoryImpl @Inject constructor(
         try {
             if (threadIds.isEmpty()) {
                 context.contentResolver.update(Telephony.Sms.CONTENT_URI, values, "${Sms.READ} = 0 OR ${Sms.SEEN} = 0", null)
+                tryOrNull {
+                    context.contentResolver.update(Telephony.Mms.CONTENT_URI, values, "${Telephony.Mms.READ} = 0 OR ${Telephony.Mms.SEEN} = 0", null)
+                }
             } else {
                 threadIds.forEach { threadId ->
                     try {
@@ -298,16 +313,49 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     override fun markUnread(vararg threadIds: Long) {
-        Realm.getDefaultInstance()?.use { realm ->
-            val conversations = realm.where(Conversation::class.java)
-                    .anyOf("id", threadIds)
-                    .equalTo("lastMessage.read", true)
-                    .findAll()
+        SendDebugLogger.log("MessageRepo.markUnread: threadIds=${threadIds.joinToString()}")
+        try {
+            Realm.getDefaultInstance()?.use { realm ->
+                realm.executeTransaction {
+                    val messages = realm.where(Message::class.java)
+                            .anyOf("threadId", threadIds)
+                            .sort("date", io.realm.Sort.DESCENDING)
+                            .findAll()
+                    messages.firstOrNull()?.let { msg ->
+                        msg.read = false
+                        msg.seen = false
+                    }
 
-            realm.executeTransaction {
-                conversations.forEach { conversation ->
-                    conversation.lastMessage?.read = false
+                    val conversations = realm.where(Conversation::class.java)
+                            .anyOf("id", threadIds)
+                            .findAll()
+                    conversations.forEach { conversation ->
+                        conversation.lastMessage?.let { last ->
+                            last.read = false
+                            last.seen = false
+                            conversation.lastMessage = last
+                        }
+                    }
                 }
+            }
+        } catch (t: Throwable) {
+            Timber.w(t)
+            SendDebugLogger.log("MessageRepo.markUnread ERROR: ${t.message}")
+        }
+
+        val values = ContentValues()
+        values.put(Sms.READ, 0)
+        values.put(Sms.SEEN, 0)
+
+        threadIds.forEach { threadId ->
+            try {
+                val uri = ContentUris.withAppendedId(Telephony.MmsSms.CONTENT_CONVERSATIONS_URI, threadId)
+                context.contentResolver.update(uri, values, null, null)
+            } catch (exception: Exception) {
+                Timber.w(exception)
+            }
+            tryOrNull {
+                context.contentResolver.update(Telephony.Sms.CONTENT_URI, values, "${Sms.THREAD_ID} = ?", arrayOf(threadId.toString()))
             }
         }
     }
@@ -393,13 +441,9 @@ class MessageRepositoryImpl @Inject constructor(
             else -> tryOrNull { subManager?.activeSubscriptionInfoList?.firstOrNull()?.subscriptionId } ?: -1
         }
 
-        val smsManager: SmsManager = when {
-            resolvedSubId != -1 && resolvedSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID && Build.VERSION.SDK_INT >= 22 -> {
-                @Suppress("DEPRECATION")
-                tryOrNull { SmsManager.getSmsManagerForSubscriptionId(resolvedSubId) } ?: SmsManager.getDefault()
-            }
-            else -> SmsManager.getDefault()
-        }
+        val smsManager = getSmsManagerForSub(resolvedSubId)
+
+        SendDebugLogger.log("MessageRepo.sendMessage: subId=$subId, resolvedSubId=$resolvedSubId, threadId=$threadId, addresses=$cleanAddresses, body='${body.take(20)}...'")
 
         // We only care about stripping SMS
         val strippedBody = when (prefs.unicode.get()) {
@@ -530,6 +574,37 @@ class MessageRepositoryImpl @Inject constructor(
         }
     }
 
+    private fun getSmsManagerForSub(subId: Int): SmsManager {
+        if (subId != -1 && subId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+            if (Build.VERSION.SDK_INT >= 31) {
+                try {
+                    val baseSmsManager = context.getSystemService(SmsManager::class.java)
+                    if (baseSmsManager != null) {
+                        val createMethod = SmsManager::class.java.getMethod("createForSubscriptionId", Int::class.javaPrimitiveType)
+                        val custom = createMethod.invoke(baseSmsManager, subId) as? SmsManager
+                        if (custom != null) {
+                            return custom
+                        }
+                    }
+                } catch (t: Throwable) {
+                    SendDebugLogger.log("getSmsManagerForSub: createForSubscriptionId failed: ${t.message}")
+                }
+            }
+            if (Build.VERSION.SDK_INT >= 22) {
+                try {
+                    @Suppress("DEPRECATION")
+                    val mgr = SmsManager.getSmsManagerForSubscriptionId(subId)
+                    if (mgr != null) {
+                        return mgr
+                    }
+                } catch (t: Throwable) {
+                    SendDebugLogger.log("getSmsManagerForSub: getSmsManagerForSubscriptionId failed: ${t.message}")
+                }
+            }
+        }
+        return SmsManager.getDefault()
+    }
+
     override fun sendSms(message: Message) {
         val destAddress = phoneNumberUtils.cleanDestinationAddress(message.address).takeIf { it.isNotEmpty() } ?: message.address
 
@@ -546,16 +621,12 @@ class MessageRepositoryImpl @Inject constructor(
             else -> tryOrNull { subManager?.activeSubscriptionInfoList?.firstOrNull()?.subscriptionId } ?: -1
         }
 
-        val smsManager: SmsManager = when {
-            effectiveSubId != -1 && effectiveSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID && Build.VERSION.SDK_INT >= 22 -> {
-                @Suppress("DEPRECATION")
-                tryOrNull { SmsManager.getSmsManagerForSubscriptionId(effectiveSubId) } ?: SmsManager.getDefault()
-            }
-            else -> SmsManager.getDefault()
-        }
+        val smsManager = getSmsManagerForSub(effectiveSubId)
 
         val strippedBody = if (prefs.unicode.get()) StripAccents.stripAccents(message.body) else message.body
         val parts = smsManager.divideMessage(strippedBody)?.takeIf { it.isNotEmpty() } ?: arrayListOf(strippedBody)
+
+        SendDebugLogger.log("MessageRepo.sendSms: to=$destAddress, subId=$effectiveSubId, parts=${parts.size}")
 
         val flagMutable = 0x02000000 // PendingIntent.FLAG_MUTABLE for Android 12+ (API 31+)
         val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) flagMutable else 0)
@@ -605,6 +676,7 @@ class MessageRepositoryImpl @Inject constructor(
                     deliveredIntents?.let { ArrayList(it) }
                 )
             }
+            SendDebugLogger.log("MessageRepo.sendSms: smsManager dispatch SUCCESS to $destAddress")
 
             // Extract primitive messageId and messageUri before passing to Handler to prevent
             // Realm access from incorrect thread (IllegalStateException)
@@ -637,9 +709,15 @@ class MessageRepositoryImpl @Inject constructor(
                 }
             }, 15000L)
         } catch (e: Throwable) {
+            SendDebugLogger.log("MessageRepo.sendSms ERROR: ${e.javaClass.simpleName}: ${e.message}")
             val messageId = tryOrNull { message.id } ?: 0L
             Timber.e(e, "Message send error: ${e.message}")
-            android.util.Log.e("MessageRepo", "Message send error: ${e.message}", e)
+            android.util.Log.e("SendDebug", "Message send error: ${e.message}", e)
+            Handler(Looper.getMainLooper()).post {
+                tryOrNull {
+                    android.widget.Toast.makeText(context, "خطا در ارسال پیامک: ${e.message ?: "نامشخص"}", android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
             if (messageId != 0L) {
                 markFailed(messageId, Telephony.MmsSms.ERR_TYPE_GENERIC)
             }
@@ -711,17 +789,21 @@ class MessageRepositoryImpl @Inject constructor(
             values.put(Sms.SUBSCRIPTION_ID, message.subId)
         }
 
-        val uri = context.contentResolver.insert(Sms.CONTENT_URI, values)
+        val uri = tryOrNull { context.contentResolver.insert(Sms.CONTENT_URI, values) }
 
         // Update the contentId after the message has been inserted to the content provider
         // The message might have been deleted by now, so only proceed if it's valid
         //
         // We do this after inserting the message because it might be slow, and we want the message
         // to be inserted into Realm immediately. We don't need to do this after receiving one
-        uri?.lastPathSegment?.toLong()?.let { id ->
-            realm.executeTransaction { managedMessage?.takeIf { it.isValid }?.contentId = id }
+        uri?.lastPathSegment?.toLongOrNull()?.let { id ->
+            tryOrNull {
+                realm.executeTransaction { managedMessage?.takeIf { it.isValid }?.contentId = id }
+            }
         }
         realm.close()
+
+        SendDebugLogger.log("MessageRepo.insertSentSms: created message id=${message.id}, uri=$uri")
 
         // On some devices, we can't obtain a threadId until after the first message is sent in a
         // conversation. In this case, we need to update the message's threadId after it gets added
