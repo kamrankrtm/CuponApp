@@ -112,6 +112,28 @@ class FilteredConversationsAdapter(
             else -> conversation.snippet
         }
         holder.itemView.pinned.isVisible = conversation.pinned
-        holder.itemView.unread.setTint(theme)
+
+        val isUnread = conversation.unread
+        holder.itemView.unread.isVisible = isUnread
+        val textColorPrimary = context.resolveThemeColor(android.R.attr.textColorPrimary)
+        val textColorSecondary = context.resolveThemeColor(android.R.attr.textColorSecondary)
+        val textColorTertiary = context.resolveThemeColor(android.R.attr.textColorTertiary)
+
+        if (isUnread) {
+            holder.itemView.title.setTypeface(holder.itemView.title.typeface, Typeface.BOLD)
+            holder.itemView.snippet.setTypeface(holder.itemView.snippet.typeface, Typeface.BOLD)
+            holder.itemView.snippet.setTextColor(textColorPrimary)
+            holder.itemView.snippet.maxLines = 5
+            holder.itemView.date.setTypeface(holder.itemView.date.typeface, Typeface.BOLD)
+            holder.itemView.date.setTextColor(textColorPrimary)
+            holder.itemView.unread.setTint(theme)
+        } else {
+            holder.itemView.title.setTypeface(Typeface.create(holder.itemView.title.typeface, Typeface.NORMAL), Typeface.NORMAL)
+            holder.itemView.snippet.setTypeface(Typeface.create(holder.itemView.snippet.typeface, Typeface.NORMAL), Typeface.NORMAL)
+            holder.itemView.snippet.setTextColor(textColorSecondary)
+            holder.itemView.snippet.maxLines = 1
+            holder.itemView.date.setTypeface(Typeface.create(holder.itemView.date.typeface, Typeface.NORMAL), Typeface.NORMAL)
+            holder.itemView.date.setTextColor(textColorTertiary)
+        }
     }
 }

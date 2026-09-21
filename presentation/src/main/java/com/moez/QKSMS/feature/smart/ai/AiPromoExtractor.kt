@@ -3,7 +3,9 @@ package com.moez.QKSMS.feature.smart.ai
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import com.moez.QKSMS.common.util.JalaliCalendar
 import com.moez.QKSMS.feature.smart.SmartDataManager
+import com.moez.QKSMS.feature.smart.SmartSmsClassifier
 import com.moez.QKSMS.feature.smart.model.PromoItem
 import com.moez.QKSMS.model.Conversation
 import com.moez.QKSMS.util.Preferences
@@ -86,21 +88,30 @@ object AiPromoExtractor {
 
         executor.execute {
             val realm = Realm.getDefaultInstance()
-            val messagesToScan = mutableListOf<Pair<String, String>>()
+            val messagesToScan = mutableListOf<Triple<String, String, Long>>()
+            val twoMonthsAgo = System.currentTimeMillis() - (60L * 24 * 60 * 60 * 1000L)
             try {
-                val conversations = realm.where(Conversation::class.java)
-                    .notEqualTo("id", 0L)
-                    .equalTo("archived", false)
-                    .isNotEmpty("recipients")
-                    .isNotNull("lastMessage")
+                // Query all incoming SMS messages from the past 2 months
+                val pastTwoMonthsMessages = realm.where(com.moez.QKSMS.model.Message::class.java)
+                    .greaterThanOrEqualTo("date", twoMonthsAgo)
+                    .equalTo("type", "sms")
+                    .`in`("boxId", arrayOf(android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX, android.provider.Telephony.Sms.MESSAGE_TYPE_ALL))
+                    .sort("date", io.realm.Sort.DESCENDING)
                     .findAll()
 
-                for (conv in conversations) {
-                    if (!conv.isValid) continue
-                    val sender = conv.recipients.firstOrNull()?.address ?: ""
-                    val body = conv.lastMessage?.body ?: ""
-                    if (body.isNotBlank()) {
-                        messagesToScan.add(Pair(sender, body))
+                val seenBodies = HashSet<String>()
+                for (msg in pastTwoMonthsMessages) {
+                    if (!msg.isValid) continue
+                    val body = msg.body.trim()
+                    if (body.isBlank() || !seenBodies.add(body)) continue
+                    val sender = msg.address
+
+                    // Filter messages relevant to promotions/discounts or from commercial senders
+                    if (body.contains("تخفیف") || body.contains("کد") || body.contains("off", ignoreCase = true) ||
+                        body.contains("جشنواره") || body.contains("خرید") || body.contains("فروشگاه") ||
+                        body.contains("هدیه") || body.contains("درصد") ||
+                        !SmartSmsClassifier.isPersonalNumber(sender)) {
+                        messagesToScan.add(Triple(sender, body, msg.date))
                     }
                 }
             } catch (t: Throwable) {
@@ -109,10 +120,10 @@ object AiPromoExtractor {
                 realm.close()
             }
 
-            extractPromos(apiKey, baseUrl, model, messagesToScan) { results, error ->
+            extractPromosWithTimestamps(apiKey, baseUrl, model, messagesToScan) { results, error ->
                 mainHandler.post {
                     if (error == null) {
-                        callback(true, "AI found ${results?.size ?: 0} discount codes!", results?.size ?: 0)
+                        callback(true, "AI found ${results?.size ?: 0} discount codes from past 2 months!", results?.size ?: 0)
                     } else {
                         callback(false, error, 0)
                     }
@@ -121,11 +132,11 @@ object AiPromoExtractor {
         }
     }
 
-    fun extractPromos(
+    fun extractPromosWithTimestamps(
         apiKey: String,
         baseUrl: String,
         model: String,
-        smsList: List<Pair<String, String>>, // sender, body
+        smsList: List<Triple<String, String, Long>>, // sender, body, timestamp
         callback: (List<PromoItem>?, String?) -> Unit
     ) {
         if (apiKey.isBlank()) {
@@ -161,14 +172,17 @@ object AiPromoExtractor {
                     - code (The exact alphanumeric discount code to copy)
                     - discountAmount (e.g. 50,000 تومان, 30%)
                     - description (Brief 1-line description)
-                    - expiryDateText (Expiry date if mentioned, or 'نامشخص')
+                    - expiryDateText (Expiry date if mentioned e.g. تا ۵ مهر or ۴۸ ساعت, or 'نامشخص')
                     - category (one of: food, shopping, travel, entertainment, other)
                     Return a JSON object: {"results": [...]}
                 """.trimIndent()
 
                 val userContentBuilder = StringBuilder("Messages:\n")
-                smsList.take(20).forEachIndexed { index, pair ->
-                    userContentBuilder.append("[Msg $index] Sender: ${pair.first}\nBody: ${pair.second}\n\n")
+                // Take up to 30 promotional messages
+                smsList.take(30).forEachIndexed { index, item ->
+                    val j = JalaliCalendar.fromMillis(item.third)
+                    val dateStr = "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)}"
+                    userContentBuilder.append("[Msg $index] Sender: ${item.first} | Date: $dateStr\nBody: ${item.second}\n\n")
                 }
 
                 val payload = JSONObject().apply {
@@ -221,13 +235,23 @@ object AiPromoExtractor {
 
                     val resultsArray = root.optJSONArray("results") ?: root.optJSONArray("data")
                     if (resultsArray != null) {
+                        val now = System.currentTimeMillis()
                         for (i in 0 until resultsArray.length()) {
                             val item = resultsArray.optJSONObject(i) ?: continue
                             val code = item.optString("code").trim()
                             if (code.isBlank() || code.equals("null", ignoreCase = true)) continue
 
+                            val rawExpiry = item.optString("expiryDateText", "نامشخص")
+                            val finalExpiry = if (rawExpiry.isNotBlank() && rawExpiry != "نامشخص") {
+                                rawExpiry
+                            } else {
+                                // Default to 1 month from now/receipt
+                                val jExp = JalaliCalendar.fromMillis(now + (30L * 24 * 60 * 60 * 1000L))
+                                "${jExp.year}/${String.format("%02d", jExp.month)}/${String.format("%02d", jExp.day)} (۱ ماهه)"
+                            }
+
                             val promo = PromoItem(
-                                id = "ai-${System.currentTimeMillis()}-$i",
+                                id = "ai-$now-$i",
                                 brand = item.optString("brand", "تخفیف"),
                                 brandEn = item.optString("brandEn", ""),
                                 category = item.optString("category", "عمومی"),
@@ -235,9 +259,9 @@ object AiPromoExtractor {
                                 code = code,
                                 discountAmount = item.optString("discountAmount", "تخفیف ویژه"),
                                 description = item.optString("description", ""),
-                                expiryDateText = item.optString("expiryDateText", "نامشخص"),
+                                expiryDateText = finalExpiry,
                                 body = item.optString("body", ""),
-                                receivedAt = System.currentTimeMillis()
+                                receivedAt = now
                             )
                             parsedPromos.add(promo)
                             SmartDataManager.addPromo(promo)

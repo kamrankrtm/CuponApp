@@ -33,24 +33,49 @@ class PhoneNumberUtils @Inject constructor(context: Context) {
     private val phoneNumberUtil = PhoneNumberUtil.createInstance(context)
 
     /**
-     * Android's implementation is too loose and causes false positives
-     * libphonenumber is stricter but too slow
-     *
-     * This method will run successfully stricter checks without compromising much speed
+     * Enhanced phone number comparison with robust Iranian & international matching
      */
     fun compare(first: String, second: String): Boolean {
         if (first.equals(second, true)) {
             return true
         }
 
+        // Iranian & regional phone number normalization (strip +98, 98, 0, whitespace)
+        val norm1 = normalizeForComparison(first)
+        val norm2 = normalizeForComparison(second)
+        if (norm1.isNotEmpty() && norm2.isNotEmpty()) {
+            if (norm1 == norm2) return true
+            if (norm1.length >= 7 && norm2.length >= 7) {
+                if (norm1.endsWith(norm2) || norm2.endsWith(norm1)) {
+                    return true
+                }
+            }
+        }
+
         if (PhoneNumberUtils.compare(first, second)) {
+            return true
+        }
+
+        try {
             val matchType = phoneNumberUtil.isNumberMatch(first, second)
             if (matchType >= PhoneNumberUtil.MatchType.SHORT_NSN_MATCH) {
                 return true
             }
+        } catch (t: Throwable) {
+            // Ignore libphonenumber parse error
         }
 
         return false
+    }
+
+    private fun normalizeForComparison(number: String): String {
+        val digits = number.replace("[^0-9]".toRegex(), "")
+        return when {
+            digits.startsWith("0098") -> digits.substring(4)
+            digits.startsWith("98") -> digits.substring(2)
+            digits.startsWith("0") -> digits.substring(1)
+            else -> digits
+        }
     }
 
     fun isPossibleNumber(number: CharSequence): Boolean {

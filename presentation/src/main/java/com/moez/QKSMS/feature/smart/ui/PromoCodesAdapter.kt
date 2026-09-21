@@ -95,14 +95,14 @@ class PromoCodesAdapter(
 
             promoCode.text = item.code
 
-            // Format date with Jalali Shamsi
+            // Format date with Jalali Shamsi (default to 1 month validity if unstated)
             val expiryText = if (item.expiryDateText.isNotBlank() && item.expiryDateText != "نامشخص") {
                 item.expiryDateText
             } else {
-                val j = JalaliCalendar.fromMillis(item.receivedAt)
-                "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)}"
+                val j = JalaliCalendar.fromMillis(item.receivedAt + (30L * 24 * 60 * 60 * 1000L))
+                "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)} (۱ ماهه)"
             }
-            promoExpiry.text = "Expires: $expiryText"
+            promoExpiry.text = "مهلت استفاده: $expiryText"
 
             btnCopyPromo.text = "Copy Code"
             btnCopyPromo.setOnClickListener {

@@ -120,7 +120,29 @@ class ConversationsAdapter @Inject constructor(
             else -> conversation.snippet
         }
         holder.pinned.isVisible = conversation.pinned
-        holder.unread.setTint(theme)
+
+        val isUnread = conversation.unread
+        holder.unread.isVisible = isUnread
+        val textColorPrimary = context.resolveThemeColor(android.R.attr.textColorPrimary)
+        val textColorSecondary = context.resolveThemeColor(android.R.attr.textColorSecondary)
+        val textColorTertiary = context.resolveThemeColor(android.R.attr.textColorTertiary)
+
+        if (isUnread) {
+            holder.title.setTypeface(holder.title.typeface, Typeface.BOLD)
+            holder.snippet.setTypeface(holder.snippet.typeface, Typeface.BOLD)
+            holder.snippet.setTextColor(textColorPrimary)
+            holder.snippet.maxLines = 5
+            holder.date.setTypeface(holder.date.typeface, Typeface.BOLD)
+            holder.date.setTextColor(textColorPrimary)
+            holder.unread.setTint(theme)
+        } else {
+            holder.title.setTypeface(Typeface.create(holder.title.typeface, Typeface.NORMAL), Typeface.NORMAL)
+            holder.snippet.setTypeface(Typeface.create(holder.snippet.typeface, Typeface.NORMAL), Typeface.NORMAL)
+            holder.snippet.setTextColor(textColorSecondary)
+            holder.snippet.maxLines = 1
+            holder.date.setTypeface(Typeface.create(holder.date.typeface, Typeface.NORMAL), Typeface.NORMAL)
+            holder.date.setTextColor(textColorTertiary)
+        }
     }
 
     override fun getItemId(position: Int): Long {

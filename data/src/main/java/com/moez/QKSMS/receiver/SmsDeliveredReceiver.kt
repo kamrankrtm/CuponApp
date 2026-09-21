@@ -33,9 +33,14 @@ class SmsDeliveredReceiver : BroadcastReceiver() {
     @Inject lateinit var markDeliveryFailed: MarkDeliveryFailed
 
     override fun onReceive(context: Context, intent: Intent) {
-        AndroidInjection.inject(this, context)
+        try {
+            AndroidInjection.inject(this, context)
+        } catch (t: Throwable) {
+            android.util.Log.e("SmsDeliveredReceiver", "Injection failed", t)
+        }
 
         val id = intent.getLongExtra("id", 0L)
+        if (id == 0L) return
 
         when (resultCode) {
             // TODO notify about delivery

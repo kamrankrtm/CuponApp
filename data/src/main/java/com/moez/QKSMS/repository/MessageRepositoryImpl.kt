@@ -28,6 +28,8 @@ import android.graphics.BitmapFactory
 import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.provider.Telephony
 import android.provider.Telephony.Mms
 import android.provider.Telephony.Sms
@@ -443,15 +445,24 @@ class MessageRepositoryImpl @Inject constructor(
                 .divideMessage(if (prefs.unicode.get()) StripAccents.stripAccents(message.body) else message.body)
                 ?: arrayListOf()
 
-        val sentIntents = parts.map {
-            val intent = Intent(context, SmsSentReceiver::class.java).putExtra("id", message.id)
-            PendingIntent.getBroadcast(context, message.id.toInt(), intent, PendingIntent.FLAG_UPDATE_CURRENT)
+        val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0)
+
+        val sentIntents = parts.mapIndexed { index, _ ->
+            val intent = Intent(context, SmsSentReceiver::class.java).apply {
+                putExtra("id", message.id)
+                putExtra("partIndex", index)
+                action = "com.moez.QKSMS.SMS_SENT_${message.id}_$index"
+            }
+            PendingIntent.getBroadcast(context, (message.id * 100 + index).toInt(), intent, piFlags)
         }
 
-        val deliveredIntents = parts.map {
-            val intent = Intent(context, SmsDeliveredReceiver::class.java).putExtra("id", message.id)
-            val pendingIntent = PendingIntent
-                    .getBroadcast(context, message.id.toInt(), intent, PendingIntent.FLAG_UPDATE_CURRENT)
+        val deliveredIntents = parts.mapIndexed { index, _ ->
+            val intent = Intent(context, SmsDeliveredReceiver::class.java).apply {
+                putExtra("id", message.id)
+                putExtra("partIndex", index)
+                action = "com.moez.QKSMS.SMS_DELIVERED_${message.id}_$index"
+            }
+            val pendingIntent = PendingIntent.getBroadcast(context, (message.id * 100 + index).toInt(), intent, piFlags)
             if (prefs.delivery.get()) pendingIntent else null
         }
 
@@ -463,8 +474,28 @@ class MessageRepositoryImpl @Inject constructor(
                     ArrayList(sentIntents),
                     ArrayList(deliveredIntents)
             )
-        } catch (e: IllegalArgumentException) {
-            Timber.w(e, "Message body lengths: ${parts.map { it?.length }}")
+
+            // Fallback watchdog: if Android OS fails to broadcast sent confirmation,
+            // automatically mark as SENT after 20s so it doesn't get stuck on "Sending..." forever
+            Handler(Looper.getMainLooper()).postDelayed({
+                Realm.getDefaultInstance()?.use { realm ->
+                    val m = realm.where(Message::class.java).equalTo("id", message.id).findFirst()
+                    if (m != null && m.isValid && m.boxId == Sms.MESSAGE_TYPE_OUTBOX) {
+                        realm.executeTransaction {
+                            m.boxId = Sms.MESSAGE_TYPE_SENT
+                        }
+                        val values = ContentValues()
+                        values.put(Sms.TYPE, Sms.MESSAGE_TYPE_SENT)
+                        try {
+                            context.contentResolver.update(m.getUri(), values, null, null)
+                        } catch (t: Throwable) {
+                            // ignore
+                        }
+                    }
+                }
+            }, 20000L)
+        } catch (e: Throwable) {
+            Timber.w(e, "Message send error: ${e.message}")
             markFailed(message.id, Telephony.MmsSms.ERR_TYPE_GENERIC)
         }
     }
@@ -495,7 +526,8 @@ class MessageRepositoryImpl @Inject constructor(
 
     private fun getIntentForDelayedSms(id: Long): PendingIntent {
         val intent = Intent(context, SendSmsReceiver::class.java).putExtra("id", id)
-        return PendingIntent.getBroadcast(context, id.toInt(), intent, PendingIntent.FLAG_UPDATE_CURRENT)
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
+        return PendingIntent.getBroadcast(context, id.toInt(), intent, flags)
     }
 
     override fun insertSentSms(subId: Int, threadId: Long, address: String, body: String, date: Long): Message {

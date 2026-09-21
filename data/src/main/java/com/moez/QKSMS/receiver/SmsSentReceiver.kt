@@ -33,19 +33,38 @@ class SmsSentReceiver : BroadcastReceiver() {
     @Inject lateinit var markFailed: MarkFailed
 
     override fun onReceive(context: Context, intent: Intent) {
-        AndroidInjection.inject(this, context)
+        try {
+            AndroidInjection.inject(this, context)
+        } catch (t: Throwable) {
+            android.util.Log.e("SmsSentReceiver", "Injection failed, using direct Realm fallback", t)
+        }
 
         val id = intent.getLongExtra("id", 0L)
+        if (id == 0L) return
 
         when (resultCode) {
             Activity.RESULT_OK -> {
                 val pendingResult = goAsync()
-                markSent.execute(id) { pendingResult.finish() }
+                try {
+                    markSent.execute(id) { pendingResult.finish() }
+                } catch (t: Throwable) {
+                    io.realm.Realm.getDefaultInstance()?.use { realm ->
+                        val msg = realm.where(com.moez.QKSMS.model.Message::class.java).equalTo("id", id).findFirst()
+                        msg?.let {
+                            realm.executeTransaction { msg.boxId = android.provider.Telephony.Sms.MESSAGE_TYPE_SENT }
+                        }
+                    }
+                    pendingResult.finish()
+                }
             }
 
             else -> {
                 val pendingResult = goAsync()
-                markFailed.execute(MarkFailed.Params(id, resultCode)) { pendingResult.finish() }
+                try {
+                    markFailed.execute(MarkFailed.Params(id, resultCode)) { pendingResult.finish() }
+                } catch (t: Throwable) {
+                    pendingResult.finish()
+                }
             }
         }
     }

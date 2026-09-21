@@ -313,6 +313,7 @@ class MainActivity : QkThemedActivity(), MainView {
                         lastScannedConversationId = firstId
                         currentConversationsList = rawData?.toList() ?: emptyList()
                         conversationsAdapter.updateData(rawData)
+                        classifyConversationsImmediately(currentConversationsList)
                         preClassifyConversations()
                     }
                     applyTabFilter()
@@ -472,7 +473,29 @@ class MainActivity : QkThemedActivity(), MainView {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == R.id.mark_all_read) {
-            android.widget.Toast.makeText(this, "Marking all conversations as read...", android.widget.Toast.LENGTH_SHORT).show()
+            val realm = io.realm.Realm.getDefaultInstance()
+            try {
+                realm.executeTransaction {
+                    val unreadMessages = realm.where(com.moez.QKSMS.model.Message::class.java)
+                        .beginGroup()
+                        .equalTo("read", false)
+                        .or()
+                        .equalTo("seen", false)
+                        .endGroup()
+                        .findAll()
+                    unreadMessages.forEach { msg ->
+                        msg.read = true
+                        msg.seen = true
+                    }
+                }
+            } catch (t: Throwable) {
+                // ignore
+            } finally {
+                realm.close()
+            }
+            conversationsAdapter.notifyDataSetChanged()
+            filteredConversationsAdapter.notifyDataSetChanged()
+            android.widget.Toast.makeText(this, "همه پیام‌ها خوانده شدند", android.widget.Toast.LENGTH_SHORT).show()
         }
         optionsItemIntent.onNext(item.itemId)
         return true
@@ -501,6 +524,7 @@ class MainActivity : QkThemedActivity(), MainView {
                 tab?.let {
                     currentTabPosition = it.position
                     applyTabFilter()
+                    recyclerView.post { recyclerView.scrollToPosition(0) }
                 }
             }
 
@@ -508,8 +532,44 @@ class MainActivity : QkThemedActivity(), MainView {
 
             override fun onTabReselected(tab: TabLayout.Tab?) {
                 applyTabFilter()
+                recyclerView.post { recyclerView.scrollToPosition(0) }
             }
         })
+    }
+
+    private fun classifyConversationsImmediately(conversations: List<Conversation>) {
+        if (conversations.isEmpty()) return
+        val personal = HashSet<Long>(conversations.size)
+        val banking = HashSet<Long>()
+        val spam = HashSet<Long>()
+        val newPromos = mutableListOf<com.moez.QKSMS.feature.smart.model.PromoItem>()
+        val newOtps = mutableListOf<com.moez.QKSMS.feature.smart.model.OtpItem>()
+
+        for (conv in conversations) {
+            if (!conv.isValid) continue
+            val id = conv.id
+            val hasSavedContact = conv.recipients.any { it.contact != null }
+            val sender = conv.recipients.firstOrNull()?.address ?: ""
+            val body = conv.lastMessage?.body ?: ""
+
+            if (hasSavedContact) {
+                personal.add(id)
+            } else {
+                when (val cat = SmartSmsClassifier.classify(sender, body)) {
+                    is SmsCategory.Personal -> personal.add(id)
+                    is SmsCategory.Banking -> banking.add(id)
+                    is SmsCategory.Spam -> spam.add(id)
+                    is SmsCategory.Promo -> newPromos.add(cat.promo)
+                    is SmsCategory.Otp -> newOtps.add(cat.otp)
+                }
+            }
+        }
+
+        SmartDataManager.setPromosAndOtps(newPromos, newOtps)
+        cachedPersonalIds = personal
+        cachedBankingIds = banking
+        cachedSpamIds = spam
+        isClassificationReady = true
     }
 
     private fun preClassifyConversations() {
@@ -701,17 +761,23 @@ class MainActivity : QkThemedActivity(), MainView {
                 }
                 1 -> {
                     // Personal: Saved contacts or 09... personal numbers
-                    val list = if (isClassificationReady) {
+                    val list = if (cachedPersonalIds.isNotEmpty()) {
                         currentConversationsList.filter { cachedPersonalIds.contains(it.id) }
                     } else {
-                        currentConversationsList
+                        currentConversationsList.filter { conv ->
+                            if (!conv.isValid) return@filter false
+                            if (conv.recipients.any { it.contact != null }) return@filter true
+                            val sender = conv.recipients.firstOrNull()?.address ?: ""
+                            val body = conv.lastMessage?.body ?: ""
+                            SmartSmsClassifier.classify(sender, body) is SmsCategory.Personal
+                        }
                     }
                     filteredConversationsAdapter.data = list
                     if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
                     itemTouchHelper.attachToRecyclerView(null)
                     compose.setVisible(true)
                     empty.text = "No personal messages"
-                    empty.setVisible(list.isEmpty() && isClassificationReady)
+                    empty.setVisible(list.isEmpty())
                 }
                 2 -> {
                     // Banking messages
