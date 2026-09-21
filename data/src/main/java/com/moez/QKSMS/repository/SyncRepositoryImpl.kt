@@ -263,30 +263,72 @@ class SyncRepositoryImpl @Inject constructor(
         }
     }
 
+    private val isSyncingContacts = java.util.concurrent.atomic.AtomicBoolean(false)
+
     override fun syncContacts() {
-        // Load all the contacts
-        var contacts = getContacts()
+        if (!isSyncingContacts.compareAndSet(false, true)) {
+            com.moez.QKSMS.common.util.SendDebugLogger.log("SyncContacts: already in progress, skipping duplicate call")
+            return
+        }
 
-        Realm.getDefaultInstance()?.use { realm ->
-            val recipients = realm.where(Recipient::class.java).findAll()
+        try {
+            com.moez.QKSMS.common.util.SendDebugLogger.log("SyncContacts: starting syncContacts...")
+            // Load all the contacts
+            var contacts = getContacts()
+            com.moez.QKSMS.common.util.SendDebugLogger.log("SyncContacts: loaded ${contacts.size} contacts from phone")
 
-            realm.executeTransaction {
-                realm.delete(Contact::class.java)
-                realm.delete(ContactGroup::class.java)
+            Realm.getDefaultInstance()?.use { realm ->
+                val recipients = realm.where(Recipient::class.java).findAll()
+                val conversations = realm.where(Conversation::class.java).findAll()
 
-                contacts = realm.copyToRealmOrUpdate(contacts)
-                realm.insertOrUpdate(getContactGroups(contacts))
+                realm.executeTransaction {
+                    realm.delete(Contact::class.java)
+                    realm.delete(PhoneNumber::class.java)
+                    realm.delete(ContactGroup::class.java)
 
-                // Update all the recipients with the new contacts
-                recipients.forEach { recipient ->
-                    recipient.contact = contacts.find { contact ->
-                        contact.numbers.any { phoneNumberUtils.compare(recipient.address, it.address) }
+                    contacts = realm.copyToRealmOrUpdate(contacts)
+                    realm.insertOrUpdate(getContactGroups(contacts))
+
+                    // Pre-index contacts by last 10 digits for instant O(1) matching
+                    val contactByNumber = HashMap<String, Contact>()
+                    for (contact in contacts) {
+                        val name = contact.name.takeIf { it.isNotBlank() }
+                        for (num in contact.numbers) {
+                            val digits = num.address.filter { it.isDigit() }.takeLast(10)
+                            if (digits.length == 10) {
+                                contactByNumber[digits] = contact
+                                if (name != null) {
+                                    com.moez.QKSMS.model.ContactNameCache.put(digits, name)
+                                }
+                            }
+                        }
                     }
+
+                    // Update all the recipients with the new contacts in O(1)
+                    var matchedCount = 0
+                    recipients.forEach { recipient ->
+                        val digits = recipient.address.filter { it.isDigit() }.takeLast(10)
+                        val matchedContact = if (digits.length == 10) contactByNumber[digits] else null
+                        if (matchedContact != null) {
+                            recipient.contact = matchedContact
+                            matchedCount++
+                        }
+                    }
+
+                    realm.insertOrUpdate(recipients)
+
+                    // Touch conversations to trigger Realm change listeners on UI
+                    conversations.forEach { conversation ->
+                        conversation.recipients = conversation.recipients
+                    }
+                    com.moez.QKSMS.common.util.SendDebugLogger.log("SyncContacts: matched $matchedCount recipients out of ${recipients.size}")
                 }
 
-                realm.insertOrUpdate(recipients)
             }
-
+        } catch (t: Throwable) {
+            com.moez.QKSMS.common.util.SendDebugLogger.log("SyncContacts ERROR: ${t.message}")
+        } finally {
+            isSyncingContacts.set(false)
         }
     }
 

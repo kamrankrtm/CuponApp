@@ -35,6 +35,12 @@ class SendSmsReceiver : BroadcastReceiver() {
         AndroidInjection.inject(this, context)
 
         val messageId = intent.getLongExtra("id", -1L).takeIf { it >= 0 } ?: return
+        com.moez.QKSMS.common.util.SendDebugLogger.log("SendSmsReceiver.onReceive: AlarmManager fired for messageId=$messageId")
+
+        // Cancel in-memory runnable if still pending so it doesn't double-send
+        com.moez.QKSMS.repository.MessageRepositoryImpl.delayedRunnables.remove(messageId)?.let {
+            com.moez.QKSMS.repository.MessageRepositoryImpl.mainHandler.removeCallbacks(it)
+        }
 
         val result = goAsync()
         retrySending.execute(messageId) { result.finish() }

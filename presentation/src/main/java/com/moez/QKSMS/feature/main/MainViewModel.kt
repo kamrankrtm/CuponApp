@@ -117,8 +117,9 @@ class MainViewModel @Inject constructor(
             syncMessages.execute(Unit)
         }
 
-        // Sync contacts when we detect a change
+        // Sync contacts on launch and when we detect a change
         if (permissionManager.hasContacts()) {
+            syncContacts.execute(Unit)
             disposables += contactAddedListener.listen()
                     .debounce(1, TimeUnit.SECONDS)
                     .subscribeOn(Schedulers.io())

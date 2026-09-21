@@ -31,8 +31,8 @@ android {
         applicationId "com.moez.QKSMS"
         minSdkVersion 21
         targetSdkVersion 29
-        versionCode 2303
-        versionName "2.0.3"
+        versionCode 12040
+        versionName "12.0.4"
         setProperty("archivesBaseName", "smsPRO-v${versionName}")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

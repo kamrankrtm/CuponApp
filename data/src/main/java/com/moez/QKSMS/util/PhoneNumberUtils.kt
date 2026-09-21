@@ -40,6 +40,13 @@ class PhoneNumberUtils @Inject constructor(context: Context) {
             return true
         }
 
+        // Direct 10-digit mobile number matching (Iranian mobile numbers 9XXXXXXXXX)
+        val d1 = cleanDestinationAddress(first).filter { it.isDigit() }
+        val d2 = cleanDestinationAddress(second).filter { it.isDigit() }
+        if (d1.length >= 10 && d2.length >= 10 && d1.takeLast(10) == d2.takeLast(10)) {
+            return true
+        }
+
         // Iranian & regional phone number normalization (strip +98, 98, 0, whitespace)
         val norm1 = normalizeForComparison(first)
         val norm2 = normalizeForComparison(second)

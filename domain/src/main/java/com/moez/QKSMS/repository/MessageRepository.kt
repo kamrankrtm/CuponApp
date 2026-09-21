@@ -83,6 +83,11 @@ interface MessageRepository {
      */
     fun cancelDelayedSms(id: Long)
 
+    /**
+     * Finds any messages stuck in OUTBOX and dispatches sending
+     */
+    fun rescueStuckOutboxMessages()
+
     fun insertSentSms(subId: Int, threadId: Long, address: String, body: String, date: Long): Message
 
     fun insertReceivedSms(subId: Int, address: String, body: String, sentTime: Long): Message

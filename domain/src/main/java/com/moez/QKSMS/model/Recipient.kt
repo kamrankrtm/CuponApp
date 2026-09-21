@@ -19,6 +19,7 @@
 package com.moez.QKSMS.model
 
 import android.telephony.PhoneNumberUtils
+import io.realm.Realm
 import io.realm.RealmObject
 import io.realm.annotations.PrimaryKey
 import java.util.*
@@ -34,8 +35,22 @@ open class Recipient(
      * Return a string that can be displayed to represent the name of this contact
      */
     fun getDisplayName(): String {
-        val contactName = contact?.name?.takeIf { it.isNotBlank() }
+        val contactName = try {
+            contact?.takeIf { it.isValid }?.name?.takeIf { it.isNotBlank() }
+        } catch (_: Throwable) {
+            null
+        }
         if (contactName != null) return contactName
+
+        // Fast O(1) in-memory fallback lookup by last 10 digits
+        try {
+            val digits = address.filter { it.isDigit() }.takeLast(10)
+            if (digits.length == 10) {
+                val cached = ContactNameCache.get(digits)
+                if (cached != null) return cached
+            }
+        } catch (_: Throwable) {
+        }
 
         var numStr = address.trim()
         if (numStr.startsWith("989") && numStr.length == 12 && numStr.all { it.isDigit() }) {

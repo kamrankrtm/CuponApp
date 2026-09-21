@@ -87,6 +87,18 @@ class MessageRepositoryImpl @Inject constructor(
     private val syncRepository: SyncRepository
 ) : MessageRepository {
 
+    companion object {
+        val delayedRunnables = java.util.concurrent.ConcurrentHashMap<Long, Runnable>()
+        val mainHandler = Handler(Looper.getMainLooper())
+    }
+
+    init {
+        // Automatically rescue any messages stuck in OUTBOX on app start
+        mainHandler.postDelayed({
+            rescueStuckOutboxMessages()
+        }, 2000L)
+    }
+
     override fun getMessages(threadId: Long, query: String): RealmResults<Message> {
         return Realm.getDefaultInstance()
                 .where(Message::class.java)
@@ -455,11 +467,15 @@ class MessageRepositoryImpl @Inject constructor(
         val forceMms = prefs.longAsMms.get() && parts.size > 1
 
         if (cleanAddresses.size == 1 && attachments.isEmpty() && !forceMms) { // SMS
+            // Rescue any older stuck messages in OUTBOX
+            rescueStuckOutboxMessages()
+
             if (delay > 0) { // With delay
                 val sendTime = System.currentTimeMillis() + delay
                 val message = insertSentSms(resolvedSubId, threadId, cleanAddresses.first(), strippedBody, sendTime)
+                val msgId = message.id
 
-                val intent = getIntentForDelayedSms(message.id)
+                val intent = getIntentForDelayedSms(msgId)
 
                 try {
                     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -469,10 +485,26 @@ class MessageRepositoryImpl @Inject constructor(
                         alarmManager.setExact(AlarmManager.RTC_WAKEUP, sendTime, intent)
                     }
                 } catch (t: Throwable) {
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        sendSms(message)
-                    }, delay.toLong())
+                    SendDebugLogger.log("alarmManager schedule failed: ${t.message}")
                 }
+
+                // CRITICAL: Always schedule Handler.postDelayed as the primary reliable in-process timer!
+                val runnable = Runnable {
+                    delayedRunnables.remove(msgId)
+                    SendDebugLogger.log("Delayed SMS timer fired for message $msgId")
+                    val r = Realm.getDefaultInstance()
+                    val m = r.where(Message::class.java).equalTo("id", msgId).findFirst()
+                    val stillOutbox = m?.boxId == Sms.MESSAGE_TYPE_OUTBOX
+                    val unmanagedMsg = m?.let(r::copyFromRealm)
+                    r.close()
+
+                    if (stillOutbox && unmanagedMsg != null) {
+                        SendDebugLogger.log("Sending delayed SMS $msgId now")
+                        sendSms(unmanagedMsg)
+                    }
+                }
+                delayedRunnables[msgId] = runnable
+                mainHandler.postDelayed(runnable, delay.toLong())
             } else { // No delay
                 val message = insertSentSms(resolvedSubId, threadId, cleanAddresses.first(), strippedBody, now())
                 sendSms(message)
@@ -746,6 +778,35 @@ class MessageRepositoryImpl @Inject constructor(
     override fun cancelDelayedSms(id: Long) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         alarmManager.cancel(getIntentForDelayedSms(id))
+        delayedRunnables.remove(id)?.let { mainHandler.removeCallbacks(it) }
+        SendDebugLogger.log("MessageRepo.cancelDelayedSms: cancelled message id=$id")
+    }
+
+    override fun rescueStuckOutboxMessages() {
+        try {
+            val realm = Realm.getDefaultInstance()
+            val stuckMessages = realm.where(Message::class.java)
+                .equalTo("boxId", Sms.MESSAGE_TYPE_OUTBOX)
+                .findAll()
+
+            if (!stuckMessages.isEmpty()) {
+                val unmanaged = realm.copyFromRealm(stuckMessages)
+                realm.close()
+                val now = System.currentTimeMillis()
+                SendDebugLogger.log("rescueStuckOutboxMessages: Found ${unmanaged.size} stuck messages in OUTBOX")
+                for (msg in unmanaged) {
+                    // Only rescue messages older than 3 seconds that are not actively counting down in-memory
+                    if (now - msg.date >= 3000L && !delayedRunnables.containsKey(msg.id)) {
+                        SendDebugLogger.log("rescueStuckOutboxMessages: Rescuing message id=${msg.id}, body='${msg.body.take(20)}'")
+                        sendSms(msg)
+                    }
+                }
+            } else {
+                realm.close()
+            }
+        } catch (t: Throwable) {
+            SendDebugLogger.log("rescueStuckOutboxMessages error: ${t.message}")
+        }
     }
 
     private fun getIntentForDelayedSms(id: Long): PendingIntent {
