@@ -402,6 +402,7 @@
         <item>Call</item>
         <item>Mark read</item>
         <item>Reply</item>
+        <item>AI Smart Reply</item>
     </string-array>
 
     <string name="button_yes">Yes</string>

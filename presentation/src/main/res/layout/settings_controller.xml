@@ -329,7 +329,7 @@
             android:id="@+id/prefAiApiKey"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:icon="@drawable/ic_security_black_24dp"
+            app:icon="@drawable/ic_star_black_24dp"
             app:title="AI API Key (AvalAI / OpenAI)"
             app:summary="Enter your API key to extract promo codes using AI" />
 
@@ -361,9 +361,18 @@
             android:id="@+id/prefRunAiScan"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:icon="@drawable/ic_search_black_24dp"
+            app:icon="@drawable/ic_local_offer_black_24dp"
             app:title="Scan Inbox with AI"
             app:summary="Extract active discount codes from promotional SMS" />
+
+        <com.moez.QKSMS.common.widget.PreferenceView
+            android:id="@+id/prefAiAutoSendReply"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:icon="@drawable/ic_send_black_24dp"
+            app:title="Auto-Send AI Replies"
+            app:summary="Send generated AI reply immediately without prompt"
+            app:widgetLayout="@layout/preference_switch" />
 
         <View
             android:layout_width="match_parent"

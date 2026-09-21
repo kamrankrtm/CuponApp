@@ -302,6 +302,13 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
                 }
             }
         }
+
+        prefAiAutoSendReply?.checkbox?.isChecked = prefs.aiAutoSendReply.get()
+        prefAiAutoSendReply?.setOnClickListener {
+            val next = !prefs.aiAutoSendReply.get()
+            prefs.aiAutoSendReply.set(next)
+            prefAiAutoSendReply?.checkbox?.isChecked = next
+        }
     }
 
     override fun preferenceClicks(): Observable<PreferenceView> = (0 until preferences.childCount)

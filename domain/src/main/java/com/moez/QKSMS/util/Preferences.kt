@@ -58,6 +58,7 @@ class Preferences @Inject constructor(
         const val NOTIFICATION_ACTION_CALL = 4
         const val NOTIFICATION_ACTION_READ = 5
         const val NOTIFICATION_ACTION_REPLY = 6
+        const val NOTIFICATION_ACTION_AI_REPLY = 7
 
         const val SEND_DELAY_NONE = 0
         const val SEND_DELAY_SHORT = 1
@@ -103,7 +104,8 @@ class Preferences @Inject constructor(
     val drop = rxPrefs.getBoolean("drop", false)
     val notifAction1 = rxPrefs.getInteger("notifAction1", NOTIFICATION_ACTION_READ)
     val notifAction2 = rxPrefs.getInteger("notifAction2", NOTIFICATION_ACTION_REPLY)
-    val notifAction3 = rxPrefs.getInteger("notifAction3", NOTIFICATION_ACTION_NONE)
+    val notifAction3 = rxPrefs.getInteger("notifAction3", NOTIFICATION_ACTION_AI_REPLY)
+    val aiAutoSendReply = rxPrefs.getBoolean("aiAutoSendReply", false)
     val qkreply = rxPrefs.getBoolean("qkreply", Build.VERSION.SDK_INT < Build.VERSION_CODES.N)
     val qkreplyTapDismiss = rxPrefs.getBoolean("qkreplyTapDismiss", true)
     val sendDelay = rxPrefs.getInteger("sendDelay", SEND_DELAY_NONE)

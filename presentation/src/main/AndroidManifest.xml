@@ -175,6 +175,8 @@
         </receiver>
         <receiver android:name=".receiver.SendScheduledMessageReceiver" />
         <receiver android:name=".receiver.CopyClipReceiver" />
+        <receiver android:name=".receiver.AiSmartReplyReceiver" />
+        <receiver android:name=".receiver.AiSendReplyReceiver" />
         <receiver android:name=".feature.widget.WidgetProvider">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

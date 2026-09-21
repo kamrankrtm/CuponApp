@@ -43,6 +43,7 @@ import com.moez.QKSMS.common.util.extensions.dpToPx
 import com.moez.QKSMS.extensions.isImage
 import com.moez.QKSMS.feature.compose.ComposeActivity
 import com.moez.QKSMS.feature.qkreply.QkReplyActivity
+import com.moez.QKSMS.receiver.AiSmartReplyReceiver
 import com.moez.QKSMS.manager.PermissionManager
 import com.moez.QKSMS.mapper.CursorToPartImpl
 import com.moez.QKSMS.receiver.BlockThreadReceiver
@@ -315,8 +316,22 @@ class NotificationManagerImpl @Inject constructor(
                             val intent = Intent(intentAction, Uri.parse("tel:$address"))
                             val pi = PendingIntent.getActivity(context, threadId.toInt(), intent,
                                     PendingIntent.FLAG_UPDATE_CURRENT)
-                            NotificationCompat.Action.Builder(R.drawable.ic_call_white_24dp, actionLabels[action], pi)
+                            NotificationCompat.Action.Builder(R.drawable.ic_call_white_24dp, actionLabels.getOrNull(action) ?: "Call", pi)
                                     .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_CALL).build()
+                        }
+
+                        Preferences.NOTIFICATION_ACTION_AI_REPLY -> {
+                            val intent = Intent(context, AiSmartReplyReceiver::class.java).putExtra("threadId", threadId)
+                            val pi = PendingIntent.getBroadcast(
+                                context,
+                                (threadId + 500000).toInt(),
+                                intent,
+                                PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
+                            )
+                            val label = actionLabels.getOrNull(action) ?: "AI Smart Reply"
+                            NotificationCompat.Action.Builder(R.drawable.ic_star_black_24dp, "🤖 $label", pi)
+                                .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
+                                .build()
                         }
 
                         else -> null

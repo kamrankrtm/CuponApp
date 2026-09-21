@@ -68,13 +68,13 @@ class NotificationPrefsViewModel @Inject constructor(
 
         val actionLabels = context.resources.getStringArray(R.array.notification_actions)
         disposables += prefs.notifAction1.asObservable()
-                .subscribe { previewId -> newState { copy(action1Summary = actionLabels[previewId]) } }
+                .subscribe { previewId -> newState { copy(action1Summary = actionLabels.getOrNull(previewId) ?: "") } }
 
         disposables += prefs.notifAction2.asObservable()
-                .subscribe { previewId -> newState { copy(action2Summary = actionLabels[previewId]) } }
+                .subscribe { previewId -> newState { copy(action2Summary = actionLabels.getOrNull(previewId) ?: "") } }
 
         disposables += prefs.notifAction3.asObservable()
-                .subscribe { previewId -> newState { copy(action3Summary = actionLabels[previewId]) } }
+                .subscribe { previewId -> newState { copy(action3Summary = actionLabels.getOrNull(previewId) ?: "AI Smart Reply") } }
 
         disposables += wake.asObservable()
                 .subscribe { enabled -> newState { copy(wakeEnabled = enabled) } }
