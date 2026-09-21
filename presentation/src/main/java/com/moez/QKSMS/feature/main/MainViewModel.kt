@@ -18,6 +18,8 @@
  */
 package com.moez.QKSMS.feature.main
 
+import timber.log.Timber
+
 import androidx.recyclerview.widget.ItemTouchHelper
 import com.moez.QKSMS.R
 import com.moez.QKSMS.common.Navigator
