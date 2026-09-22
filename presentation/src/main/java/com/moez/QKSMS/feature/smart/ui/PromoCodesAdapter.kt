@@ -2,8 +2,11 @@ package com.moez.QKSMS.feature.smart.ui
 
 import android.app.AlertDialog
 import android.content.Context
+import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -14,22 +17,52 @@ import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 import com.moez.QKSMS.R
 import com.moez.QKSMS.common.util.JalaliCalendar
+import com.moez.QKSMS.common.util.extensions.resolveThemeColor
 import com.moez.QKSMS.feature.smart.ClipboardHelper
+import com.moez.QKSMS.feature.smart.SmartDataManager
 import com.moez.QKSMS.feature.smart.model.PromoItem
-import java.util.Calendar
+import com.moez.QKSMS.feature.smart.promo.BrandRegistry
+import com.moez.QKSMS.feature.smart.promo.PromoRanker
+import com.moez.QKSMS.feature.smart.promo.PromoRow
+import com.moez.QKSMS.feature.smart.promo.PromoValueParser
 
+/**
+ * Renders the discount list as ranked, sectioned rows.
+ *
+ * @param onDataChanged notified whenever the visible set changes, so the host can refresh
+ *   chip counts and the empty state
+ * @param onUndoAvailable invoked after a destructive action with a closure that reverses it
+ */
 class PromoCodesAdapter(
-    private val context: Context
-) : RecyclerView.Adapter<PromoCodesAdapter.PromoViewHolder>() {
+    private val context: Context,
+    private val onDataChanged: () -> Unit = {},
+    private val onUndoAvailable: (String, () -> Unit) -> Unit = { _, _ -> }
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
+    private companion object {
+        const val TYPE_HEADER = 0
+        const val TYPE_ITEM = 1
+
+        /** Below this confidence the card is flagged so the user knows to double-check it. */
+        const val UNCERTAIN_THRESHOLD = 60
+
+        /** Warning colour for a code about to expire. */
+        val URGENT_COLOR = Color.parseColor("#E53935")
+    }
+
+    /** Resolved once: the theme does not change while the list is bound. */
+    private val secondaryTextColor: Int by lazy {
+        context.resolveThemeColor(android.R.attr.textColorSecondary, Color.GRAY)
+    }
 
     private var allPromos: MutableList<PromoItem> = mutableListOf()
-    private var displayedPromos: MutableList<PromoItem> = mutableListOf()
+    private var rows: MutableList<PromoRow> = mutableListOf()
     private var currentQuery: String = ""
     private var currentCategory: String = "all"
 
     fun updateData(newPromos: List<PromoItem>) {
         allPromos.clear()
-        allPromos.addAll(newPromos.filter { !it.isUsed && !it.isExpired() })
+        allPromos.addAll(newPromos.filter { !it.isUsed && !it.isInvalid && !it.isExpired() })
         applyFilter()
     }
 
@@ -39,82 +72,112 @@ class PromoCodesAdapter(
         applyFilter()
     }
 
-    private fun applyFilter() {
-        val q = currentQuery.trim().toLowerCase()
-        val cat = currentCategory.toLowerCase()
-
-        val filtered = allPromos.filter { promo ->
-            if (promo.isUsed || promo.isExpired()) return@filter false
-
-            val b = promo.brand.toLowerCase()
-            val d = promo.description.toLowerCase()
-            val code = promo.code.toLowerCase()
-            val body = promo.body.toLowerCase()
-            val amount = promo.discountAmount.toLowerCase()
-            val inst = promo.instructions.toLowerCase()
-            val sender = promo.sender.toLowerCase()
-            val minOrder = promo.minOrder?.toLowerCase() ?: ""
-            val catSlug = promo.categorySlug.toLowerCase()
-
-            val matchesQuery = q.isEmpty() ||
-                    b.contains(q) ||
-                    code.contains(q) ||
-                    d.contains(q) ||
-                    amount.contains(q) ||
-                    inst.contains(q) ||
-                    body.contains(q) ||
-                    sender.contains(q) ||
-                    minOrder.contains(q)
-
-            val matchesCat = when (cat) {
-                "all" -> true
-                "food" -> catSlug == "food" || b.contains("فود") || b.contains("غذا") || b.contains("رستوران") ||
-                        d.contains("غذا") || d.contains("رستوران") || body.contains("غذا") || body.contains("پیتزا") ||
-                        body.contains("رستوران") || body.contains("شام") || body.contains("ناهار") || body.contains("کافه")
-                "shopping", "ecommerce" -> catSlug == "ecommerce" || catSlug == "shopping" || b.contains("دیجی") ||
-                        b.contains("باسلام") || b.contains("اکالا") || b.contains("تکنولایف") || b.contains("بانی") ||
-                        b.contains("خانومی") || d.contains("خرید") || d.contains("فروشگاه") || body.contains("خرید") ||
-                        body.contains("فروشگاه") || body.contains("پوشاک") || body.contains("کالا")
-                "supermarket" -> catSlug == "supermarket" || b.contains("مارکت") || b.contains("کوروش") || b.contains("اکالا") ||
-                        d.contains("سوپرمارکت") || body.contains("سوپرمارکت") || body.contains("هایپراستار")
-                "travel", "transport" -> (catSlug == "transport" || catSlug == "travel") ||
-                        ((b.contains("اسنپ") || b.contains("تپسی")) && !b.contains("فود") && !b.contains("مارکت")) ||
-                        b.contains("علی‌بابا") || b.contains("فلای") || b.contains("سفر") || b.contains("بلیط") ||
-                        d.contains("سفر") || d.contains("تاکسی") || body.contains("سفر") || body.contains("تاکسی")
-                "entertainment" -> catSlug == "entertainment" || b.contains("فیلیمو") || b.contains("نماوا") ||
-                        b.contains("سینما") || d.contains("فیلم") || d.contains("سریال") || body.contains("فیلم") ||
-                        body.contains("سینما") || body.contains("سرگرمی")
-                else -> true
-            }
-
-            matchesQuery && matchesCat
+    /** Live counts per category slug, for the chip badges. */
+    fun categoryCounts(): Map<String, Int> {
+        val promos = visiblePromos(ignoreCategory = true)
+        val counts = HashMap<String, Int>()
+        for (promo in promos) {
+            counts[promo.categorySlug] = (counts[promo.categorySlug] ?: 0) + 1
         }
+        counts["all"] = promos.size
+        return counts
+    }
 
-        displayedPromos.clear()
-        displayedPromos.addAll(filtered)
+    /**
+     * Applies the search box and the category chip.
+     *
+     * Category matching is now a straight slug comparison. The old version fell back to
+     * keyword-sniffing the raw SMS text, which put every message containing the word "خرید"
+     * into Shopping and listed the same supermarket code under three different chips.
+     */
+    private fun visiblePromos(ignoreCategory: Boolean = false): List<PromoItem> {
+        val query = currentQuery.trim().toLowerCase()
+        val category = currentCategory.toLowerCase()
+
+        return allPromos.filter { promo ->
+            if (promo.isUsed || promo.isInvalid || promo.isExpired()) return@filter false
+
+            val matchesCategory = ignoreCategory || category == "all" || promo.categorySlug == category
+            if (!matchesCategory) return@filter false
+
+            if (query.isEmpty()) return@filter true
+
+            promo.brand.toLowerCase().contains(query) ||
+                promo.brandEn.toLowerCase().contains(query) ||
+                promo.code.toLowerCase().contains(query) ||
+                promo.description.toLowerCase().contains(query) ||
+                promo.discountAmount.toLowerCase().contains(query) ||
+                promo.category.toLowerCase().contains(query) ||
+                promo.sender.toLowerCase().contains(query) ||
+                (promo.minOrder?.toLowerCase()?.contains(query) ?: false) ||
+                promo.body.toLowerCase().contains(query)
+        }
+    }
+
+    private fun applyFilter() {
+        rows.clear()
+        rows.addAll(PromoRanker.buildRows(visiblePromos()))
         notifyDataSetChanged()
+        onDataChanged()
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PromoViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.promo_list_item, parent, false)
-        return PromoViewHolder(view)
+    override fun getItemViewType(position: Int): Int = when (rows[position]) {
+        is PromoRow.Header -> TYPE_HEADER
+        is PromoRow.Item -> TYPE_ITEM
     }
 
-    override fun onBindViewHolder(holder: PromoViewHolder, position: Int) {
-        holder.bind(displayedPromos[position])
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
+        return if (viewType == TYPE_HEADER) {
+            HeaderViewHolder(inflater.inflate(R.layout.promo_section_header, parent, false))
+        } else {
+            PromoViewHolder(inflater.inflate(R.layout.promo_list_item, parent, false))
+        }
     }
 
-    override fun getItemCount(): Int = displayedPromos.size
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        when (val row = rows[position]) {
+            is PromoRow.Header -> (holder as HeaderViewHolder).bind(row)
+            is PromoRow.Item -> (holder as PromoViewHolder).bind(row.promo)
+        }
+    }
+
+    override fun getItemCount(): Int = rows.size
+
+    /** Removes one code from the visible list and offers to put it back. */
+    private fun removePromo(promo: PromoItem, message: String) {
+        allPromos.remove(promo)
+        applyFilter()
+        onUndoAvailable(message, {
+            SmartDataManager.restore(promo)
+            if (!allPromos.contains(promo)) allPromos.add(promo)
+            applyFilter()
+        })
+    }
+
+    inner class HeaderViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val title: TextView = itemView.findViewById(R.id.sectionTitle)
+        private val count: TextView = itemView.findViewById(R.id.sectionCount)
+
+        fun bind(header: PromoRow.Header) {
+            title.text = header.section.title
+            count.text = PromoValueParser.toPersianDigits(header.count.toString())
+        }
+    }
 
     inner class PromoViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val brandInitial: TextView = itemView.findViewById(R.id.brandInitial)
         private val brandIcon: ImageView = itemView.findViewById(R.id.brandIcon)
         private val promoBrand: TextView = itemView.findViewById(R.id.promoBrand)
         private val promoDiscountAmount: TextView = itemView.findViewById(R.id.promoDiscountAmount)
         private val promoDescription: TextView = itemView.findViewById(R.id.promoDescription)
+        private val promoUncertain: TextView = itemView.findViewById(R.id.promoUncertain)
         private val promoCode: TextView = itemView.findViewById(R.id.promoCode)
         private val promoMinOrder: TextView = itemView.findViewById(R.id.promoMinOrder)
         private val promoExpiry: TextView = itemView.findViewById(R.id.promoExpiry)
         private val btnCopyPromo: Button = itemView.findViewById(R.id.btnCopyPromo)
+        private val btnOpenApp: Button = itemView.findViewById(R.id.btnOpenApp)
+        private val btnPinPromo: Button = itemView.findViewById(R.id.btnPinPromo)
         private val btnMarkUsed: Button = itemView.findViewById(R.id.btnMarkUsed)
         private val btnViewOriginal: Button = itemView.findViewById(R.id.btnViewOriginal)
 
@@ -124,7 +187,11 @@ class PromoCodesAdapter(
             promoDescription.text = item.description
             promoCode.text = item.code
 
-            // Display minimum order requirement if present
+            bindBrandAvatar(item)
+            bindExpiry(item)
+
+            promoUncertain.visibility = if (item.confidence < UNCERTAIN_THRESHOLD) View.VISIBLE else View.GONE
+
             if (!item.minOrder.isNullOrBlank()) {
                 promoMinOrder.visibility = View.VISIBLE
                 promoMinOrder.text = "🛒 ${item.minOrder}"
@@ -132,101 +199,165 @@ class PromoCodesAdapter(
                 promoMinOrder.visibility = View.GONE
             }
 
-            // Format date with Jalali Shamsi (default to 1 month validity if unstated or 'اطلاع ثانوی')
-            val isGenericOrBlank = item.expiryDateText.isBlank() ||
-                    item.expiryDateText == "نامشخص" ||
-                    item.expiryDateText.contains("اطلاع ثانوی")
-
-            val expiryText = if (!isGenericOrBlank) {
-                item.expiryDateText
-            } else {
-                val j = JalaliCalendar.fromMillis(item.receivedAt + (30L * 24 * 60 * 60 * 1000L))
-                "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)} (۱ ماهه)"
+            btnPinPromo.alpha = if (item.isPinned) 1.0f else 0.35f
+            btnPinPromo.setOnClickListener {
+                SmartDataManager.setPinned(item, !item.isPinned)
+                applyFilter()
             }
 
-            promoExpiry.text = "مهلت استفاده: ${JalaliCalendar.toPersianDigits(expiryText)}"
+            bindCopy(item)
+            bindOpenApp(item)
+            bindMarkUsed(item)
+            btnViewOriginal.setOnClickListener { showOriginalMessage(item) }
+        }
 
+        /**
+         * Draws the brand avatar.
+         *
+         * The old adapter looked this view up and then never touched it, so every card showed
+         * the same generic tag in the same accent colour.
+         */
+        private fun bindBrandAvatar(item: PromoItem) {
+            val color = if (item.brandColor != 0) {
+                item.brandColor
+            } else {
+                BrandRegistry.fallbackColor(item.brand)
+            }
+            val tint = ColorStateList.valueOf(color)
+
+            val initial = item.brand.trim().take(2)
+            if (initial.isNotBlank()) {
+                brandInitial.visibility = View.VISIBLE
+                brandIcon.visibility = View.GONE
+                brandInitial.text = initial
+                brandInitial.backgroundTintList = tint
+            } else {
+                brandInitial.visibility = View.GONE
+                brandIcon.visibility = View.VISIBLE
+                brandIcon.backgroundTintList = tint
+            }
+
+            promoDiscountAmount.backgroundTintList = tint
+        }
+
+        /** Shows a live countdown instead of a bare Shamsi date, in red when time is short. */
+        private fun bindExpiry(item: PromoItem) {
+            val label = item.remainingLabel()
+            val suffix = if (!item.expiryIsExplicit) " (تخمینی)" else ""
+
+            promoExpiry.text = when {
+                item.isUrgent() -> "⏰ $label$suffix"
+                item.expiresAt == null -> "♾ $label"
+                else -> "🗓 $label$suffix"
+            }
+            promoExpiry.setTextColor(
+                if (item.isUrgent()) URGENT_COLOR
+                else secondaryTextColor
+            )
+        }
+
+        private fun bindCopy(item: PromoItem) {
             btnCopyPromo.text = "کپی کد"
             btnCopyPromo.setOnClickListener {
                 ClipboardHelper.copyToClipboard(context, item.code, "PROMO", showToast = false)
                 btnCopyPromo.text = "کپی شد ✓"
                 Toast.makeText(context, "کد تخفیف ${item.code} کپی شد", Toast.LENGTH_SHORT).show()
-                btnCopyPromo.postDelayed({
-                    btnCopyPromo.text = "کپی کد"
-                }, 2000)
-            }
-
-            btnMarkUsed.setOnClickListener {
-                item.isUsed = true
-                val currentPos = adapterPosition
-                if (currentPos != RecyclerView.NO_POSITION && currentPos in 0 until displayedPromos.size) {
-                    displayedPromos.removeAt(currentPos)
-                    allPromos.remove(item)
-                    notifyItemRemoved(currentPos)
-                    Toast.makeText(context, "کد تخفیف به عنوان «استفاده شد» علامت‌گذاری شد", Toast.LENGTH_SHORT).show()
-                }
-            }
-
-            btnMarkUsed.setOnLongClickListener {
-                item.isInvalid = true
-                item.isUsed = true
-                val currentPos = adapterPosition
-                if (currentPos != RecyclerView.NO_POSITION && currentPos in 0 until displayedPromos.size) {
-                    displayedPromos.removeAt(currentPos)
-                    allPromos.remove(item)
-                    notifyItemRemoved(currentPos)
-                    Toast.makeText(context, "کد تخفیف به عنوان «منقضی / کار نمی‌کنه» گزارش شد", Toast.LENGTH_SHORT).show()
-                }
-                true
-            }
-
-            btnViewOriginal.setOnClickListener {
-                val j = JalaliCalendar.fromMillis(item.receivedAt)
-                val jalaliReceived = "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)}"
-
-                val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_promo_details, null)
-                val dialog = AlertDialog.Builder(context)
-                    .setView(dialogView)
-                    .create()
-                dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-
-                val tvBrand = dialogView.findViewById<com.moez.QKSMS.common.widget.QkTextView>(R.id.dialogPromoBrand)
-                val tvBadge = dialogView.findViewById<TextView>(R.id.dialogPromoDiscountBadge)
-                val tvSender = dialogView.findViewById<com.moez.QKSMS.common.widget.QkTextView>(R.id.dialogPromoSender)
-                val tvDate = dialogView.findViewById<com.moez.QKSMS.common.widget.QkTextView>(R.id.dialogPromoDate)
-                val tvCondition = dialogView.findViewById<TextView>(R.id.dialogPromoCondition)
-                val tvBody = dialogView.findViewById<com.moez.QKSMS.common.widget.QkTextView>(R.id.dialogPromoBody)
-                val btnCopy = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.dialogBtnCopy)
-                val btnClose = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.dialogBtnClose)
-
-                tvBrand.text = item.brand
-                tvBadge.text = item.discountAmount
-                tvSender.text = "فرستنده: ${item.sender}"
-                tvDate.text = "دریافت: $jalaliReceived"
-
-                if (!item.minOrder.isNullOrBlank()) {
-                    tvCondition.visibility = View.VISIBLE
-                    tvCondition.text = item.minOrder
-                } else {
-                    tvCondition.visibility = View.GONE
-                }
-
-                // Clean corrupted Unicode replacement characters from SMS body
-                val cleanBody = item.body.replace("\uFFFD", " ").trim()
-                tvBody.text = cleanBody
-
-                btnCopy.text = "📋 کپی کد (${item.code})"
-                btnCopy.setOnClickListener {
-                    ClipboardHelper.copyToClipboard(context, item.code, "PROMO")
-                    dialog.dismiss()
-                }
-
-                btnClose.setOnClickListener {
-                    dialog.dismiss()
-                }
-
-                dialog.show()
+                btnCopyPromo.postDelayed({ btnCopyPromo.text = "کپی کد" }, 2000)
             }
         }
+
+        /**
+         * Copies the code and jumps straight into the brand's app, or its site.
+         *
+         * Copying alone still left the user to go find the app themselves, which is most of
+         * the friction between seeing a code and using it.
+         */
+        private fun bindOpenApp(item: PromoItem) {
+            val launchIntent = resolveLaunchIntent(item)
+            if (launchIntent == null) {
+                btnOpenApp.visibility = View.GONE
+                return
+            }
+
+            btnOpenApp.visibility = View.VISIBLE
+            btnOpenApp.setOnClickListener {
+                ClipboardHelper.copyToClipboard(context, item.code, "PROMO", showToast = false)
+                Toast.makeText(context, "کد ${item.code} کپی شد و ${item.brand} باز می‌شود", Toast.LENGTH_SHORT).show()
+                try {
+                    context.startActivity(launchIntent)
+                } catch (e: Exception) {
+                    Toast.makeText(context, "باز کردن ${item.brand} ممکن نشد", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        /** Prefers the installed app, falls back to the website, gives up quietly otherwise. */
+        private fun resolveLaunchIntent(item: PromoItem): Intent? {
+            item.appPackage?.let { pkg ->
+                context.packageManager.getLaunchIntentForPackage(pkg)?.let { return it }
+            }
+            item.website?.let { url ->
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                if (intent.resolveActivity(context.packageManager) != null) return intent
+            }
+            return null
+        }
+
+        private fun bindMarkUsed(item: PromoItem) {
+            btnMarkUsed.setOnClickListener {
+                SmartDataManager.markUsed(item, true)
+                removePromo(item, "کد تخفیف «استفاده شد» علامت خورد")
+            }
+
+            // Long press reports a code that did not work, which is a different signal: it
+            // should not come back on the next scan either.
+            btnMarkUsed.setOnLongClickListener {
+                SmartDataManager.markInvalid(item, true)
+                removePromo(item, "کد تخفیف به عنوان «کار نمی‌کند» گزارش شد")
+                true
+            }
+        }
+
+        private fun showOriginalMessage(item: PromoItem) {
+            val jalali = JalaliCalendar.fromMillis(item.receivedAt)
+            val received = JalaliCalendar.toPersianDigits(
+                "${jalali.year}/${pad(jalali.month)}/${pad(jalali.day)}"
+            )
+
+            val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_promo_details, null)
+            val dialog = AlertDialog.Builder(context).setView(dialogView).create()
+            dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+            dialogView.findViewById<TextView>(R.id.dialogPromoBrand).text = item.brand
+            dialogView.findViewById<TextView>(R.id.dialogPromoDiscountBadge).text = item.discountAmount
+            dialogView.findViewById<TextView>(R.id.dialogPromoSender).text = "فرستنده: ${item.sender}"
+            dialogView.findViewById<TextView>(R.id.dialogPromoDate).text = "دریافت: $received"
+
+            val condition = dialogView.findViewById<TextView>(R.id.dialogPromoCondition)
+            if (!item.minOrder.isNullOrBlank()) {
+                condition.visibility = View.VISIBLE
+                condition.text = item.minOrder
+            } else {
+                condition.visibility = View.GONE
+            }
+
+            // SMS bodies routinely carry replacement characters from broken encodings.
+            dialogView.findViewById<TextView>(R.id.dialogPromoBody).text =
+                item.body.replace("�", " ").trim()
+
+            val btnCopy = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.dialogBtnCopy)
+            btnCopy.text = "📋 کپی کد (${item.code})"
+            btnCopy.setOnClickListener {
+                ClipboardHelper.copyToClipboard(context, item.code, "PROMO")
+                dialog.dismiss()
+            }
+
+            dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.dialogBtnClose)
+                .setOnClickListener { dialog.dismiss() }
+
+            dialog.show()
+        }
+
+        private fun pad(value: Int): String = if (value < 10) "0$value" else value.toString()
     }
 }

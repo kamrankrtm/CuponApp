@@ -293,21 +293,28 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
                     android.widget.Toast.makeText(act, "Please configure AI API Key first", android.widget.Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
-                prefRunAiScan.summary = "Scanning inbox with AI..."
-                android.widget.Toast.makeText(act, "AI promo extraction started in background...", android.widget.Toast.LENGTH_LONG).show()
+                com.moez.QKSMS.feature.smart.ai.AiConsentDialog.ensureConsent(act, onGranted = {
+                    prefRunAiScan.summary = "Scanning inbox with AI..."
+                    android.widget.Toast.makeText(act, "AI promo extraction started in background...", android.widget.Toast.LENGTH_LONG).show()
 
-                com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.extractPromos(act, prefs) { success, msg, count ->
-                    prefRunAiScan?.summary = if (success) "Extracted $count promo codes" else "Scan failed"
-                    activity?.let { currentAct ->
-                        if (!currentAct.isFinishing && !currentAct.isDestroyed) {
-                            AlertDialog.Builder(currentAct)
-                                .setTitle(if (success) "AI Scan Completed" else "AI Scan Failed")
-                                .setMessage(msg)
-                                .setPositiveButton("OK", null)
-                                .show()
+                    com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.extractPromos(act, prefs) { success, msg, report ->
+                        prefRunAiScan?.summary = if (success) "Extracted ${report?.found ?: 0} promo codes" else "Scan failed"
+                        activity?.let { currentAct ->
+                            if (!currentAct.isFinishing && !currentAct.isDestroyed) {
+                                val detail = report?.let {
+                                    "\n\nتحلیل‌شده: ${it.analysed}" +
+                                        "\nرد شده به دلیل حریم خصوصی: ${it.skippedSensitive}" +
+                                        "\nقبلاً توسط موتور داخلی خوانده شده: ${it.skippedAlreadyParsed}"
+                                } ?: ""
+                                AlertDialog.Builder(currentAct)
+                                    .setTitle(if (success) "AI Scan Completed" else "AI Scan Failed")
+                                    .setMessage(msg + detail)
+                                    .setPositiveButton("OK", null)
+                                    .show()
+                            }
                         }
                     }
-                }
+                })
             }
         }
 

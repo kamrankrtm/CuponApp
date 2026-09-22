@@ -366,13 +366,16 @@ class NotificationManagerImpl @Inject constructor(
                 val title = "یک کد تخفیف از ${promo.brand} شناسایی شد"
                 val amountDesc = if (promo.discountAmount.isNotBlank() && promo.discountAmount != "تخفیف ویژه") "${promo.discountAmount} | " else ""
                 notification.setContentTitle(title)
-                notification.setContentText("کد: ${promo.code} | ${amountDesc}مهلت: ${promo.expiryDateText}")
+                // Show the countdown rather than a raw date; "۴ ساعت مانده" is actionable in
+                // a way that "۱۴۰۴/۰۷/۰۵" is not.
+                val deadline = promo.remainingLabel()
+                notification.setContentText("کد: ${promo.code} | ${amountDesc}$deadline")
 
                 val minOrderLine = if (!promo.minOrder.isNullOrBlank()) "\n🛒 ${promo.minOrder}" else ""
                 val bigTextStyle = NotificationCompat.BigTextStyle()
                     .setBigContentTitle(title)
                     .setSummaryText(promo.brand)
-                    .bigText("🎁 کد تخفیف: ${promo.code}\n💰 تخفیف: ${promo.discountAmount}\n⏳ مهلت: ${promo.expiryDateText}$minOrderLine")
+                    .bigText("🎁 کد تخفیف: ${promo.code}\n💰 تخفیف: ${promo.discountAmount}\n⏳ $deadline$minOrderLine")
 
                 notification.setStyle(bigTextStyle)
                 notification.setChannelId(DISCOUNT_CHANNEL_ID)

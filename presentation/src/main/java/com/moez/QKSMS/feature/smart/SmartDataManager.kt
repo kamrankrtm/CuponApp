@@ -178,9 +178,8 @@ object SmartDataManager {
         otpList.add(0, otp)
     }
 
-    fun setPromosAndOtps(promos: List<PromoItem>, otps: List<OtpItem>) {
-        setPromos(promos)
-
+    /** Replaces the OTP cache; promos are untouched. */
+    fun setOtps(otps: List<OtpItem>) {
         otpList.clear()
         val cutoff = getYesterdayCutoff()
         val seenOtpKeys = HashSet<String>()
@@ -191,5 +190,10 @@ object SmartDataManager {
                 otpList.add(o)
             }
         }
+    }
+
+    fun setPromosAndOtps(promos: List<PromoItem>, otps: List<OtpItem>) {
+        setPromos(promos)
+        setOtps(otps)
     }
 }
