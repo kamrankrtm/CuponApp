@@ -868,15 +868,46 @@ class MainActivity : QkThemedActivity(), MainView {
     }
 
     private fun getFrequentContacts(personalList: List<Conversation>): List<Conversation> {
-        val twoMonthsAgo = System.currentTimeMillis() - (60L * 24 * 60 * 60 * 1000)
-        return personalList
+        val oneMonthAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
+        val messageCountsByThread = HashMap<Long, Int>()
+
+        try {
+            val realm = io.realm.Realm.getDefaultInstance()
+            try {
+                val recentMessages = realm.where(com.moez.QKSMS.model.Message::class.java)
+                    .greaterThan("date", oneMonthAgo)
+                    .findAll()
+
+                for (msg in recentMessages) {
+                    val tid = msg.threadId
+                    messageCountsByThread[tid] = (messageCountsByThread[tid] ?: 0) + 1
+                }
+            } finally {
+                realm.close()
+            }
+        } catch (t: Throwable) {
+            android.util.Log.e("MainActivity", "Error counting recent messages for frequent contacts", t)
+        }
+
+        val eligible = personalList
             .filter { conv ->
                 conv.isValid &&
-                conv.date > twoMonthsAgo &&
                 conv.recipients.size == 1 &&
                 (conv.recipients.firstOrNull()?.contact != null || SmartSmsClassifier.isPersonalNumber(conv.recipients.firstOrNull()?.address ?: ""))
             }
-            .sortedByDescending { it.date }
-            .take(5)
+
+        // Sort primarily by count of messages in the past month descending, then by date of last message descending
+        val sorted = eligible.sortedWith(
+            compareByDescending<Conversation> { messageCountsByThread[it.id] ?: 0 }
+                .thenByDescending { it.date }
+        )
+
+        // Prioritize contacts that had actual messages in the past month
+        val activeThisMonth = sorted.filter { (messageCountsByThread[it.id] ?: 0) > 0 }
+        return if (activeThisMonth.isNotEmpty()) {
+            activeThisMonth.take(5)
+        } else {
+            sorted.take(5)
+        }
     }
 }
