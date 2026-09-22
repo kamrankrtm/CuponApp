@@ -220,6 +220,51 @@
             </HorizontalScrollView>
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/frequentContactsBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="?android:attr/colorBackground"
+            android:orientation="vertical"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/discountsFilterBar">
+
+            <com.moez.QKSMS.common.widget.QkTextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="8dp"
+                android:text="مخاطبین پرتکرار"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none"
+                android:overScrollMode="never">
+
+                <LinearLayout
+                    android:id="@+id/frequentContactsContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp" />
+
+            </HorizontalScrollView>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="4dp"
+                android:background="?android:attr/divider" />
+
+        </LinearLayout>
+
         <com.moez.QKSMS.common.widget.QkTextView
             android:id="@+id/empty"
             style="@style/TextSecondary"
@@ -229,7 +274,7 @@
             android:gravity="center"
             android:padding="56dp"
             app:layout_constraintBottom_toTopOf="@id/bottom"
-            app:layout_constraintTop_toBottomOf="@id/discountsFilterBar"
+            app:layout_constraintTop_toBottomOf="@id/frequentContactsBar"
             tools:text="Your conversations will appear here"
             tools:visibility="invisible" />
 
@@ -243,8 +288,9 @@
             android:paddingBottom="8dp"
             app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
             app:layout_constraintBottom_toTopOf="@id/bottom"
-            app:layout_constraintTop_toBottomOf="@id/discountsFilterBar"
+            app:layout_constraintTop_toBottomOf="@id/frequentContactsBar"
             tools:listitem="@layout/conversation_list_item" />
+
 
         <ImageView
             android:id="@+id/compose"

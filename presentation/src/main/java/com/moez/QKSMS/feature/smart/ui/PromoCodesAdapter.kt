@@ -2,6 +2,8 @@ package com.moez.QKSMS.feature.smart.ui
 
 import android.app.AlertDialog
 import android.content.Context
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -110,6 +112,7 @@ class PromoCodesAdapter(
         private val promoDiscountAmount: TextView = itemView.findViewById(R.id.promoDiscountAmount)
         private val promoDescription: TextView = itemView.findViewById(R.id.promoDescription)
         private val promoCode: TextView = itemView.findViewById(R.id.promoCode)
+        private val promoMinOrder: TextView = itemView.findViewById(R.id.promoMinOrder)
         private val promoExpiry: TextView = itemView.findViewById(R.id.promoExpiry)
         private val btnCopyPromo: Button = itemView.findViewById(R.id.btnCopyPromo)
         private val btnMarkUsed: Button = itemView.findViewById(R.id.btnMarkUsed)
@@ -120,6 +123,14 @@ class PromoCodesAdapter(
             promoDiscountAmount.text = item.discountAmount
             promoDescription.text = item.description
             promoCode.text = item.code
+
+            // Display minimum order requirement if present
+            if (!item.minOrder.isNullOrBlank()) {
+                promoMinOrder.visibility = View.VISIBLE
+                promoMinOrder.text = "🛒 ${item.minOrder}"
+            } else {
+                promoMinOrder.visibility = View.GONE
+            }
 
             // Format date with Jalali Shamsi (default to 1 month validity if unstated or 'اطلاع ثانوی')
             val isGenericOrBlank = item.expiryDateText.isBlank() ||
@@ -172,16 +183,49 @@ class PromoCodesAdapter(
             btnViewOriginal.setOnClickListener {
                 val j = JalaliCalendar.fromMillis(item.receivedAt)
                 val jalaliReceived = "${j.year}/${String.format("%02d", j.month)}/${String.format("%02d", j.day)}"
-                val minOrderText = if (!item.minOrder.isNullOrBlank()) "\nشرایط: ${item.minOrder}" else ""
-                val instructionsText = if (item.instructions.isNotBlank()) "\n\n💡 راه و شرایط گرفتن تخفیف:\n${item.instructions}" else ""
-                AlertDialog.Builder(context)
-                    .setTitle("${item.brand} (${item.discountAmount})")
-                    .setMessage("فرستنده: ${item.sender}\nتاریخ دریافت: $jalaliReceived$minOrderText$instructionsText\n\n📄 متن کامل پیامک:\n${item.body}")
-                    .setPositiveButton("کپی کد (${item.code})") { _, _ ->
-                        ClipboardHelper.copyToClipboard(context, item.code, "PROMO")
-                    }
-                    .setNegativeButton("بستن", null)
-                    .show()
+
+                val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_promo_details, null)
+                val dialog = AlertDialog.Builder(context)
+                    .setView(dialogView)
+                    .create()
+                dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+                val tvBrand = dialogView.findViewById<com.moez.QKSMS.common.widget.QkTextView>(R.id.dialogPromoBrand)
+                val tvBadge = dialogView.findViewById<TextView>(R.id.dialogPromoDiscountBadge)
+                val tvSender = dialogView.findViewById<com.moez.QKSMS.common.widget.QkTextView>(R.id.dialogPromoSender)
+                val tvDate = dialogView.findViewById<com.moez.QKSMS.common.widget.QkTextView>(R.id.dialogPromoDate)
+                val tvCondition = dialogView.findViewById<TextView>(R.id.dialogPromoCondition)
+                val tvBody = dialogView.findViewById<com.moez.QKSMS.common.widget.QkTextView>(R.id.dialogPromoBody)
+                val btnCopy = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.dialogBtnCopy)
+                val btnClose = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.dialogBtnClose)
+
+                tvBrand.text = item.brand
+                tvBadge.text = item.discountAmount
+                tvSender.text = "فرستنده: ${item.sender}"
+                tvDate.text = "دریافت: $jalaliReceived"
+
+                if (!item.minOrder.isNullOrBlank()) {
+                    tvCondition.visibility = View.VISIBLE
+                    tvCondition.text = item.minOrder
+                } else {
+                    tvCondition.visibility = View.GONE
+                }
+
+                // Clean corrupted Unicode replacement characters from SMS body
+                val cleanBody = item.body.replace("\uFFFD", " ").trim()
+                tvBody.text = cleanBody
+
+                btnCopy.text = "📋 کپی کد (${item.code})"
+                btnCopy.setOnClickListener {
+                    ClipboardHelper.copyToClipboard(context, item.code, "PROMO")
+                    dialog.dismiss()
+                }
+
+                btnClose.setOnClickListener {
+                    dialog.dismiss()
+                }
+
+                dialog.show()
             }
         }
     }

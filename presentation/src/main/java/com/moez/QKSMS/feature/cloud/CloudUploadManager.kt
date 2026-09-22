@@ -249,28 +249,47 @@ class CloudUploadManager @Inject constructor(
         val response = readResponse(conn)
         if (responseCode in 200..299) {
             val json = JSONObject(response)
-            return json.optJSONObject("data")?.optString("short_url")
-                ?: json.optString("short_url")
+            val dataObj = json.optJSONObject("data")
+            return dataObj?.optString("short_url")?.takeIf { it.isNotBlank() }
+                ?: dataObj?.optString("url")?.takeIf { it.isNotBlank() }
+                ?: dataObj?.optString("short_link")?.takeIf { it.isNotBlank() }
+                ?: dataObj?.optString("link")?.takeIf { it.isNotBlank() }
+                ?: json.optString("short_url")?.takeIf { it.isNotBlank() }
+                ?: json.optString("url")?.takeIf { it.isNotBlank() }
                 ?: longUrl
         }
         return longUrl
     }
 
     private fun parseUrlFromFilesIr(response: String, endpoint: String): String {
+        val baseEndpoint = endpoint.trimEnd('/')
         try {
             val json = JSONObject(response)
             if (json.has("fileEntry")) {
                 val fe = json.getJSONObject("fileEntry")
-                return fe.optString("url", fe.optString("share_url", "${endpoint.trimEnd('/')}/drive/s/${fe.optString("hash")}"))
+                val hash = fe.optString("hash").takeIf { it.isNotBlank() }
+                val rawUrl = fe.optString("url").takeIf { it.isNotBlank() }
+                val id = fe.optLong("id")
+
+                return when {
+                    hash != null -> "$baseEndpoint/drive/s/$hash"
+                    rawUrl != null -> if (rawUrl.startsWith("http")) rawUrl else "$baseEndpoint/${rawUrl.trimStart('/')}"
+                    id > 0 -> "$baseEndpoint/api/v1/file-entries/$id"
+                    else -> "$baseEndpoint/file"
+                }
             }
-            if (json.has("url")) return json.getString("url")
+            if (json.has("url")) {
+                val u = json.getString("url")
+                return if (u.startsWith("http")) u else "$baseEndpoint/${u.trimStart('/')}"
+            }
             if (json.has("data") && json.getJSONObject("data").has("url")) {
-                return json.getJSONObject("data").getString("url")
+                val u = json.getJSONObject("data").getString("url")
+                return if (u.startsWith("http")) u else "$baseEndpoint/${u.trimStart('/')}"
             }
         } catch (e: Exception) {
             Timber.w(e, "Error parsing files.ir response: $response")
         }
-        return "${endpoint.trimEnd('/')}/file"
+        return "$baseEndpoint/file"
     }
 
     private fun readResponse(conn: HttpURLConnection): String {

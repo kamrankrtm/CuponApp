@@ -121,7 +121,21 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
     override val changeSimIntent by lazy { sim.clicks() }
     override val scheduleCancelIntent by lazy { scheduledCancel.clicks() }
     override val sendIntent by lazy {
-        send.clicks().doOnNext {
+        send.clicks().filter {
+            val atts = lastRenderedState?.attachments
+            if (prefs.mediaAsCloudLink.get() && !atts.isNullOrEmpty()) {
+                val firstAtt = atts.firstOrNull()
+                val uri = when (firstAtt) {
+                    is com.moez.QKSMS.model.Attachment.Image -> firstAtt.getUri()
+                    else -> null
+                }
+                if (uri != null) {
+                    uploadCloudMedia(uri)
+                    return@filter false
+                }
+            }
+            true
+        }.doOnNext {
             val text = message.text?.toString() ?: ""
             SendDebugLogger.log("ComposeActivity: send clicked. text='$text'")
             if (text.isBlank() && (lastRenderedState?.attachments?.isEmpty() != false)) {
@@ -143,6 +157,18 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         setContentView(R.layout.compose_activity)
         showBackButton(true)
         viewModel.bindView(this)
+
+        if (intent.getBooleanExtra("ai_generate_reply", false)) {
+            intent.removeExtra("ai_generate_reply")
+            val tId = intent.getLongExtra("threadId", 0L)
+            if (tId > 0) {
+                com.moez.QKSMS.feature.smart.ai.AiChatAssistant.generateReply(this, tId) { success, replyText, _, _, _ ->
+                    if (success && replyText.isNotBlank()) {
+                        setDraft(replyText)
+                    }
+                }
+            }
+        }
 
         contentView.layoutTransition = LayoutTransition().apply {
             disableTransitionType(LayoutTransition.CHANGING)
@@ -538,6 +564,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
             },
             onSuccess = { linkText ->
                 dialog.dismiss()
+                lastRenderedState?.attachments?.forEach { attachmentDeletedIntent.onNext(it) }
                 val currentText = message.text?.toString() ?: ""
                 val newText = if (currentText.isBlank()) linkText else "$currentText\n$linkText"
                 message.setText(newText)

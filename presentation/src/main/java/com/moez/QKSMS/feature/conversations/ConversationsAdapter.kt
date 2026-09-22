@@ -123,9 +123,14 @@ class ConversationsAdapter @Inject constructor(
 
         val isUnread = conversation.unread
         holder.unread.isVisible = isUnread
-        val textColorPrimary = context.resolveThemeColor(android.R.attr.textColorPrimary)
-        val textColorSecondary = context.resolveThemeColor(android.R.attr.textColorSecondary)
-        val textColorTertiary = context.resolveThemeColor(android.R.attr.textColorTertiary)
+        val bg = context.resolveThemeColor(android.R.attr.windowBackground)
+        val isDarkBg = androidx.core.graphics.ColorUtils.calculateLuminance(bg) < 0.5
+        val rawPrimary = context.resolveThemeColor(android.R.attr.textColorPrimary)
+        val rawSecondary = context.resolveThemeColor(android.R.attr.textColorSecondary)
+        val rawTertiary = context.resolveThemeColor(android.R.attr.textColorTertiary)
+        val textColorPrimary = if (isDarkBg && androidx.core.graphics.ColorUtils.calculateLuminance(rawPrimary) < 0.35) 0xFFFFFFFF.toInt() else rawPrimary
+        val textColorSecondary = if (isDarkBg && androidx.core.graphics.ColorUtils.calculateLuminance(rawSecondary) < 0.35) 0xCCFFFFFF.toInt() else rawSecondary
+        val textColorTertiary = if (isDarkBg && androidx.core.graphics.ColorUtils.calculateLuminance(rawTertiary) < 0.35) 0x80FFFFFF.toInt() else rawTertiary
 
         if (isUnread) {
             holder.title.setTypeface(holder.title.typeface, Typeface.BOLD)

@@ -104,9 +104,43 @@
         <item name="android:textColor">@color/textPrimary</item>
     </style>
 
-    <!-- Black mode. No changes needed when not in night theme -->
-    <style name="AppTheme.Black" />
-    <style name="AppThemeDialog.Black" />
-    <style name="PopupTheme.Black" />
+    <!-- Black mode -->
+    <style name="AppTheme.Black">
+        <item name="android:navigationBarColor">@color/black</item>
+        <item name="android:statusBarColor">@color/black</item>
+        <item name="android:windowBackground">@color/black</item>
+        <item name="bubbleColor">@color/bubbleBlack</item>
+        <item name="colorPrimary">@color/black</item>
+        <item name="colorPrimaryDark">@color/black</item>
+        <item name="colorPrimaryVariant">@color/black</item>
+        <item name="colorSecondary">@color/blue_500</item>
+        <item name="colorSecondaryVariant">@color/blue_500</item>
+        <item name="colorAccent">@color/blue_500</item>
+        <item name="colorSurface">@color/black</item>
+        <item name="colorOnSurface">@color/white</item>
+        <item name="android:textColorPrimary">@color/white</item>
+        <item name="android:textColorSecondary">@color/textSecondaryDark</item>
+        <item name="android:textColorTertiary">@color/textTertiaryDark</item>
+    </style>
 
+    <style name="AppThemeDialog.Black">
+        <item name="android:windowBackground">@color/black</item>
+        <item name="actionBarPopupTheme">@style/PopupTheme.Black</item>
+        <item name="colorPrimary">@color/black</item>
+        <item name="colorPrimaryDark">@color/black</item>
+        <item name="colorPrimaryVariant">@color/black</item>
+        <item name="colorSecondary">@color/blue_500</item>
+        <item name="colorSecondaryVariant">@color/blue_500</item>
+        <item name="colorAccent">@color/blue_500</item>
+        <item name="colorSurface">@color/black</item>
+        <item name="colorOnSurface">@color/white</item>
+        <item name="android:textColorPrimary">@color/white</item>
+        <item name="android:textColorSecondary">@color/textSecondaryDark</item>
+        <item name="android:textColorTertiary">@color/textTertiaryDark</item>
+    </style>
+
+    <style name="PopupTheme.Black">
+        <item name="android:colorBackground">@color/black</item>
+        <item name="bubbleColor">@color/bubbleBlack</item>
+    </style>
 </resources>

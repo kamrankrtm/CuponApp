@@ -26,10 +26,12 @@ import android.content.res.ColorStateList
 import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewStub
+import android.widget.LinearLayout
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.core.app.ActivityCompat
 import androidx.core.view.GravityCompat
@@ -52,6 +54,7 @@ import com.moez.QKSMS.common.util.extensions.scrapViews
 import com.moez.QKSMS.common.util.extensions.setBackgroundTint
 import com.moez.QKSMS.common.util.extensions.setTint
 import com.moez.QKSMS.common.util.extensions.setVisible
+import com.moez.QKSMS.common.widget.AvatarView
 import com.moez.QKSMS.feature.blocking.BlockingDialog
 import com.moez.QKSMS.feature.changelog.ChangelogDialog
 import com.moez.QKSMS.feature.conversations.ConversationItemTouchCallback
@@ -185,6 +188,30 @@ class MainActivity : QkThemedActivity(), MainView {
 
         itemTouchCallback.adapter = conversationsAdapter
         conversationsAdapter.autoScrollToStart(recyclerView)
+
+        recyclerView.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+            override fun onScrolled(rv: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(rv, dx, dy)
+                if (currentTabPosition != 1) return
+                val bar = frequentContactsBar ?: return
+                if (bar.childCount == 0 || (frequentContactsContainer?.childCount ?: 0) == 0) return
+
+                if (dy > 6 && bar.visibility == View.VISIBLE && bar.alpha > 0.1f) {
+                    bar.animate()
+                        .alpha(0f)
+                        .setDuration(160)
+                        .withEndAction { bar.visibility = View.GONE }
+                        .start()
+                } else if ((!rv.canScrollVertically(-1) || dy < -12) && bar.visibility != View.VISIBLE) {
+                    bar.visibility = View.VISIBLE
+                    bar.alpha = 0f
+                    bar.animate()
+                        .alpha(1f)
+                        .setDuration(180)
+                        .start()
+                }
+            }
+        })
 
         // Don't allow clicks to pass through the drawer layout
         drawer.clicks().autoDisposable(scope()).subscribe()
@@ -523,39 +550,42 @@ class MainActivity : QkThemedActivity(), MainView {
         })
     }
 
+    private val classificationCache = java.util.concurrent.ConcurrentHashMap<Long, Pair<Long, SmsCategory>>()
+
     private fun classifyConversationsImmediately(conversations: List<Conversation>) {
         if (conversations.isEmpty()) return
         val personal = HashSet<Long>(conversations.size)
         val banking = HashSet<Long>()
         val spam = HashSet<Long>()
-        val newPromos = mutableListOf<com.moez.QKSMS.feature.smart.model.PromoItem>()
-        val newOtps = mutableListOf<com.moez.QKSMS.feature.smart.model.OtpItem>()
 
         for (conv in conversations) {
             if (!conv.isValid) continue
             val id = conv.id
-            val hasSavedContact = conv.recipients.any { it.contact != null }
-            val sender = conv.recipients.firstOrNull()?.address ?: ""
-            val body = conv.lastMessage?.body ?: ""
-            val msgDate = conv.lastMessage?.date ?: System.currentTimeMillis()
+            val lastMsg = conv.lastMessage
+            val lastMsgId = lastMsg?.id ?: -1L
 
-            if (hasSavedContact) {
-                personal.add(id)
-            } else {
-                when (val cat = SmartSmsClassifier.classify(sender, body, msgDate)) {
+            // Check if cached
+            val cached = classificationCache[id]
+            if (cached != null && cached.first == lastMsgId) {
+                when (cached.second) {
                     is SmsCategory.Personal -> personal.add(id)
                     is SmsCategory.Banking -> banking.add(id)
                     is SmsCategory.Spam -> spam.add(id)
-                    is SmsCategory.Promo -> if (!cat.promo.isExpired()) newPromos.add(cat.promo)
-                    is SmsCategory.Otp -> newOtps.add(cat.otp)
+                    else -> Unit
                 }
+                continue
+            }
+
+            val hasSavedContact = conv.recipients.any { it.contact != null }
+            val sender = conv.recipients.firstOrNull()?.address ?: ""
+            if (hasSavedContact || SmartSmsClassifier.isPersonalNumber(sender)) {
+                personal.add(id)
             }
         }
 
-        SmartDataManager.setPromosAndOtps(newPromos, newOtps)
         cachedPersonalIds = personal
-        cachedBankingIds = banking
-        cachedSpamIds = spam
+        if (banking.isNotEmpty()) cachedBankingIds = banking
+        if (spam.isNotEmpty()) cachedSpamIds = spam
         isClassificationReady = true
     }
 
@@ -595,31 +625,44 @@ class MainActivity : QkThemedActivity(), MainView {
                 for (conv in conversations) {
                     if (!conv.isValid) continue
                     val id = conv.id
-                    val hasSavedContact = conv.recipients.any { it.contact != null }
-                    val sender = conv.recipients.firstOrNull()?.address ?: ""
-                    val body = conv.lastMessage?.body ?: ""
-                    val msgDate = conv.lastMessage?.date ?: System.currentTimeMillis()
+                    val lastMsg = conv.lastMessage
+                    val lastMsgId = lastMsg?.id ?: -1L
 
-                    if (hasSavedContact) {
-                        personal.add(id)
+                    // Check fast cache
+                    val cached = classificationCache[id]
+                    val cat = if (cached != null && cached.first == lastMsgId) {
+                        cached.second
                     } else {
-                        when (val cat = SmartSmsClassifier.classify(sender, body, msgDate)) {
-                            is SmsCategory.Personal -> personal.add(id)
-                            is SmsCategory.Banking -> banking.add(id)
-                            is SmsCategory.Spam -> spam.add(id)
-                            is SmsCategory.Promo -> if (!cat.promo.isExpired()) newPromos.add(cat.promo)
-                            is SmsCategory.Otp -> newOtps.add(cat.otp)
+                        val hasSavedContact = conv.recipients.any { it.contact != null }
+                        val sender = conv.recipients.firstOrNull()?.address ?: ""
+                        val body = lastMsg?.body ?: ""
+                        val msgDate = lastMsg?.date ?: System.currentTimeMillis()
+
+                        val computedCat = if (hasSavedContact) {
+                            SmsCategory.Personal
+                        } else {
+                            SmartSmsClassifier.classify(sender, body, msgDate)
                         }
+                        classificationCache[id] = Pair(lastMsgId, computedCat)
+                        computedCat
+                    }
+
+                    when (cat) {
+                        is SmsCategory.Personal -> personal.add(id)
+                        is SmsCategory.Banking -> banking.add(id)
+                        is SmsCategory.Spam -> spam.add(id)
+                        is SmsCategory.Promo -> if (!cat.promo.isExpired()) newPromos.add(cat.promo)
+                        is SmsCategory.Otp -> newOtps.add(cat.otp)
                     }
                 }
 
-                // Also scan all incoming SMS messages for OTPs with their exact timestamps
+                // Also scan incoming SMS messages for both OTPs and Promo codes with exact timestamps
                 val inboxType: Int = android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX
                 val recentMessages = realm.where(com.moez.QKSMS.model.Message::class.java)
                     .equalTo("type", "sms")
                     .equalTo("boxId", inboxType)
                     .sort("date", io.realm.Sort.DESCENDING)
-                    .limit(200)
+                    .limit(300)
                     .findAll()
 
                 for (msg in recentMessages) {
@@ -629,6 +672,11 @@ class MainActivity : QkThemedActivity(), MainView {
                         val cat = SmartSmsClassifier.classify(msg.address, text, msg.date)
                         if (cat is SmsCategory.Otp) {
                             newOtps.add(cat.otp)
+                        }
+                    } else {
+                        val promo = SmartSmsClassifier.extractPromo(msg.address, text, msg.date)
+                        if (promo != null && !promo.isExpired()) {
+                            newPromos.add(promo)
                         }
                     }
                 }
@@ -756,10 +804,15 @@ class MainActivity : QkThemedActivity(), MainView {
             val state = currentState ?: return
             if (state.page !is Inbox || state.page.selected > 0) {
                 discountsFilterBar?.visibility = View.GONE
+                frequentContactsBar?.visibility = View.GONE
                 return
             }
 
             discountsFilterBar?.visibility = if (currentTabPosition == 4) View.VISIBLE else View.GONE
+            // frequentContactsBar is only shown in Personal tab (1) — handled in buildFrequentContacts()
+            if (currentTabPosition != 1) {
+                frequentContactsBar?.visibility = View.GONE
+            }
 
             when (currentTabPosition) {
                 0 -> {
@@ -790,6 +843,8 @@ class MainActivity : QkThemedActivity(), MainView {
                     compose.setVisible(true)
                     empty.text = "No personal messages"
                     empty.setVisible(list.isEmpty())
+                    // Show frequent contacts bar
+                    buildFrequentContacts(list)
                 }
                 2 -> {
                     // Banking messages
@@ -838,5 +893,56 @@ class MainActivity : QkThemedActivity(), MainView {
         } catch (t: Throwable) {
             android.util.Log.e("MainActivity", "Error applying tab filter", t)
         }
+    }
+
+    /**
+     * Build the top-5 frequent contacts row for the Personal tab.
+     * We pick the 5 most recently active conversations in the last 2 months
+     * that have a saved contact or personal number.
+     */
+    private fun buildFrequentContacts(personalList: List<Conversation>) {
+        val bar = frequentContactsBar ?: return
+        val container = frequentContactsContainer ?: return
+
+        val twoMonthsAgo = System.currentTimeMillis() - (60L * 24 * 60 * 60 * 1000)
+
+        // Filter conversations with recent activity in the last 2 months, sorted by most recent
+        val topContacts = personalList
+            .filter { conv ->
+                conv.isValid &&
+                conv.date > twoMonthsAgo &&
+                conv.recipients.size == 1 &&
+                (conv.recipients.firstOrNull()?.contact != null || SmartSmsClassifier.isPersonalNumber(conv.recipients.firstOrNull()?.address ?: ""))
+            }
+            .sortedByDescending { it.date }
+            .take(5)
+
+        if (topContacts.isEmpty()) {
+            bar.visibility = View.GONE
+            return
+        }
+
+        container.removeAllViews()
+        val inflater = LayoutInflater.from(this)
+
+        for (conv in topContacts) {
+            val recipient = conv.recipients.firstOrNull() ?: continue
+            val itemView = inflater.inflate(R.layout.frequent_contact_item, container, false)
+
+            val avatar = itemView.findViewById<AvatarView>(R.id.frequentAvatar)
+            val nameText = itemView.findViewById<com.moez.QKSMS.common.widget.QkTextView>(R.id.frequentName)
+
+            avatar.setRecipient(recipient)
+            nameText.text = recipient.contact?.name?.split(" ")?.firstOrNull()
+                ?: recipient.getDisplayName()
+
+            itemView.setOnClickListener {
+                navigator.showConversation(conv.id)
+            }
+
+            container.addView(itemView)
+        }
+
+        bar.visibility = View.VISIBLE
     }
 }

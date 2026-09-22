@@ -256,91 +256,97 @@ class NotificationManagerImpl @Inject constructor(
             notification.addPerson("tel:${recipient.address}")
         }
 
-        // Add the action buttons
-        val actionLabels = context.resources.getStringArray(R.array.notification_actions)
-        listOf(prefs.notifAction1, prefs.notifAction2, prefs.notifAction3)
-                .map { preference -> preference.get() }
-                .distinct()
-                .mapNotNull { action ->
-                    when (action) {
-                        Preferences.NOTIFICATION_ACTION_ARCHIVE -> {
-                            val intent = Intent(context, MarkArchivedReceiver::class.java).putExtra("threadId", threadId)
-                            val pi = PendingIntent.getBroadcast(context, threadId.toInt(), intent,
-                                    PendingIntent.FLAG_UPDATE_CURRENT)
-                            NotificationCompat.Action.Builder(R.drawable.ic_archive_white_24dp, actionLabels[action], pi)
-                                    .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_ARCHIVE).build()
-                        }
+        // Add the action buttons ONLY for Personal messages
+        if (smartCategory is SmsCategory.Personal) {
+            val actionLabels = context.resources.getStringArray(R.array.notification_actions)
+            listOf(prefs.notifAction1, prefs.notifAction2, prefs.notifAction3)
+                    .map { preference -> preference.get() }
+                    .distinct()
+                    .mapNotNull { action ->
+                        when (action) {
+                            Preferences.NOTIFICATION_ACTION_ARCHIVE -> {
+                                val intent = Intent(context, MarkArchivedReceiver::class.java).putExtra("threadId", threadId)
+                                val pi = PendingIntent.getBroadcast(context, threadId.toInt(), intent,
+                                        PendingIntent.FLAG_UPDATE_CURRENT)
+                                NotificationCompat.Action.Builder(R.drawable.ic_archive_white_24dp, actionLabels[action], pi)
+                                        .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_ARCHIVE).build()
+                            }
 
-                        Preferences.NOTIFICATION_ACTION_DELETE -> {
-                            val messageIds = messages.map { it.id }.toLongArray()
-                            val intent = Intent(context, DeleteMessagesReceiver::class.java)
-                                    .putExtra("threadId", threadId)
-                                    .putExtra("messageIds", messageIds)
-                            val pi = PendingIntent.getBroadcast(context, threadId.toInt(), intent,
-                                    PendingIntent.FLAG_UPDATE_CURRENT)
-                            NotificationCompat.Action.Builder(R.drawable.ic_delete_white_24dp, actionLabels[action], pi)
-                                    .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_DELETE).build()
-                        }
+                            Preferences.NOTIFICATION_ACTION_DELETE -> {
+                                val messageIds = messages.map { it.id }.toLongArray()
+                                val intent = Intent(context, DeleteMessagesReceiver::class.java)
+                                        .putExtra("threadId", threadId)
+                                        .putExtra("messageIds", messageIds)
+                                val pi = PendingIntent.getBroadcast(context, threadId.toInt(), intent,
+                                        PendingIntent.FLAG_UPDATE_CURRENT)
+                                NotificationCompat.Action.Builder(R.drawable.ic_delete_white_24dp, actionLabels[action], pi)
+                                        .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_DELETE).build()
+                            }
 
-                        Preferences.NOTIFICATION_ACTION_BLOCK -> {
-                            val intent = Intent(context, BlockThreadReceiver::class.java).putExtra("threadId", threadId)
-                            val pi = PendingIntent.getBroadcast(context, threadId.toInt(), intent,
-                                    PendingIntent.FLAG_UPDATE_CURRENT)
-                            NotificationCompat.Action.Builder(R.drawable.ic_block_white_24dp, actionLabels[action], pi)
-                                    .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MUTE).build()
-                        }
+                            Preferences.NOTIFICATION_ACTION_BLOCK -> {
+                                val intent = Intent(context, BlockThreadReceiver::class.java).putExtra("threadId", threadId)
+                                val pi = PendingIntent.getBroadcast(context, threadId.toInt(), intent,
+                                        PendingIntent.FLAG_UPDATE_CURRENT)
+                                NotificationCompat.Action.Builder(R.drawable.ic_block_white_24dp, actionLabels[action], pi)
+                                        .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MUTE).build()
+                            }
 
-                        Preferences.NOTIFICATION_ACTION_READ -> {
-                            val intent = Intent(context, MarkReadReceiver::class.java).putExtra("threadId", threadId)
-                            val pi = PendingIntent.getBroadcast(context, threadId.toInt(), intent,
-                                    PendingIntent.FLAG_UPDATE_CURRENT)
-                            NotificationCompat.Action.Builder(R.drawable.ic_check_white_24dp, actionLabels[action], pi)
-                                    .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ).build()
-                        }
+                            Preferences.NOTIFICATION_ACTION_READ -> {
+                                val intent = Intent(context, MarkReadReceiver::class.java).putExtra("threadId", threadId)
+                                val pi = PendingIntent.getBroadcast(context, threadId.toInt(), intent,
+                                        PendingIntent.FLAG_UPDATE_CURRENT)
+                                NotificationCompat.Action.Builder(R.drawable.ic_check_white_24dp, actionLabels[action], pi)
+                                        .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ).build()
+                            }
 
-                        Preferences.NOTIFICATION_ACTION_REPLY -> {
-                            if (Build.VERSION.SDK_INT >= 24) {
-                                getReplyAction(threadId)
-                            } else {
-                                val intent = Intent(context, QkReplyActivity::class.java).putExtra("threadId", threadId)
+                            Preferences.NOTIFICATION_ACTION_REPLY -> {
+                                if (Build.VERSION.SDK_INT >= 24) {
+                                    getReplyAction(threadId)
+                                } else {
+                                    val intent = Intent(context, QkReplyActivity::class.java).putExtra("threadId", threadId)
+                                    val pi = PendingIntent.getActivity(context, threadId.toInt(), intent,
+                                            PendingIntent.FLAG_UPDATE_CURRENT)
+                                    NotificationCompat.Action
+                                            .Builder(R.drawable.ic_reply_white_24dp, actionLabels[action], pi)
+                                            .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY).build()
+                                }
+                            }
+
+                            Preferences.NOTIFICATION_ACTION_CALL -> {
+                                val address = conversation.recipients.firstOrNull()?.address ?: return@mapNotNull null
+                                val intentAction = if (permissions.hasCalling()) Intent.ACTION_CALL else Intent.ACTION_DIAL
+                                val intent = Intent(intentAction, Uri.parse("tel:$address"))
                                 val pi = PendingIntent.getActivity(context, threadId.toInt(), intent,
                                         PendingIntent.FLAG_UPDATE_CURRENT)
-                                NotificationCompat.Action
-                                        .Builder(R.drawable.ic_reply_white_24dp, actionLabels[action], pi)
-                                        .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY).build()
+                                NotificationCompat.Action.Builder(R.drawable.ic_call_white_24dp, actionLabels.getOrNull(action) ?: "Call", pi)
+                                        .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_CALL).build()
                             }
-                        }
 
-                        Preferences.NOTIFICATION_ACTION_CALL -> {
-                            val address = conversation.recipients.firstOrNull()?.address ?: return@mapNotNull null
-                            val intentAction = if (permissions.hasCalling()) Intent.ACTION_CALL else Intent.ACTION_DIAL
-                            val intent = Intent(intentAction, Uri.parse("tel:$address"))
-                            val pi = PendingIntent.getActivity(context, threadId.toInt(), intent,
-                                    PendingIntent.FLAG_UPDATE_CURRENT)
-                            NotificationCompat.Action.Builder(R.drawable.ic_call_white_24dp, actionLabels.getOrNull(action) ?: "Call", pi)
-                                    .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_CALL).build()
-                        }
+                            Preferences.NOTIFICATION_ACTION_AI_REPLY -> {
+                                val intent = Intent(context, ComposeActivity::class.java).apply {
+                                    putExtra("threadId", threadId)
+                                    putExtra("ai_generate_reply", true)
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                                }
+                                val pi = PendingIntent.getActivity(
+                                    context,
+                                    (threadId + 500000).toInt(),
+                                    intent,
+                                    PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
+                                )
+                                val label = actionLabels.getOrNull(action) ?: "AI Smart Reply"
+                                NotificationCompat.Action.Builder(R.drawable.ic_star_black_24dp, "🤖 $label", pi)
+                                    .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
+                                    .build()
+                            }
 
-                        Preferences.NOTIFICATION_ACTION_AI_REPLY -> {
-                            val intent = Intent(context, AiSmartReplyReceiver::class.java).putExtra("threadId", threadId)
-                            val pi = PendingIntent.getBroadcast(
-                                context,
-                                (threadId + 500000).toInt(),
-                                intent,
-                                PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
-                            )
-                            val label = actionLabels.getOrNull(action) ?: "AI Smart Reply"
-                            NotificationCompat.Action.Builder(R.drawable.ic_star_black_24dp, "🤖 $label", pi)
-                                .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
-                                .build()
+                            else -> null
                         }
-
-                        else -> null
                     }
-                }
-                .forEach { notification.addAction(it) }
+                    .forEach { notification.addAction(it) }
+        }
 
-        // Smart Notification Styling for Promos, OTP, and Spam
+        // Smart Notification Styling for Promos, OTP, Banking and Spam
         when (smartCategory) {
             is SmsCategory.Promo -> {
                 if (!prefs.notifyDiscounts.get()) {
@@ -357,26 +363,54 @@ class NotificationManagerImpl @Inject constructor(
                     copyIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT
                 )
-                notification.addAction(R.drawable.ic_content_copy_black_24dp, "Copy Code (${promo.code})", copyPI)
+                val title = "یک کد تخفیف از ${promo.brand} شناسایی شد"
+                val amountDesc = if (promo.discountAmount.isNotBlank() && promo.discountAmount != "تخفیف ویژه") "${promo.discountAmount} | " else ""
+                notification.setContentTitle(title)
+                notification.setContentText("کد: ${promo.code} | ${amountDesc}مهلت: ${promo.expiryDateText}")
+
+                val minOrderLine = if (!promo.minOrder.isNullOrBlank()) "\n🛒 ${promo.minOrder}" else ""
+                val bigTextStyle = NotificationCompat.BigTextStyle()
+                    .setBigContentTitle(title)
+                    .setSummaryText(promo.brand)
+                    .bigText("🎁 کد تخفیف: ${promo.code}\n💰 تخفیف: ${promo.discountAmount}\n⏳ مهلت: ${promo.expiryDateText}$minOrderLine")
+
+                notification.setStyle(bigTextStyle)
+                notification.setChannelId(DISCOUNT_CHANNEL_ID)
+                // Only Copy action for Promo - no Reply/Archive buttons
+                notification.addAction(R.drawable.ic_content_copy_black_24dp, "📋 کپی کد: ${promo.code}", copyPI)
             }
             is SmsCategory.Otp -> {
                 val otp = smartCategory.otp
-                val copyIntent = Intent(context, CopyClipReceiver::class.java).apply {
-                    putExtra(CopyClipReceiver.EXTRA_TEXT, otp.code)
-                    putExtra(CopyClipReceiver.EXTRA_LABEL, "OTP")
-                }
-                val copyPI = PendingIntent.getBroadcast(
-                    context,
-                    (threadId + 300000).toInt(),
-                    copyIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT
-                )
-
-                notification.setContentTitle("🔑 کد تایید: ${otp.code}")
-                notification.setContentText("کد ورود به ${otp.serviceName} در کلیپ‌بورد ذخیره شد")
+                val title = "🔑 ${otp.code}"
+                val text = "از ${otp.serviceName}"
+                notification.setContentTitle(title)
+                notification.setContentText(text)
+                val bigTextStyle = NotificationCompat.BigTextStyle()
+                    .setBigContentTitle(title)
+                    .setSummaryText(otp.serviceName)
+                    .bigText("کد تایید ورود: ${otp.code}\nسرویس: ${otp.serviceName}\n(کد به صورت خودکار به کلیپ‌بورد کپی شد)")
+                notification.setStyle(bigTextStyle)
                 notification.setChannelId(OTP_CHANNEL_ID)
                 notification.setPriority(NotificationCompat.PRIORITY_MAX)
-                notification.addAction(R.drawable.ic_content_copy_black_24dp, "کپی مجدد کد", copyPI)
+                // No action buttons for OTP - just prominent code and sender
+            }
+            is SmsCategory.Banking -> {
+                val bank = smartCategory.bankName
+                val type = when (smartCategory.isDeposit) {
+                    true -> "واریز وجه"
+                    false -> "برداشت / تراکنش"
+                    null -> "تراکنش بانکی"
+                }
+                val amountStr = smartCategory.amount?.let { " ($it)" } ?: ""
+                val title = "💳 $bank: $type$amountStr"
+                notification.setContentTitle(title)
+                notification.setContentText(body)
+                // Banking: show full message body in BigTextStyle, no action buttons
+                val bigTextStyle = NotificationCompat.BigTextStyle()
+                    .setBigContentTitle(title)
+                    .setSummaryText(bank)
+                    .bigText(body)
+                notification.setStyle(bigTextStyle)
             }
             is SmsCategory.Spam -> {
                 notification.setChannelId(SPAM_CHANNEL_ID)
@@ -384,6 +418,7 @@ class NotificationManagerImpl @Inject constructor(
             }
             else -> Unit
         }
+
 
         if (prefs.qkreply.get()) {
             notification.priority = NotificationCompat.PRIORITY_DEFAULT

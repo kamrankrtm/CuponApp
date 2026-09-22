@@ -120,4 +120,8 @@ abstract class BroadcastReceiverBuilderModule {
     @ContributesAndroidInjector()
     abstract fun bindWidgetProvider(): WidgetProvider
 
-}
+    @ActivityScope
+    @ContributesAndroidInjector()
+    abstract fun bindTestSmsReceiver(): com.moez.QKSMS.receiver.TestSmsReceiver
+
+}

@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_dialog_promo"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <!-- Header Row: Brand and Discount Badge -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <com.moez.QKSMS.common.widget.QkTextView
+            android:id="@+id/dialogPromoBrand"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            tools:text="تپسی‌فود" />
+
+        <TextView
+            android:id="@+id/dialogPromoDiscountBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/rounded_rectangle_24dp"
+            android:backgroundTint="#0088FF"
+            android:paddingStart="12dp"
+            android:paddingTop="5dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="5dp"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            tools:text="۳۰۰ هزار تومان" />
+
+    </LinearLayout>
+
+    <!-- Meta Info: Sender and Received Date -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:orientation="horizontal">
+
+        <com.moez.QKSMS.common.widget.QkTextView
+            android:id="@+id/dialogPromoSender"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="12sp"
+            tools:text="فرستنده: 981000404405+" />
+
+        <View
+            android:layout_width="4dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_vertical"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/circle"
+            android:backgroundTint="?android:attr/textColorTertiary" />
+
+        <com.moez.QKSMS.common.widget.QkTextView
+            android:id="@+id/dialogPromoDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="12sp"
+            tools:text="تاریخ: ۱۴۰۵/۰۶/۲۵" />
+
+    </LinearLayout>
+
+    <!-- Optional Min Order / Condition Badge -->
+    <TextView
+        android:id="@+id/dialogPromoCondition"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/rounded_rectangle_24dp"
+        android:backgroundTint="#FFF3E0"
+        android:paddingStart="10dp"
+        android:paddingTop="3dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="3dp"
+        android:textColor="#C77700"
+        android:textSize="11sp"
+        android:visibility="gone"
+        tools:text="کف خرید ۶ میلیون"
+        tools:visibility="visible" />
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="12dp"
+        android:background="?android:attr/divider" />
+
+    <!-- Section Title: Text of SMS -->
+    <com.moez.QKSMS.common.widget.QkTextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="متن کامل پیامک:"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <!-- SMS Body Box -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:maxHeight="220dp"
+        android:scrollbars="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/rounded_rectangle_16dp"
+            android:backgroundTint="?attr/bubbleColor"
+            android:padding="14dp">
+
+            <com.moez.QKSMS.common.widget.QkTextView
+                android:id="@+id/dialogPromoBody"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:lineSpacingExtra="4dp"
+                android:textIsSelectable="true"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="13sp"
+                tools:text="۳۰۰ هزار ت تخفیف تپسی فود و دیجی پی\nکد: nq4EXBJz\nلغو ۱۱" />
+
+        </LinearLayout>
+
+    </ScrollView>
+
+    <!-- Action Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/dialogBtnClose"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:text="بستن"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="13sp" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/dialogBtnCopy"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:backgroundTint="?attr/colorSecondary"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="کپی کد تخفیف"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            app:cornerRadius="12dp"
+            tools:text="کپی کد (NQ4EXBJZ)" />
+
+    </LinearLayout>
+
+</LinearLayout>
