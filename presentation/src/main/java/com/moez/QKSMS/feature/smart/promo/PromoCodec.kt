@@ -13,7 +13,7 @@ import org.json.JSONObject
 object PromoCodec {
 
     /** Bumped whenever the stored shape changes; unknown versions are discarded, not guessed at. */
-    const val SCHEMA_VERSION = 1
+    const val SCHEMA_VERSION = 2
 
     fun toJson(promo: PromoItem): JSONObject = JSONObject().apply {
         put("id", promo.id)
@@ -30,6 +30,7 @@ object PromoCodec {
         put("sender", promo.sender)
         put("body", promo.body)
         put("receivedAt", promo.receivedAt)
+        put("threadId", promo.threadId)
         put("discountType", promo.discountType.name)
         put("discountValue", promo.discountValue)
         put("minOrderValue", promo.minOrderValue)
@@ -70,6 +71,7 @@ object PromoCodec {
             sender = json.optString("sender", ""),
             body = json.optString("body", ""),
             receivedAt = json.optLong("receivedAt", System.currentTimeMillis()),
+            threadId = json.optLong("threadId", 0L),
             discountType = discountType,
             discountValue = json.optLong("discountValue", 0L),
             minOrderValue = json.optLong("minOrderValue", 0L),
@@ -96,22 +98,42 @@ object PromoCodec {
         }.toString()
     }
 
-    fun decodeList(raw: String?): List<PromoItem> {
-        if (raw == null || raw.isBlank()) return emptyList()
+    /** Outcome of reading the cache, so the caller can tell "nothing stored" from "unusable". */
+    sealed class DecodeResult {
+        data class Ok(val promos: List<PromoItem>) : DecodeResult()
+
+        /** Written by a different version of the app, or corrupt: must be rebuilt from scratch. */
+        object Unusable : DecodeResult()
+    }
+
+    /**
+     * Reads the cache.
+     *
+     * A version mismatch is reported rather than quietly treated as an empty cache: the caller
+     * has to rewind its scan cursor too, otherwise the codes are dropped and the incremental
+     * scan never looks far enough back to find them again.
+     */
+    fun decode(raw: String?): DecodeResult {
+        if (raw == null || raw.isBlank()) return DecodeResult.Ok(emptyList())
         return try {
             val root = JSONObject(raw)
-            if (root.optInt("version", 0) != SCHEMA_VERSION) return emptyList()
-            val array = root.optJSONArray("promos") ?: return emptyList()
+            if (root.optInt("version", 0) != SCHEMA_VERSION) return DecodeResult.Unusable
+            val array = root.optJSONArray("promos") ?: return DecodeResult.Ok(emptyList())
             val result = ArrayList<PromoItem>(array.length())
             for (i in 0 until array.length()) {
                 val obj = array.optJSONObject(i) ?: continue
                 fromJson(obj)?.let { result.add(it) }
             }
-            result
+            DecodeResult.Ok(result)
         } catch (e: Exception) {
             // A corrupt cache is not worth crashing over; rebuilding from the inbox is cheap.
-            emptyList()
+            DecodeResult.Unusable
         }
+    }
+
+    fun decodeList(raw: String?): List<PromoItem> = when (val result = decode(raw)) {
+        is DecodeResult.Ok -> result.promos
+        DecodeResult.Unusable -> emptyList()
     }
 
     private fun JSONObject.optStringOrNull(key: String): String? {

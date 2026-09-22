@@ -163,6 +163,13 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
             prefNotifyDiscounts.checkbox.isChecked = newVal
         }
 
+        prefNotifyPromoExpiry?.checkbox?.isChecked = prefs.notifyPromoExpiry.get()
+        prefNotifyPromoExpiry?.setOnClickListener {
+            val newVal = !prefs.notifyPromoExpiry.get()
+            prefs.notifyPromoExpiry.set(newVal)
+            prefNotifyPromoExpiry.checkbox.isChecked = newVal
+        }
+
         prefJalaliCalendar?.checkbox?.isChecked = prefs.jalaliCalendar.get()
         prefJalaliCalendar?.setOnClickListener {
             val newVal = !prefs.jalaliCalendar.get()

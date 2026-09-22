@@ -7,6 +7,8 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.moez.QKSMS.R
 import com.moez.QKSMS.common.util.NotificationManagerImpl
+import androidx.core.app.TaskStackBuilder
+import com.moez.QKSMS.feature.compose.ComposeActivity
 import com.moez.QKSMS.feature.main.MainActivity
 import com.moez.QKSMS.feature.smart.model.PromoItem
 import com.moez.QKSMS.receiver.CopyClipReceiver
@@ -62,15 +64,26 @@ object PromoExpiryNotifier {
                 PendingIntent.FLAG_UPDATE_CURRENT
             )
 
-            val openIntent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            // Tapping the reminder should land on the SMS the code came from, not a generic
+            // inbox: the message holds the terms the card cannot fit.
+            val openPendingIntent = if (promo.threadId != 0L) {
+                val messageIntent = Intent(context, ComposeActivity::class.java)
+                    .putExtra("threadId", promo.threadId)
+                TaskStackBuilder.create(context)
+                    .addParentStack(ComposeActivity::class.java)
+                    .addNextIntent(messageIntent)
+                    .getPendingIntent(notificationId + 1, PendingIntent.FLAG_UPDATE_CURRENT)
+            } else {
+                val inboxIntent = Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+                PendingIntent.getActivity(
+                    context,
+                    notificationId + 1,
+                    inboxIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT
+                )
             }
-            val openPendingIntent = PendingIntent.getActivity(
-                context,
-                notificationId + 1,
-                openIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT
-            )
 
             val title = "⏰ کد ${promo.brand} رو به اتمام است"
             val body = "${promo.discountAmount} • ${promo.remainingLabel(now)}"
@@ -89,7 +102,8 @@ object PromoExpiryNotifier {
                             "🎁 کد: ${promo.code}\n" +
                                 "💰 تخفیف: ${promo.discountAmount}\n" +
                                 "⏳ ${promo.remainingLabel(now)}" +
-                                (promo.minOrder?.let { "\n🛒 $it" } ?: "")
+                                (promo.minOrder?.let { "\n🛒 $it" } ?: "") +
+                                messageExcerpt(promo)
                         )
                 )
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -104,4 +118,20 @@ object PromoExpiryNotifier {
 
         return posted
     }
+
+    /**
+     * The original SMS, trimmed to what a notification can show.
+     *
+     * The card only carries the fields the extractor understood; conditions the sender wrote in
+     * prose live in the message and are exactly what someone about to spend a code wants.
+     */
+    private fun messageExcerpt(promo: PromoItem): String {
+        val body = promo.body.replace("\uFFFD", " ").trim()
+        if (body.isEmpty()) return ""
+        val excerpt = if (body.length <= MAX_EXCERPT) body else body.take(MAX_EXCERPT).trimEnd() + "…"
+        return "\n\n📩 متن پیامک:\n$excerpt"
+    }
+
+    /** Anything longer is cut off by the system before the user can read it anyway. */
+    private const val MAX_EXCERPT = 320
 }

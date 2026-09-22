@@ -44,9 +44,25 @@ object PromoStore {
 
     // ---------------------------------------------------------------- promos
 
+    /**
+     * Restores the saved codes.
+     *
+     * When the stored blob cannot be used — written by an older version, or corrupt — the scan
+     * cursor is rewound as well, so the next startup re-reads the inbox and rebuilds the list
+     * instead of leaving the user with nothing.
+     */
     fun loadPromos(): List<PromoItem> {
         val store = requirePrefs() ?: return emptyList()
-        return PromoCodec.decodeList(store.getString(KEY_PROMOS, null))
+        return when (val result = PromoCodec.decode(store.getString(KEY_PROMOS, null))) {
+            is PromoCodec.DecodeResult.Ok -> result.promos
+            PromoCodec.DecodeResult.Unusable -> {
+                store.edit()
+                    .remove(KEY_PROMOS)
+                    .putLong(KEY_LAST_SCANNED_ID, 0L)
+                    .apply()
+                emptyList()
+            }
+        }
     }
 
     fun savePromos(promos: List<PromoItem>) {

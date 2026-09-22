@@ -9,6 +9,8 @@ import com.moez.QKSMS.feature.smart.SmartSmsClassifier
 import com.moez.QKSMS.feature.smart.model.PromoItem
 import com.moez.QKSMS.feature.smart.promo.AiPrivacyFilter
 import com.moez.QKSMS.feature.smart.promo.BrandRegistry
+import com.moez.QKSMS.feature.smart.promo.DiscountType
+import com.moez.QKSMS.feature.smart.promo.PromoCodeExtractor
 import com.moez.QKSMS.feature.smart.promo.PromoStore
 import com.moez.QKSMS.feature.smart.promo.PromoValueParser
 import com.moez.QKSMS.util.Preferences
@@ -53,7 +55,8 @@ object AiPromoExtractor {
         val messageId: Long,
         val sender: String,
         val body: String,
-        val date: Long
+        val date: Long,
+        val threadId: Long
     )
 
     /** What a scan did, so the UI can be honest about it. */
@@ -168,7 +171,7 @@ object AiPromoExtractor {
                         continue
                     }
 
-                    candidates.add(Candidate(message.id, message.address, body, message.date))
+                    candidates.add(Candidate(message.id, message.address, body, message.date, message.threadId))
                     if (candidates.size >= MAX_MESSAGES_PER_SCAN) break
                 }
             } catch (t: Throwable) {
@@ -343,22 +346,44 @@ object AiPromoExtractor {
             val index = item.optInt("index", i)
             val source = batch.getOrNull(index) ?: batch.getOrNull(i) ?: continue
 
-            val brandName = item.optString("brand").trim()
-            val brand = BrandRegistry.byPersianName(brandName)
-                ?: BrandRegistry.match(
-                    PromoValueParser.normalize(source.sender).toLowerCase(),
-                    PromoValueParser.normalize(source.body).toLowerCase()
+            val normalizedBody = PromoValueParser.normalize(source.body)
+
+            // The message is the ground truth. A code the model reports but that is not in the
+            // text it was given either belongs to a different message (a wrong "index") or was
+            // invented, and attaching it to this message produces a card whose code, brand and
+            // amount all contradict the SMS shown under them.
+            if (!PromoCodeExtractor.appearsIn(code, normalizedBody)) continue
+
+            val normalizedSender = PromoValueParser.normalize(source.sender)
+
+            // Identify the brand from the message itself. The model's brand name is accepted
+            // only when the registry recognises nothing AND that name actually occurs in the
+            // message, because a brand carries its own colour, app package and website: a
+            // wrong one sends the "open app" button to an unrelated app.
+            val brand = BrandRegistry.match(
+                normalizedSender.toLowerCase(),
+                normalizedBody.toLowerCase()
+            )
+            val claimedBrand = item.optString("brand").trim()
+            val brandIsSupported = claimedBrand.isNotBlank() && (
+                normalizedBody.contains(claimedBrand) || normalizedSender.contains(claimedBrand)
                 )
 
-            val normalizedBody = PromoValueParser.normalize(source.body)
             val minOrderParsed = PromoValueParser.parseMinOrder(normalizedBody)
             val discount = PromoValueParser.parseDiscount(normalizedBody, minOrderParsed?.second)
             val expiry = PromoValueParser.parseExpiry(normalizedBody, source.date)
 
-            val displayBrand = brand?.fa ?: brandName.takeIf { it.isNotBlank() } ?: "سایر فروشگاه‌ها"
-            val displayAmount = item.optString("discountAmount").trim()
-                .takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
-                ?: discount.display
+            val displayBrand = brand?.fa
+                ?: claimedBrand.takeIf { brandIsSupported }
+                ?: "سایر فروشگاه‌ها"
+
+            // Prefer the locally parsed amount: it is normalized Persian ("۶ میلیون تومان")
+            // rather than whatever raw fragment the model echoed back ("+400ت تخفیف").
+            val displayAmount = if (discount.type != DiscountType.UNKNOWN) {
+                discount.display
+            } else {
+                item.optStringOrNull("discountAmount") ?: discount.display
+            }
 
             promos.add(
                 PromoItem(
@@ -376,6 +401,7 @@ object AiPromoExtractor {
                     sender = source.sender,
                     body = source.body,
                     receivedAt = source.date,
+                    threadId = source.threadId,
                     discountType = discount.type,
                     discountValue = discount.value,
                     minOrderValue = minOrderParsed?.first?.value ?: 0L,

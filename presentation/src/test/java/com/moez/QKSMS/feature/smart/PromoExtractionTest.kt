@@ -4,6 +4,7 @@ import com.moez.QKSMS.common.util.JalaliCalendar
 import com.moez.QKSMS.feature.smart.model.PromoItem
 import com.moez.QKSMS.feature.smart.promo.BrandRegistry
 import com.moez.QKSMS.feature.smart.promo.DiscountType
+import com.moez.QKSMS.feature.smart.promo.PromoCodeExtractor
 import com.moez.QKSMS.feature.smart.promo.PromoRanker
 import com.moez.QKSMS.feature.smart.promo.PromoRow
 import com.moez.QKSMS.feature.smart.promo.PromoSection
@@ -225,12 +226,14 @@ class PromoExtractionTest {
     }
 
     @Test
-    fun `an unstated deadline is marked as assumed`() {
+    fun `an unstated deadline is marked as assumed and lasts a week`() {
         val promo = SmartSmsClassifier.extractPromo(
             "X", "باسلام کد تخفیف BSLREF با ۵۰ هزار تومان تخفیف اولین خرید", now
         )
         assertNotNull(promo)
         assertFalse(promo!!.expiryIsExplicit)
+        assertFalse("alive inside the assumed window", promo.isExpired(now + 6 * day))
+        assertTrue("gone once the assumed week is up", promo.isExpired(now + 8 * day))
     }
 
     @Test
@@ -242,6 +245,24 @@ class PromoExtractionTest {
         val later = promoExpiringIn(6 * day)
         assertEquals("۶ روز مانده", later.remainingLabel(now))
         assertFalse(later.isUrgent(now))
+    }
+
+    // ------------------------------------------------------------------ external extractor
+
+    @Test
+    fun `a code is only accepted when it appears in the message`() {
+        // Guards the AI tier: a model that returns a wrong message index, or invents a code,
+        // would otherwise produce a card whose code and brand contradict the SMS under them.
+        val body = PromoValueParser.normalize("اسنپ‌فود: با کد تخفیف FOOD70 مبلغ ۷۰ هزار تومان تخفیف")
+        assertTrue(PromoCodeExtractor.appearsIn("FOOD70", body))
+        assertTrue("case should not matter", PromoCodeExtractor.appearsIn("food70", body))
+        assertFalse("code from another message", PromoCodeExtractor.appearsIn("PAYCNN48", body))
+    }
+
+    @Test
+    fun `a code split by spaces still counts as present`() {
+        val body = PromoValueParser.normalize("کد تخفیف: PAY CNN48 را وارد کنید")
+        assertTrue(PromoCodeExtractor.appearsIn("PAYCNN48", body))
     }
 
     // ------------------------------------------------------------------ ranking

@@ -39,7 +39,12 @@ object SmartSmsClassifier {
     /**
      * Main classification method
      */
-    fun classify(sender: String, body: String, date: Long = System.currentTimeMillis()): SmsCategory {
+    fun classify(
+        sender: String,
+        body: String,
+        date: Long = System.currentTimeMillis(),
+        threadId: Long = 0L
+    ): SmsCategory {
         val cleanSender = sender.trim()
         val cleanBody = body.trim()
 
@@ -62,7 +67,7 @@ object SmartSmsClassifier {
 
         // 2. Check for Discount Code / Promotion
         if (hasDiscountCode(cleanBody)) {
-            val promo = extractPromo(cleanSender, cleanBody, date)
+            val promo = extractPromo(cleanSender, cleanBody, date, threadId)
             if (promo != null) {
                 return SmsCategory.Promo(promo)
             }
@@ -336,7 +341,12 @@ object SmartSmsClassifier {
      * depended on branch order, so a message mentioning "گوگل کروم" was filed under a clothing
      * shop and "تپسی فود" was filed under "تپسی".
      */
-    fun extractPromo(sender: String, body: String, date: Long = System.currentTimeMillis()): PromoItem? {
+    fun extractPromo(
+        sender: String,
+        body: String,
+        date: Long = System.currentTimeMillis(),
+        threadId: Long = 0L
+    ): PromoItem? {
         val normalizedBody = PromoValueParser.normalize(body)
         val normalizedSender = PromoValueParser.normalize(sender)
 
@@ -379,6 +389,7 @@ object SmartSmsClassifier {
             sender = sender,
             body = body,
             receivedAt = date,
+            threadId = threadId,
             discountType = discount.type,
             discountValue = discount.value,
             minOrderValue = minOrderParsed?.first?.value ?: 0L,

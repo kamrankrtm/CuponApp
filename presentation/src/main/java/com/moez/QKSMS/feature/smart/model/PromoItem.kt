@@ -25,6 +25,8 @@ data class PromoItem(
     val sender: String = "",
     val body: String = "",
     val receivedAt: Long = System.currentTimeMillis(),
+    /** Conversation this code arrived in, so a notification can open the actual message. */
+    val threadId: Long = 0L,
 
     /** Percent for [DiscountType.PERCENT], Tomans for [DiscountType.AMOUNT]. */
     val discountType: DiscountType = DiscountType.UNKNOWN,

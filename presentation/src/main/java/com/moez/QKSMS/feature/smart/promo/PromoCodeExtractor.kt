@@ -76,6 +76,32 @@ object PromoCodeExtractor {
     }
 
     /**
+     * Whether [code] really occurs in [normalizedBody].
+     *
+     * A coupon code is something the user types from the message, so it must be present in the
+     * message. This is the check that keeps an external extractor honest: a code that is not in
+     * the text either came from another message or was invented, and either way it is useless.
+     *
+     * Spaces and zero-width joiners are ignored on both sides, because senders break codes up
+     * ("PAY CNN48") and an extractor will report them joined.
+     */
+    fun appearsIn(code: String, normalizedBody: String): Boolean {
+        val needle = squash(code)
+        if (needle.length < 3) return false
+        return squash(normalizedBody).contains(needle)
+    }
+
+    private fun squash(text: String): String {
+        val sb = StringBuilder(text.length)
+        for (c in text) {
+            if (!c.isWhitespace() && c != '\u200c' && c != '-' && c != '_') {
+                sb.append(c.toLowerCase())
+            }
+        }
+        return sb.toString()
+    }
+
+    /**
      * Rejects candidates that cannot be coupon codes.
      *
      * A code has to contain a letter (pure digits are phone numbers, prices and dates), must

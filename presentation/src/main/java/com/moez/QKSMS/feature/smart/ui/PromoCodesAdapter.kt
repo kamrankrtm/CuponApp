@@ -16,6 +16,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 import com.moez.QKSMS.R
+import com.moez.QKSMS.common.util.ContrastUtils
 import com.moez.QKSMS.common.util.JalaliCalendar
 import com.moez.QKSMS.common.util.extensions.resolveThemeColor
 import com.moez.QKSMS.feature.smart.ClipboardHelper
@@ -50,9 +51,19 @@ class PromoCodesAdapter(
         val URGENT_COLOR = Color.parseColor("#E53935")
     }
 
-    /** Resolved once: the theme does not change while the list is bound. */
+    /**
+     * Resolved once: the theme does not change while the list is bound.
+     *
+     * Passed through the contrast check for the same reason the conversation list is: on the
+     * dark themes the resolved secondary colour can land too close to the background.
+     */
     private val secondaryTextColor: Int by lazy {
-        context.resolveThemeColor(android.R.attr.textColorSecondary, Color.GRAY)
+        val background = context.resolveThemeColor(android.R.attr.windowBackground, Color.BLACK)
+        ContrastUtils.ensureContrast(
+            context.resolveThemeColor(android.R.attr.textColorSecondary, Color.GRAY),
+            background,
+            ContrastUtils.MIN_CONTRAST_BODY
+        )
     }
 
     private var allPromos: MutableList<PromoItem> = mutableListOf()

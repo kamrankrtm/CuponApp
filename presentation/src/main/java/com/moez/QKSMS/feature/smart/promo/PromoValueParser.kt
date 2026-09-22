@@ -389,6 +389,9 @@ object PromoValueParser {
     /**
      * How long an undated code is assumed to stay usable. A single constant so the extractor,
      * the expiry check and the card all agree — previously they used 7, 30 and 30 days.
+     *
+     * A week, not a month: Iranian promotional codes are typically short-lived, so assuming a
+     * month keeps dead codes on screen far longer than they are worth.
      */
-    const val DEFAULT_VALIDITY_DAYS = 30
+    const val DEFAULT_VALIDITY_DAYS = 7
 }

@@ -626,7 +626,7 @@ class MainActivity : QkThemedActivity(), MainView {
                         val computedCat = if (hasSavedContact) {
                             SmsCategory.Personal
                         } else {
-                            SmartSmsClassifier.classify(sender, body, msgDate)
+                            SmartSmsClassifier.classify(sender, body, msgDate, id)
                         }
                         classificationCache[id] = Pair(lastMsgId, computedCat)
                         computedCat
@@ -664,12 +664,12 @@ class MainActivity : QkThemedActivity(), MainView {
                     if (msg.id > newestScannedId) newestScannedId = msg.id
 
                     if (SmartSmsClassifier.isOtpMessage(text)) {
-                        val cat = SmartSmsClassifier.classify(msg.address, text, msg.date)
+                        val cat = SmartSmsClassifier.classify(msg.address, text, msg.date, msg.threadId)
                         if (cat is SmsCategory.Otp) {
                             newOtps.add(cat.otp)
                         }
                     } else if (isFirstScan || msg.id > lastScannedId) {
-                        val promo = SmartSmsClassifier.extractPromo(msg.address, text, msg.date)
+                        val promo = SmartSmsClassifier.extractPromo(msg.address, text, msg.date, msg.threadId)
                         if (promo != null && !promo.isExpired()) {
                             newPromos.add(promo)
                         }
@@ -693,7 +693,7 @@ class MainActivity : QkThemedActivity(), MainView {
 
                 // Warn about anything valuable that is about to run out.
                 val expiringNotified = com.moez.QKSMS.feature.smart.promo.PromoExpiryNotifier
-                    .notifyExpiring(applicationContext, SmartDataManager.getPromos(), prefs.notifyDiscounts.get())
+                    .notifyExpiring(applicationContext, SmartDataManager.getPromos(), prefs.notifyPromoExpiry.get())
                 if (expiringNotified > 0) {
                     android.util.Log.d("MainActivity", "Posted $expiringNotified expiry reminders")
                 }
