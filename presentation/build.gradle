@@ -196,6 +196,8 @@ dependencies {
     testImplementation "androidx.test:runner:$androidx_testrunner_version"
     testImplementation "junit:junit:$junit_version"
     testImplementation "org.mockito:mockito-core:$mockito_version"
+    // Android stubs org.json in unit tests; the real implementation lets the promo codec be tested
+    testImplementation "org.json:json:20180813"
 
     // moshi
     implementation "com.squareup.moshi:moshi:$moshi_version"

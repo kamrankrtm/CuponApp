@@ -3,6 +3,11 @@ package com.moez.QKSMS.feature.smart
 import com.moez.QKSMS.feature.smart.model.OtpItem
 import com.moez.QKSMS.feature.smart.model.PromoItem
 import com.moez.QKSMS.feature.smart.model.SmsCategory
+import com.moez.QKSMS.feature.smart.promo.Brand
+import com.moez.QKSMS.feature.smart.promo.BrandRegistry
+import com.moez.QKSMS.feature.smart.promo.DiscountType
+import com.moez.QKSMS.feature.smart.promo.PromoCodeExtractor
+import com.moez.QKSMS.feature.smart.promo.PromoValueParser
 import java.util.regex.Pattern
 
 object SmartSmsClassifier {
@@ -322,372 +327,90 @@ object SmartSmsClassifier {
         return DISCOUNT_KEYWORDS.any { lower.contains(it.toLowerCase()) }
     }
 
+    /**
+     * Builds a [PromoItem] from a promotional SMS, or returns null when the message carries no
+     * usable coupon code.
+     *
+     * Brand identification, value parsing and code extraction each live in their own object
+     * now. The previous version inlined all three as a 240-line `when` chain whose result
+     * depended on branch order, so a message mentioning "گوگل کروم" was filed under a clothing
+     * shop and "تپسی فود" was filed under "تپسی".
+     */
     fun extractPromo(sender: String, body: String, date: Long = System.currentTimeMillis()): PromoItem? {
-        val norm = normalizeText(body)
-        val combined = "$sender $norm"
+        val normalizedBody = PromoValueParser.normalize(body)
+        val normalizedSender = PromoValueParser.normalize(sender)
 
-        // Brand identification
-        var brand = "سایر فروشگاه‌ها"
-        var brandEn = "Store"
-        var category = "فروشگاه آنلاین"
-        var categorySlug = "ecommerce"
+        val candidate = PromoCodeExtractor.extract(normalizedBody) ?: return null
 
-        when {
-            combined.contains("اسنپ فود", true) || combined.contains("اسنپ‌فود", true) || sender.contains("SNAPPFOOD", true) -> {
-                brand = "اسنپ‌فود"
-                brandEn = "SnappFood"
-                category = "غذا و رستوران"
-                categorySlug = "food"
-            }
-            combined.contains("تپسی فود", true) || combined.contains("تپسی‌فود", true) -> {
-                brand = "تپسی‌فود"
-                brandEn = "Tapsi Food"
-                category = "غذا و رستوران"
-                categorySlug = "food"
-            }
-            combined.contains("دیجی کالا", true) || combined.contains("دیجی‌کالا", true) || combined.contains("دیجیکالا", true) || sender.contains("DIGIKALA", true) -> {
-                brand = "دیجی‌کالا"
-                brandEn = "Digikala"
-                category = "فروشگاه آنلاین"
-                categorySlug = "ecommerce"
-            }
-            combined.contains("دیجی‌استایل", true) || combined.contains("دیجی استایل", true) -> {
-                brand = "دیجی‌استایل"
-                brandEn = "DigiStyle"
-                category = "مد و پوشاک"
-                categorySlug = "ecommerce"
-            }
-            combined.contains("الوپیک", true) || combined.contains("الو پیک", true) -> {
-                brand = "الوپیک"
-                brandEn = "Alopeyk"
-                category = "ارسال بسته و پیک"
-                categorySlug = "transport"
-            }
-            combined.contains("تپسی مارکت", true) || combined.contains("تپسی‌مارکت", true) || combined.contains("tpmk", true) -> {
-                brand = "تپسی‌مارکت"
-                brandEn = "Tapsi Market"
-                category = "سوپرمارکت"
-                categorySlug = "supermarket"
-            }
-            combined.contains("اسنپ پی", true) || combined.contains("اسنپ‌پی", true) || combined.contains("snapppay", true) -> {
-                brand = "اسنپ‌پی"
-                brandEn = "SnappPay"
-                category = "پرداخت اقساطی"
-                categorySlug = "fintech"
-            }
-            combined.contains("دیجی پی", true) || combined.contains("دیجی‌پی", true) || combined.contains("dgpay", true) -> {
-                brand = "دیجی‌پی"
-                brandEn = "Digipay"
-                category = "پرداخت اقساطی"
-                categorySlug = "fintech"
-            }
-            combined.contains("دیجی‌واش", true) || combined.contains("دیجی واش", true) || combined.contains("irdgw", true) -> {
-                brand = "دیجی‌واش"
-                brandEn = "DigiWash"
-                category = "خشکشویی آنلاین"
-                categorySlug = "services"
-            }
-            combined.contains("اکتیوکلینرز", true) || combined.contains("اکتیو کلینرز", true) -> {
-                brand = "اکتیو کلینرز"
-                brandEn = "Active Cleaners"
-                category = "خشکشویی آنلاین"
-                categorySlug = "services"
-            }
-            combined.contains("گوشی‌شاپ", true) || combined.contains("گوشی شاپ", true) -> {
-                brand = "گوشی‌شاپ"
-                brandEn = "Gooshishop"
-                category = "کالای دیجیتال"
-                categorySlug = "ecommerce"
-            }
-            combined.contains("تخفیفان", true) -> {
-                brand = "تخفیفان"
-                brandEn = "Takhfifan"
-                category = "کوپن و تخفیف"
-                categorySlug = "ecommerce"
-            }
-            combined.contains("اوزون", true) || sender.contains("OZONE", true) -> {
-                brand = "درگاه اوزون"
-                brandEn = "Ozon"
-                category = "پرداخت و تخفیف"
-                categorySlug = "fintech"
-            }
-            combined.contains("زی‌تل", true) || combined.contains("زیتل", true) -> {
-                brand = "زی‌تل"
-                brandEn = "Zitel"
-                category = "اینترنت ثابت"
-                categorySlug = "telecom"
-            }
-            combined.contains("همراه اول", true) || sender.contains("HAMRAH", true) || sender.contains("MCI", true) -> {
-                brand = "همراه اول"
-                brandEn = "MCI"
-                category = "اپراتور تلفن همراه"
-                categorySlug = "telecom"
-            }
-            combined.contains("ایرانسل", true) || sender.contains("MTN", true) || sender.contains("IRANCELL", true) -> {
-                brand = "ایرانسل"
-                brandEn = "Irancell"
-                category = "اپراتور تلفن همراه"
-                categorySlug = "telecom"
-            }
-            combined.contains("رایتل", true) || sender.contains("RIGHTEL", true) -> {
-                brand = "رایتل"
-                brandEn = "Rightel"
-                category = "اپراتور تلفن همراه"
-                categorySlug = "telecom"
-            }
-            combined.contains("فیلیمو", true) -> {
-                brand = "فیلیمو"
-                brandEn = "Filimo"
-                category = "فیلم و سریال"
-                categorySlug = "entertainment"
-            }
-            combined.contains("نماوا", true) -> {
-                brand = "نماوا"
-                brandEn = "Namava"
-                category = "فیلم و سریال"
-                categorySlug = "entertainment"
-            }
-            combined.contains("فیلم نت", true) || combined.contains("فیلم‌نت", true) -> {
-                brand = "فیلم‌نت"
-                brandEn = "Filmnet"
-                category = "فیلم و سریال"
-                categorySlug = "entertainment"
-            }
-            combined.contains("سینماتیکت", true) || combined.contains("سینما تیکت", true) -> {
-                brand = "سینماتیکت"
-                brandEn = "CinemaTicket"
-                category = "تفریح و سینما"
-                categorySlug = "entertainment"
-            }
-            combined.contains("اکالا", true) || combined.contains("افق کوروش", true) || sender.contains("okala", true) -> {
-                brand = "اکالا"
-                brandEn = "Okala"
-                category = "سوپرمارکت"
-                categorySlug = "supermarket"
-            }
-            combined.contains("باسلام", true) -> {
-                brand = "باسلام"
-                brandEn = "Basalam"
-                category = "فروشگاه آنلاین"
-                categorySlug = "ecommerce"
-            }
-            combined.contains("اسنپ مارکت", true) || combined.contains("اسنپ‌مارکت", true) -> {
-                brand = "اسنپ‌مارکت"
-                brandEn = "SnappMarket"
-                category = "سوپرمارکت"
-                categorySlug = "supermarket"
-            }
-            combined.contains("چرم منط", true) || combined.contains("چرم مَنط", true) -> {
-                brand = "چرم مَنط"
-                brandEn = "Mant Leather"
-                category = "پوشاک و چرم"
-                categorySlug = "ecommerce"
-            }
-            combined.contains("نوین‌چرم", true) || combined.contains("نوین چرم", true) -> {
-                brand = "نوین‌چرم"
-                brandEn = "Novin Leather"
-                category = "پوشاک و چرم"
-                categorySlug = "ecommerce"
-            }
-            combined.contains("بیمه‌دات‌کام", true) || combined.contains("بیمه دات کام", true) || combined.contains("bmeh.me", true) -> {
-                brand = "بیمه دات‌کام"
-                brandEn = "Bimeh.com"
-                category = "بیمه آنلاین"
-                categorySlug = "services"
-            }
-            combined.contains("مسترکالا", true) || combined.contains("masterkala", true) -> {
-                brand = "مسترکالا"
-                brandEn = "Masterkala"
-                category = "کالای دیجیتال"
-                categorySlug = "ecommerce"
-            }
-            combined.contains("کروم", true) -> {
-                brand = "فروشگاه کروم"
-                brandEn = "Crom"
-                category = "پوشاک"
-                categorySlug = "ecommerce"
-            }
-            combined.contains("تپسی", true) -> {
-                brand = "تپسی"
-                brandEn = "Tapsi"
-                category = "تاکسی اینترنتی"
-                categorySlug = "transport"
-            }
-            combined.contains("اسنپ", true) -> {
-                brand = "اسنپ"
-                brandEn = "Snapp"
-                category = "تاکسی اینترنتی"
-                categorySlug = "transport"
-            }
-            combined.contains("علی بابا", true) || combined.contains("علی‌بابا", true) -> {
-                brand = "علی‌بابا"
-                brandEn = "Alibaba"
-                category = "گردشگری و سفر"
-                categorySlug = "transport"
-            }
-            else -> {
-                if (sender.isNotBlank() && !sender.startsWith("09") && !sender.startsWith("+98") && !sender.all { it.isDigit() }) {
-                    brand = sender
-                    brandEn = sender
-                }
-            }
+        val brand = BrandRegistry.match(
+            normalizedSender.toLowerCase(),
+            normalizedBody.toLowerCase()
+        ) ?: unknownBrandFor(sender)
+
+        val minOrderParsed = PromoValueParser.parseMinOrder(normalizedBody)
+        val discount = PromoValueParser.parseDiscount(normalizedBody, minOrderParsed?.second)
+        val expiry = PromoValueParser.parseExpiry(normalizedBody, date)
+
+        // A message with neither a recognisable brand nor a stated saving is probably not an
+        // offer at all, so lower the confidence rather than presenting it as a sure thing.
+        var confidence = candidate.confidence
+        if (brand.categorySlug == BrandRegistry.SLUG_OTHER) confidence -= 15
+        if (discount.type == DiscountType.UNKNOWN) confidence -= 15
+        confidence = confidence.coerceIn(10, 100)
+
+        val description = when (discount.type) {
+            DiscountType.FREE_SHIPPING -> "ارسال رایگان از ${brand.fa}"
+            DiscountType.UNKNOWN -> "کد تخفیف ${brand.fa}"
+            else -> "${discount.display} تخفیف ${brand.fa}"
         }
-
-        // Code extraction:
-        // 1. Explicit code patterns (with optional emoji, colon, space, or brand name)
-        val codePatterns = listOf(
-            Pattern.compile("(?:کد(?:\\s*تخفیف|\\s*هدیه|\\s*معرف|\\s*درگاه[^:\\n]{0,10})?|با\\s*کد)[^a-zA-Z0-9\\n]{0,12}[:\\s]+([a-zA-Z0-9_\\-]{3,24})", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("کد[^:\\n]{0,10}:([a-zA-Z0-9_\\-]{3,24})", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("(?:دیجی‌پی|دیجی پی|اسنپ‌پی|اسنپ پی|تپسی)[^:\\n]{0,8}[:\\s]+([A-Za-z0-9_\\-]{4,20})", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("(?:code|promo)[:\\s]+([a-zA-Z0-9_\\-]{3,24})", Pattern.CASE_INSENSITIVE)
-        )
-
-        var code = ""
-        val invalidCodeWords = setOf("http", "https", "link", "ir", "com", "net", "org", "volte", "sms", "tapsi", "snapp", "dgkl", "snpf", "dgpay", "mci", "shatel")
-
-        for (pat in codePatterns) {
-            val matcher = pat.matcher(norm)
-            if (matcher.find()) {
-                val candidate = matcher.group(1)?.trim() ?: ""
-                val candLower = candidate.toLowerCase()
-                if (candidate.length in 3..24 && !candidate.startsWith("09") && !candidate.startsWith("+98") && !candidate.all { it.isDigit() }) {
-                    if (!invalidCodeWords.contains(candLower) && candidate.any { it in 'a'..'z' || it in 'A'..'Z' }) {
-                        code = candidate
-                        break
-                    }
-                }
-            }
-        }
-
-        // 2. Standalone code line (e.g. SNAPPFOOD: VDTTESZQ4D8HXWDFWV)
-        if (code.isBlank()) {
-            val lines = norm.lines()
-            for (line in lines) {
-                val trimmed = line.trim()
-                if (trimmed.length in 4..24 && !trimmed.contains(" ") && !trimmed.startsWith("http") && !trimmed.startsWith("09") && !trimmed.startsWith("+98") && !trimmed.contains(".") && !trimmed.contains("/")) {
-                    val candLower = trimmed.toLowerCase()
-                    if (!invalidCodeWords.contains(candLower) && trimmed.any { it in 'a'..'z' || it in 'A'..'Z' }) {
-                        code = trimmed
-                        break
-                    }
-                }
-            }
-        }
-
-        if (code.isBlank()) {
-            return null // Not a valid promo code SMS
-        }
-
-        // Minimum order extraction
-        var minOrder: String? = null
-        val minOrderPattern = Pattern.compile(
-            "(?:کف\\s*خرید|کف\\s*سبد|حداقل\\s*خرید|حداقل\\s*سبد|حداقل\\s*سفارش|سبد\\s*بالای|بالای)\\s*[:\\s]*([0-9,]+(?:\\s*(?:میلیون|هزار|تومان|ت))*)",
-            Pattern.CASE_INSENSITIVE
-        )
-        val minOrderMatcher = minOrderPattern.matcher(norm)
-        var bodyForAmount = norm
-        if (minOrderMatcher.find()) {
-            var rawVal = minOrderMatcher.group(1)?.trim() ?: ""
-            if (!rawVal.endsWith("تومان") && !rawVal.endsWith("ت")) {
-                rawVal += " تومان"
-            }
-            minOrder = "حداقل خرید ${toPersianDigits(rawVal)}"
-            bodyForAmount = norm.replace(minOrderMatcher.group(0), " ")
-        }
-
-        // Discount amount extraction (with Persian digits)
-        var discountAmount = "تخفیف ویژه"
-
-        // 1. Percentage (e.g. 50%, 50٪, 10 درصد)
-        val pctPattern1 = Pattern.compile("(?:کد\\s*)?([0-9]{1,3}\\s*(?:درصد|٪|%))(?:\\s*تخفیف)?", Pattern.CASE_INSENSITIVE)
-        val pctMatcher1 = pctPattern1.matcher(bodyForAmount)
-        if (pctMatcher1.find()) {
-            val numStr = pctMatcher1.group(1)!!.replace("%", "٪").replace("درصد", "٪").replace(" ", "").trim()
-            discountAmount = toPersianDigits(numStr)
-        } else {
-            val pctPattern2 = Pattern.compile("([%٪]\\s*[0-9]{1,3})", Pattern.CASE_INSENSITIVE)
-            val pctMatcher2 = pctPattern2.matcher(bodyForAmount)
-            if (pctMatcher2.find()) {
-                val numDigits = pctMatcher2.group(1)!!.replace(Regex("[^0-9]"), "")
-                discountAmount = "${toPersianDigits(numDigits)}٪"
-            } else {
-                // 2. Millions (e.g. 3م تخفیف, 2 میلیون تومان)
-                val mPattern1 = Pattern.compile("([0-9]+)\\s*م\\s*تخفیف", Pattern.CASE_INSENSITIVE)
-                val mMatcher1 = mPattern1.matcher(bodyForAmount)
-                if (mMatcher1.find()) {
-                    discountAmount = "${toPersianDigits(mMatcher1.group(1)!!)} میلیون تومان"
-                } else {
-                    val mPattern2 = Pattern.compile("([0-9]+(?:[\\.,][0-9]+)?)\\s*میلیون(?:\\s*تومان|\\s*تومانی|\\s*ت)?", Pattern.CASE_INSENSITIVE)
-                    val mMatcher2 = mPattern2.matcher(bodyForAmount)
-                    if (mMatcher2.find()) {
-                        discountAmount = "${toPersianDigits(mMatcher2.group(1)!!)} میلیون تومان"
-                    } else {
-                        // 3. Thousands (e.g. 400هزار تومان, 700 هزار ت)
-                        val kPattern1 = Pattern.compile("([0-9]+(?:[\\.,][0-9]+)?)\\s*(?:هزار|هزارتومن|هزارتومان)(?:\\s*تومان|\\s*تومانی|\\s*ت)?", Pattern.CASE_INSENSITIVE)
-                        val kMatcher1 = kPattern1.matcher(bodyForAmount)
-                        if (kMatcher1.find()) {
-                            discountAmount = "${toPersianDigits(kMatcher1.group(1)!!)} هزار تومان"
-                        } else {
-                            val kPattern2 = Pattern.compile("\\+?([0-9]{2,4})ت\\s*تخفیف", Pattern.CASE_INSENSITIVE)
-                            val kMatcher2 = kPattern2.matcher(bodyForAmount)
-                            if (kMatcher2.find()) {
-                                discountAmount = "${toPersianDigits(kMatcher2.group(1)!!)} هزار تومان"
-                            } else {
-                                // 4. Formatted currency (e.g. 3,000,000ت)
-                                val curPattern = Pattern.compile("([0-9]{1,3}(?:,[0-9]{3})+)\\s*(?:تومان|ت|ریال)", Pattern.CASE_INSENSITIVE)
-                                val curMatcher = curPattern.matcher(bodyForAmount)
-                                if (curMatcher.find()) {
-                                    val formattedNum = toPersianDigits(curMatcher.group(1)!!)
-                                    discountAmount = if (curMatcher.group(0)!!.contains("ریال")) "$formattedNum ریال" else "$formattedNum تومان"
-                                } else if (bodyForAmount.contains("ارسال رایگان")) {
-                                    discountAmount = "ارسال رایگان"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Expiry extraction
-        val expiryPattern = Pattern.compile(
-            "(?:اعتبار تا|مهلت تا|انقضا:?|تا پایان|فقط تا|مهلت استفاده تا|معتبر تا|تا تاریخ|اعتبار فقط تا|تا\\s*[۰-۹0-9]+\\s*روز|تا ساعت\\s*[۰-۹0-9]+)\\s*([^\\.\\n,،!]+)",
-            Pattern.CASE_INSENSITIVE
-        )
-        val expiryMatcher = expiryPattern.matcher(body)
-        var rawExpiry = if (expiryMatcher.find()) expiryMatcher.group(0)?.trim() ?: "" else ""
-        if (rawExpiry.isBlank()) {
-            if (body.contains("امشب")) rawExpiry = "تا پایان امشب"
-            else if (body.contains("تا فردا") || body.contains("فردا")) rawExpiry = "تا فردا"
-            else if (body.contains("۷ روز") || body.contains("7 روز")) rawExpiry = "تا ۷ روز"
-            else if (body.contains("۳ روز") || body.contains("3 روز")) rawExpiry = "تا ۳ روز"
-        }
-        val expiryDateText = if (rawExpiry.isNotBlank() && !rawExpiry.contains("اطلاع ثانوی")) {
-            toPersianDigits(rawExpiry)
-        } else {
-            val jExp = com.moez.QKSMS.common.util.JalaliCalendar.fromMillis(date + (7L * 24 * 60 * 60 * 1000L))
-            "${toPersianDigits(jExp.year.toString())}/${toPersianDigits(String.format("%02d", jExp.month))}/${toPersianDigits(String.format("%02d", jExp.day))} (۱ هفته)"
-        }
-
-        val description = "تخفیف $discountAmount ویژه $brand"
-        val instructions = "وارد اپلیکیشن یا سایت $brand شوید، سفارش خود را تکمیل کرده و در صفحه پرداخت کد $code را وارد کنید."
 
         return PromoItem(
-            id = "promo-$date-${code.hashCode()}",
-            brand = brand,
-            brandEn = brandEn,
-            category = category,
-            categorySlug = categorySlug,
-            code = code,
-            discountAmount = discountAmount,
+            id = "promo-$date-${candidate.code.hashCode()}",
+            brand = brand.fa,
+            brandEn = brand.en,
+            category = brand.category,
+            categorySlug = brand.categorySlug,
+            code = candidate.code,
+            discountAmount = discount.display,
             description = description,
-            minOrder = minOrder,
-            instructions = instructions,
-            expiryDateText = expiryDateText,
+            minOrder = minOrderParsed?.first?.display,
+            instructions = "در صفحه پرداخت ${brand.fa} کد ${candidate.code} را وارد کنید.",
+            expiryDateText = expiry.display,
             sender = sender,
             body = body,
-            receivedAt = date
+            receivedAt = date,
+            discountType = discount.type,
+            discountValue = discount.value,
+            minOrderValue = minOrderParsed?.first?.value ?: 0L,
+            expiresAt = expiry.atMillis,
+            expiryIsExplicit = expiry.isExplicit,
+            confidence = confidence,
+            brandColor = brand.color,
+            appPackage = brand.appPackage,
+            website = brand.website
         )
+    }
+
+    /**
+     * Falls back to the sender as a brand name when the registry does not recognise it, so a
+     * card from an unknown shop still shows something better than "Store".
+     */
+    private fun unknownBrandFor(sender: String): Brand {
+        val trimmed = sender.trim()
+        val usableAsName = trimmed.isNotBlank() &&
+            !trimmed.startsWith("09") &&
+            !trimmed.startsWith("+98") &&
+            !trimmed.all { it.isDigit() }
+
+        return if (usableAsName) {
+            BrandRegistry.UNKNOWN.copy(
+                fa = trimmed,
+                en = trimmed,
+                color = BrandRegistry.fallbackColor(trimmed)
+            )
+        } else {
+            BrandRegistry.UNKNOWN
+        }
     }
 
     private fun isBankingMessage(sender: String, body: String): Boolean {

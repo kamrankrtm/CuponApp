@@ -98,9 +98,96 @@ object JalaliCalendar {
             }
             jDayNo -= jDaysInMonth[i]
         }
+
+        // The month table caps Esfand at 29 days, so the 366th day of a Jalali leap year
+        // falls through the loop. That day is Esfand 30.
+        if (jm == 0) {
+            return Triple(jy, 12, 30)
+        }
+
         val jd = jDayNo + 1
 
         return Triple(jy, jm, jd)
+    }
+
+    /**
+     * Inverse of [gregorianToJalali]: converts a Jalali date back to a Gregorian one.
+     *
+     * Needed so a deadline written as a Shamsi date in an SMS can become a real instant that
+     * the app can compare against the clock.
+     */
+    fun jalaliToGregorian(jy: Int, jm: Int, jd: Int): Triple<Int, Int, Int> {
+        val gDaysInMonth = intArrayOf(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+        val jDaysInMonth = intArrayOf(31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29)
+
+        val jy2 = jy - 979
+        val jm2 = jm - 1
+        val jd2 = jd - 1
+
+        var jDayNo = 365 * jy2 + (jy2 / 33) * 8 + (jy2 % 33 + 3) / 4
+        for (i in 0 until jm2) {
+            jDayNo += jDaysInMonth[i]
+        }
+        jDayNo += jd2
+
+        var gDayNo = jDayNo + 79
+
+        var gy = 1600 + 400 * (gDayNo / 146097)
+        gDayNo %= 146097
+
+        var leap = true
+        if (gDayNo >= 36525) {
+            gDayNo--
+            gy += 100 * (gDayNo / 36524)
+            gDayNo %= 36524
+            if (gDayNo >= 365) gDayNo++ else leap = false
+        }
+
+        gy += 4 * (gDayNo / 1461)
+        gDayNo %= 1461
+
+        if (gDayNo >= 366) {
+            leap = false
+            gDayNo--
+            gy += gDayNo / 365
+            gDayNo %= 365
+        }
+
+        var i = 0
+        while (true) {
+            val monthLength = gDaysInMonth[i] + (if (i == 1 && leap) 1 else 0)
+            if (gDayNo < monthLength) break
+            gDayNo -= monthLength
+            i++
+        }
+
+        return Triple(gy, i + 1, gDayNo + 1)
+    }
+
+    /**
+     * Turns a Jalali date into a timestamp, at the start of that day or its last millisecond.
+     *
+     * Discount deadlines are inclusive — "valid until 5 Mehr" means the code still works all
+     * through 5 Mehr — so callers pass [endOfDay] when interpreting an expiry.
+     */
+    fun toMillis(jYear: Int, jMonth: Int, jDay: Int, endOfDay: Boolean = false): Long {
+        val (gy, gm, gd) = jalaliToGregorian(jYear, jMonth, jDay)
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.YEAR, gy)
+        cal.set(Calendar.MONTH, gm - 1)
+        cal.set(Calendar.DAY_OF_MONTH, gd)
+        if (endOfDay) {
+            cal.set(Calendar.HOUR_OF_DAY, 23)
+            cal.set(Calendar.MINUTE, 59)
+            cal.set(Calendar.SECOND, 59)
+            cal.set(Calendar.MILLISECOND, 999)
+        } else {
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+        }
+        return cal.timeInMillis
     }
 
     /**
