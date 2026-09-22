@@ -165,10 +165,78 @@ class CloudUploadManager @Inject constructor(
         val responseText = readResponse(conn)
 
         if (responseCode in 200..299) {
-            return parseUrlFromFilesIr(responseText, endpoint)
+            return processFilesIrUpload(responseText, endpoint, token)
         } else {
             throw IOException("Files.ir error: $responseCode - $responseText")
         }
+    }
+
+    private fun processFilesIrUpload(response: String, endpoint: String, token: String): String {
+        val baseEndpoint = endpoint.trimEnd('/')
+        try {
+            val json = JSONObject(response)
+            val fe = json.optJSONObject("fileEntry")
+                ?: (if (json.has("data")) json.getJSONObject("data") else null)
+                ?: json
+            val id = fe.optLong("id")
+            val fileHash = fe.optString("hash").takeIf { it.isNotBlank() }
+
+            if (id > 0 && token.isNotBlank()) {
+                // Set 30-day expiration date: "yyyy-MM-dd HH:mm:ss"
+                val cal = java.util.Calendar.getInstance()
+                cal.add(java.util.Calendar.DAY_OF_YEAR, 30)
+                val expiresAt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(cal.time)
+
+                val shareLinkHash = createShareableLink(baseEndpoint, token, id, expiresAt)
+                if (!shareLinkHash.isNullOrBlank()) {
+                    Timber.i("Files.ir: created shareable link with 30-day expiration: $shareLinkHash")
+                    return "$baseEndpoint/drive/s/$shareLinkHash"
+                }
+            }
+
+            if (!fileHash.isNullOrBlank()) return "$baseEndpoint/drive/s/$fileHash"
+            if (id > 0) return "$baseEndpoint/api/v1/file-entries/$id"
+        } catch (e: Throwable) {
+            Timber.w(e, "Error processing files.ir response: $response")
+        }
+        return parseUrlFromFilesIr(response, endpoint)
+    }
+
+    private fun createShareableLink(baseEndpoint: String, token: String, entryId: Long, expiresAt: String): String? {
+        try {
+            val url = URL("$baseEndpoint/api/v1/file-entries/$entryId/shareable-link")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.connectTimeout = 15000
+            conn.readTimeout = 15000
+
+            val body = JSONObject().apply {
+                put("allow_download", true)
+                put("allow_edit", false)
+                put("expires_at", expiresAt)
+            }
+
+            OutputStreamWriter(conn.outputStream).use { it.write(body.toString()) }
+
+            val code = conn.responseCode
+            val respText = readResponse(conn)
+            Timber.d("createShareableLink: code=$code, resp=$respText")
+
+            if (code in 200..299) {
+                val respJson = JSONObject(respText)
+                val linkObj = respJson.optJSONObject("link")
+                    ?: (if (respJson.has("data")) respJson.getJSONObject("data") else null)
+                val hash = linkObj?.optString("hash")?.takeIf { it.isNotBlank() }
+                if (hash != null) return hash
+            }
+        } catch (e: Throwable) {
+            Timber.e(e, "Failed to create shareable link for entry $entryId")
+        }
+        return null
     }
 
     private fun uploadToTmpFiles(

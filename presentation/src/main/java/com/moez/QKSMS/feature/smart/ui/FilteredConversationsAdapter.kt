@@ -28,9 +28,24 @@ class FilteredConversationsAdapter(
     private val phoneNumberUtils: PhoneNumberUtils
 ) : RecyclerView.Adapter<QkViewHolder>() {
 
+    companion object {
+        const val VIEW_TYPE_HEADER = -1
+        const val VIEW_TYPE_NORMAL = 0
+        const val VIEW_TYPE_UNREAD = 1
+    }
+
     init {
         setHasStableIds(true)
     }
+
+    var frequentContacts: List<Conversation> = emptyList()
+        set(value) {
+            field = value
+            notifyDataSetChanged()
+        }
+
+    private val hasHeader: Boolean
+        get() = frequentContacts.isNotEmpty()
 
     var data: List<Conversation> = emptyList()
         set(value) {
@@ -45,19 +60,36 @@ class FilteredConversationsAdapter(
             field?.isVisible = data.isEmpty()
         }
 
-    override fun getItemCount(): Int = data.size
+    override fun getItemCount(): Int = data.size + (if (hasHeader) 1 else 0)
 
-    fun getItem(position: Int): Conversation = data[position]
+    fun getItem(position: Int): Conversation {
+        val actualPos = if (hasHeader) position - 1 else position
+        return data[actualPos]
+    }
 
     override fun getItemId(position: Int): Long {
-        return data.getOrNull(position)?.id ?: position.toLong()
+        if (hasHeader && position == 0) return -999999L
+        val actualPos = if (hasHeader) position - 1 else position
+        return data.getOrNull(actualPos)?.id ?: position.toLong()
+    }
+
+    override fun getItemViewType(position: Int): Int {
+        if (hasHeader && position == 0) return VIEW_TYPE_HEADER
+        val conversation = getItem(position)
+        return if (conversation.unread) VIEW_TYPE_UNREAD else VIEW_TYPE_NORMAL
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): QkViewHolder {
         val layoutInflater = LayoutInflater.from(parent.context)
+
+        if (viewType == VIEW_TYPE_HEADER) {
+            val view = layoutInflater.inflate(R.layout.frequent_contacts_header, parent, false)
+            return FrequentHeaderViewHolder(view)
+        }
+
         val view = layoutInflater.inflate(R.layout.conversation_list_item, parent, false)
 
-        if (viewType == 1) {
+        if (viewType == VIEW_TYPE_UNREAD) {
             val textColorPrimary = parent.context.resolveThemeColor(android.R.attr.textColorPrimary)
             view.title.setTypeface(view.title.typeface, Typeface.BOLD)
             view.snippet.setTypeface(view.snippet.typeface, Typeface.BOLD)
@@ -72,6 +104,7 @@ class FilteredConversationsAdapter(
             view.setOnClickListener {
                 val pos = adapterPosition
                 if (pos != RecyclerView.NO_POSITION && pos in 0 until itemCount) {
+                    if (hasHeader && pos == 0) return@setOnClickListener
                     val conversation = getItem(pos)
                     navigator.showConversation(conversation.id)
                 }
@@ -79,11 +112,34 @@ class FilteredConversationsAdapter(
         }
     }
 
-    override fun getItemViewType(position: Int): Int {
-        return if (getItem(position).unread) 1 else 0
+    inner class FrequentHeaderViewHolder(view: View) : QkViewHolder(view) {
+        private val container: android.widget.LinearLayout = view.findViewById(R.id.frequentContactsContainer)
+
+        fun bind(contacts: List<Conversation>, navigator: Navigator) {
+            container.removeAllViews()
+            val inflater = LayoutInflater.from(itemView.context)
+            for (conv in contacts) {
+                val recipient = conv.recipients.firstOrNull() ?: continue
+                val item = inflater.inflate(R.layout.frequent_contact_item, container, false)
+                val avatar = item.findViewById<com.moez.QKSMS.common.widget.AvatarView>(R.id.frequentAvatar)
+                val nameText = item.findViewById<com.moez.QKSMS.common.widget.QkTextView>(R.id.frequentName)
+                avatar.setRecipient(recipient)
+                nameText.text = recipient.contact?.name?.split(" ")?.firstOrNull()
+                    ?: recipient.getDisplayName()
+                item.setOnClickListener {
+                    navigator.showConversation(conv.id)
+                }
+                container.addView(item)
+            }
+        }
     }
 
     override fun onBindViewHolder(holder: QkViewHolder, position: Int) {
+        if (holder is FrequentHeaderViewHolder) {
+            holder.bind(frequentContacts, navigator)
+            return
+        }
+
         val conversation = getItem(position)
         if (!conversation.isValid) {
             return

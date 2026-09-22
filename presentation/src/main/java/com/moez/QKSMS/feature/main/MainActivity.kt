@@ -189,30 +189,6 @@ class MainActivity : QkThemedActivity(), MainView {
         itemTouchCallback.adapter = conversationsAdapter
         conversationsAdapter.autoScrollToStart(recyclerView)
 
-        recyclerView.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
-            override fun onScrolled(rv: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
-                super.onScrolled(rv, dx, dy)
-                if (currentTabPosition != 1) return
-                val bar = frequentContactsBar ?: return
-                if (bar.childCount == 0 || (frequentContactsContainer?.childCount ?: 0) == 0) return
-
-                if (dy > 6 && bar.visibility == View.VISIBLE && bar.alpha > 0.1f) {
-                    bar.animate()
-                        .alpha(0f)
-                        .setDuration(160)
-                        .withEndAction { bar.visibility = View.GONE }
-                        .start()
-                } else if ((!rv.canScrollVertically(-1) || dy < -12) && bar.visibility != View.VISIBLE) {
-                    bar.visibility = View.VISIBLE
-                    bar.alpha = 0f
-                    bar.animate()
-                        .alpha(1f)
-                        .setDuration(180)
-                        .start()
-                }
-            }
-        })
-
         // Don't allow clicks to pass through the drawer layout
         drawer.clicks().autoDisposable(scope()).subscribe()
 
@@ -804,15 +780,10 @@ class MainActivity : QkThemedActivity(), MainView {
             val state = currentState ?: return
             if (state.page !is Inbox || state.page.selected > 0) {
                 discountsFilterBar?.visibility = View.GONE
-                frequentContactsBar?.visibility = View.GONE
                 return
             }
 
             discountsFilterBar?.visibility = if (currentTabPosition == 4) View.VISIBLE else View.GONE
-            // frequentContactsBar is only shown in Personal tab (1) — handled in buildFrequentContacts()
-            if (currentTabPosition != 1) {
-                frequentContactsBar?.visibility = View.GONE
-            }
 
             when (currentTabPosition) {
                 0 -> {
@@ -836,6 +807,7 @@ class MainActivity : QkThemedActivity(), MainView {
                             SmartSmsClassifier.classify(sender, body) is SmsCategory.Personal
                         }
                     }
+                    filteredConversationsAdapter.frequentContacts = getFrequentContacts(list)
                     filteredConversationsAdapter.data = list
                     if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
                     itemTouchCallback.adapter = filteredConversationsAdapter
@@ -843,11 +815,10 @@ class MainActivity : QkThemedActivity(), MainView {
                     compose.setVisible(true)
                     empty.text = "No personal messages"
                     empty.setVisible(list.isEmpty())
-                    // Show frequent contacts bar
-                    buildFrequentContacts(list)
                 }
                 2 -> {
                     // Banking messages
+                    filteredConversationsAdapter.frequentContacts = emptyList()
                     val list = currentConversationsList.filter { cachedBankingIds.contains(it.id) }
                     filteredConversationsAdapter.data = list
                     if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
@@ -880,6 +851,7 @@ class MainActivity : QkThemedActivity(), MainView {
                 }
                 5 -> {
                     // Spam & promotional ads
+                    filteredConversationsAdapter.frequentContacts = emptyList()
                     val list = currentConversationsList.filter { cachedSpamIds.contains(it.id) }
                     filteredConversationsAdapter.data = list
                     if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
@@ -895,19 +867,9 @@ class MainActivity : QkThemedActivity(), MainView {
         }
     }
 
-    /**
-     * Build the top-5 frequent contacts row for the Personal tab.
-     * We pick the 5 most recently active conversations in the last 2 months
-     * that have a saved contact or personal number.
-     */
-    private fun buildFrequentContacts(personalList: List<Conversation>) {
-        val bar = frequentContactsBar ?: return
-        val container = frequentContactsContainer ?: return
-
+    private fun getFrequentContacts(personalList: List<Conversation>): List<Conversation> {
         val twoMonthsAgo = System.currentTimeMillis() - (60L * 24 * 60 * 60 * 1000)
-
-        // Filter conversations with recent activity in the last 2 months, sorted by most recent
-        val topContacts = personalList
+        return personalList
             .filter { conv ->
                 conv.isValid &&
                 conv.date > twoMonthsAgo &&
@@ -916,33 +878,5 @@ class MainActivity : QkThemedActivity(), MainView {
             }
             .sortedByDescending { it.date }
             .take(5)
-
-        if (topContacts.isEmpty()) {
-            bar.visibility = View.GONE
-            return
-        }
-
-        container.removeAllViews()
-        val inflater = LayoutInflater.from(this)
-
-        for (conv in topContacts) {
-            val recipient = conv.recipients.firstOrNull() ?: continue
-            val itemView = inflater.inflate(R.layout.frequent_contact_item, container, false)
-
-            val avatar = itemView.findViewById<AvatarView>(R.id.frequentAvatar)
-            val nameText = itemView.findViewById<com.moez.QKSMS.common.widget.QkTextView>(R.id.frequentName)
-
-            avatar.setRecipient(recipient)
-            nameText.text = recipient.contact?.name?.split(" ")?.firstOrNull()
-                ?: recipient.getDisplayName()
-
-            itemView.setOnClickListener {
-                navigator.showConversation(conv.id)
-            }
-
-            container.addView(itemView)
-        }
-
-        bar.visibility = View.VISIBLE
     }
 }

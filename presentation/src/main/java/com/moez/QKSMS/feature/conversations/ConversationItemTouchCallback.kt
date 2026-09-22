@@ -82,6 +82,11 @@ class ConversationItemTouchCallback @Inject constructor(
                 .subscribe()
     }
 
+    override fun getSwipeDirs(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder): Int {
+        if (viewHolder.itemViewType == -1) return 0
+        return super.getSwipeDirs(recyclerView, viewHolder)
+    }
+
     override fun onMove(
         recyclerView: RecyclerView,
         viewHolder: RecyclerView.ViewHolder,

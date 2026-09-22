@@ -217,11 +217,13 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
             ) { success, result ->
                 prefTestCloudConnection?.summary = if (success) "Connection verified successfully" else "Connection failed"
                 activity?.let { act ->
-                    AlertDialog.Builder(act)
-                        .setTitle("Cloud Connection Test Result")
-                        .setMessage(result)
-                        .setPositiveButton("OK", null)
-                        .show()
+                    if (!act.isFinishing && !act.isDestroyed) {
+                        AlertDialog.Builder(act)
+                            .setTitle("Cloud Connection Test Result")
+                            .setMessage(result)
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
                 }
             }
         }
@@ -274,11 +276,13 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
             ) { success, msg ->
                 prefTestAiConnection?.summary = if (success) "Connection verified" else "Failed"
                 activity?.let { act ->
-                    AlertDialog.Builder(act)
-                        .setTitle(if (success) "AI Connection Successful" else "AI Connection Failed")
-                        .setMessage(msg)
-                        .setPositiveButton("OK", null)
-                        .show()
+                    if (!act.isFinishing && !act.isDestroyed) {
+                        AlertDialog.Builder(act)
+                            .setTitle(if (success) "AI Connection Successful" else "AI Connection Failed")
+                            .setMessage(msg)
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
                 }
             }
         }
@@ -294,11 +298,15 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
 
                 com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.extractPromos(act, prefs) { success, msg, count ->
                     prefRunAiScan?.summary = if (success) "Extracted $count promo codes" else "Scan failed"
-                    AlertDialog.Builder(act)
-                        .setTitle(if (success) "AI Scan Completed" else "AI Scan Failed")
-                        .setMessage(msg)
-                        .setPositiveButton("OK", null)
-                        .show()
+                    activity?.let { currentAct ->
+                        if (!currentAct.isFinishing && !currentAct.isDestroyed) {
+                            AlertDialog.Builder(currentAct)
+                                .setTitle(if (success) "AI Scan Completed" else "AI Scan Failed")
+                                .setMessage(msg)
+                                .setPositiveButton("OK", null)
+                                .show()
+                        }
+                    }
                 }
             }
         }
