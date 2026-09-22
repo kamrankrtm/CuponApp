@@ -76,9 +76,29 @@ class ContrastUtilsTest {
     }
 
     @Test
-    fun `the decisive repair leaves a readable colour alone`() {
+    fun `on a dark background list text is white even when the theme colour passes`() {
+        // 80% white clears 4.5:1 comfortably and still reads as grey, which is what was
+        // reported twice. On a dark background the answer is simply white.
         val secondaryOnDark = 0xCCFFFFFF.toInt()
-        assertEquals(secondaryOnDark, ContrastUtils.ensureReadable(secondaryOnDark, backgroundDark))
+        assertTrue(ContrastUtils.contrastRatio(secondaryOnDark, backgroundDark) >= ContrastUtils.MIN_CONTRAST_BODY)
+        assertEquals(0xFFFFFFFF.toInt(), ContrastUtils.ensureReadable(secondaryOnDark, backgroundDark))
+    }
+
+    @Test
+    fun `the grey painted by the wrong theme becomes white`() {
+        // Sampled from the reported screenshot: a light theme's secondary grey, resolved from
+        // the application context and then painted onto the activity's dark background.
+        val lightThemeGrey = 0xFF757575.toInt()
+        assertEquals(0xFFFFFFFF.toInt(), ContrastUtils.ensureReadable(lightThemeGrey, backgroundDark))
+        assertEquals(0xFFFFFFFF.toInt(), ContrastUtils.ensureReadable(0xFF68686A.toInt(), backgroundDark))
+    }
+
+    @Test
+    fun `a light theme keeps its own readable greys`() {
+        // The complaint was about the dark themes; a light theme's grey on white is intended.
+        val lightSecondary = 0xFF6B6B6B.toInt()
+        assertTrue(ContrastUtils.contrastRatio(lightSecondary, backgroundLight) >= ContrastUtils.MIN_CONTRAST_BODY)
+        assertEquals(lightSecondary, ContrastUtils.ensureReadable(lightSecondary, backgroundLight))
     }
 
     @Test

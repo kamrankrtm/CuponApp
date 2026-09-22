@@ -65,16 +65,21 @@ object ContrastUtils {
     }
 
     /**
-     * Returns [foreground] when it is readable on [background], otherwise plain white or black.
+     * The colour to paint list text in, given the background it sits on.
      *
-     * Where [ensureContrast] lifts a failing colour only as far as the minimum requires, this
-     * goes the whole way. The message list uses it because a colour that merely clears 4.5:1
-     * still reads as grey on a dark screen, and what is wanted there is white text.
+     * On a dark background this is plain white, unconditionally. Clearing 4.5:1 is not the
+     * same as looking white: the dark themes here specify 80% white for secondary text, which
+     * passes comfortably and still reads as grey. Where the theme's own shade is wanted,
+     * [ensureContrast] keeps it and only lifts it when it is genuinely unreadable.
+     *
+     * On a light background the theme's colour is kept while it is readable, because a light
+     * theme's grey secondary text on white is both legible and intended.
      */
     fun ensureReadable(foreground: Int, background: Int, minRatio: Double = MIN_CONTRAST_BODY): Int {
-        if (contrastRatio(foreground, background) >= minRatio) return foreground
         val backgroundIsDark = relativeLuminance(background or (0xFF shl 24)) < 0.5
-        return if (backgroundIsDark) 0xFFFFFFFF.toInt() else 0xFF000000.toInt()
+        if (backgroundIsDark) return 0xFFFFFFFF.toInt()
+        if (contrastRatio(foreground, background) >= minRatio) return foreground
+        return 0xFF000000.toInt()
     }
 
     /**

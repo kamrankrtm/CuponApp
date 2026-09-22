@@ -133,13 +133,21 @@ class ConversationsAdapter @Inject constructor(
         // The previous guard tested luminance of the raw attribute value, which ignores alpha,
         // so a translucent dark grey passed as "light enough" and the snippet rendered at
         // roughly 2.5:1 against the dark background.
-        val bg = context.resolveThemeColor(android.R.attr.windowBackground)
+        // Resolve against the view's own context, not the injected one. Dagger provides the
+        // Application here (AppModule.provideContext), whose theme is the one declared in the
+        // manifest, while the dark theme is applied per-activity at runtime. Reading the
+        // application theme reported a light background and a grey secondary colour that
+        // "passed" against it, and that grey was then painted onto the real dark background.
+        // Titles looked right only because the adapter never sets their colour on read rows,
+        // so they kept the value resolved from the activity at inflation time.
+        val themed = holder.itemView.context
+        val bg = themed.resolveThemeColor(android.R.attr.windowBackground)
         val textColorPrimary = ContrastUtils.ensureReadable(
-            context.resolveThemeColor(android.R.attr.textColorPrimary), bg)
+            themed.resolveThemeColor(android.R.attr.textColorPrimary), bg)
         val textColorSecondary = ContrastUtils.ensureReadable(
-            context.resolveThemeColor(android.R.attr.textColorSecondary), bg)
+            themed.resolveThemeColor(android.R.attr.textColorSecondary), bg)
         val textColorTertiary = ContrastUtils.ensureReadable(
-            context.resolveThemeColor(android.R.attr.textColorTertiary), bg)
+            themed.resolveThemeColor(android.R.attr.textColorTertiary), bg)
 
         if (isUnread) {
             holder.title.setTypeface(holder.title.typeface, Typeface.BOLD)
@@ -151,6 +159,7 @@ class ConversationsAdapter @Inject constructor(
             holder.unread.setTint(theme)
         } else {
             holder.title.setTypeface(Typeface.create(holder.title.typeface, Typeface.NORMAL), Typeface.NORMAL)
+            holder.title.setTextColor(textColorPrimary)
             holder.snippet.setTypeface(Typeface.create(holder.snippet.typeface, Typeface.NORMAL), Typeface.NORMAL)
             holder.snippet.setTextColor(textColorSecondary)
             holder.snippet.maxLines = 1
