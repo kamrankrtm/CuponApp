@@ -247,6 +247,60 @@ class PromoExtractionTest {
         assertFalse(later.isUrgent(now))
     }
 
+    // ------------------------------------------------------------------ not an offer
+
+    @Test
+    fun `a bank login code is never a discount`() {
+        // Reported from a device: this landed on the discounts tab, and the SMS Retriever hash
+        // on the last line was offered as the coupon to copy.
+        val promo = SmartSmsClassifier.extractPromo(
+            "Bank Melli",
+            "بانک ملی\nکد 36330 را جهت ورود به سامانه بام وارد نمایید.\nQVcOXy7hhZr",
+            now
+        )
+        assertNull(promo)
+    }
+
+    @Test
+    fun `a bank login code is recognised as an otp`() {
+        // It contains "کد" and "ورود" but never the phrase "کد ورود", which keyword matching
+        // alone required.
+        assertTrue(
+            SmartSmsClassifier.isOtpMessage(
+                "بانک ملی\nکد 36330 را جهت ورود به سامانه بام وارد نمایید.\nQVcOXy7hhZr"
+            )
+        )
+        assertEquals(
+            "36330",
+            SmartSmsClassifier.extractOtpCode("کد 36330 را جهت ورود به سامانه بام وارد نمایید.")
+        )
+    }
+
+    @Test
+    fun `a message with no offer wording yields nothing`() {
+        assertNull(SmartSmsClassifier.extractPromo("SHOP", "سفارش شما ارسال شد. کد رهگیری AB12345", now))
+        assertNull(SmartSmsClassifier.extractPromo("X", "جلسه فردا ساعت ۱۰ برگزار می‌شود ROOM42", now))
+    }
+
+    @Test
+    fun `sms retriever hashes are not coupon codes`() {
+        assertTrue(PromoCodeExtractor.looksLikeSmsRetrieverHash("QVcOXy7hhZr"))
+        assertFalse("a real coupon is not a hash", PromoCodeExtractor.looksLikeSmsRetrieverHash("FOOD70"))
+        assertFalse("all caps is not a hash", PromoCodeExtractor.looksLikeSmsRetrieverHash("SNAPPFOOD11"))
+    }
+
+    @Test
+    fun `a genuine offer from a bank still works`() {
+        // The gate must reject login codes, not banks.
+        val promo = SmartSmsClassifier.extractPromo(
+            "Bank Melli",
+            "بانک ملی: با کد تخفیف MELLI30 از ۳۰ درصد تخفیف خرید اینترنتی بهره‌مند شوید",
+            now
+        )
+        assertNotNull(promo)
+        assertEquals("MELLI30", promo!!.code)
+    }
+
     // ------------------------------------------------------------------ external extractor
 
     @Test
