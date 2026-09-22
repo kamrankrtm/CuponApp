@@ -181,13 +181,15 @@ class FilteredConversationsAdapter(
         // The previous guard tested luminance of the raw attribute value, which ignores alpha,
         // so a translucent dark grey passed as "light enough" and the snippet rendered at
         // roughly 2.5:1 against the dark background.
-        val bg = context.resolveThemeColor(android.R.attr.windowBackground)
+        // Resolve against the view's own context so the activity's runtime theme is used.
+        val themed = holder.itemView.context
+        val bg = themed.resolveThemeColor(android.R.attr.windowBackground)
         val textColorPrimary = ContrastUtils.ensureReadable(
-            context.resolveThemeColor(android.R.attr.textColorPrimary), bg)
+            themed.resolveThemeColor(android.R.attr.textColorPrimary), bg)
         val textColorSecondary = ContrastUtils.ensureReadable(
-            context.resolveThemeColor(android.R.attr.textColorSecondary), bg)
+            themed.resolveThemeColor(android.R.attr.textColorSecondary), bg)
         val textColorTertiary = ContrastUtils.ensureReadable(
-            context.resolveThemeColor(android.R.attr.textColorTertiary), bg)
+            themed.resolveThemeColor(android.R.attr.textColorTertiary), bg)
 
         if (isUnread) {
             holder.itemView.title.setTypeface(holder.itemView.title.typeface, Typeface.BOLD)
