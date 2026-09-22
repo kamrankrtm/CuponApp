@@ -67,6 +67,35 @@ class ContrastUtilsTest {
     }
 
     @Test
+    fun `the decisive repair returns plain white on a dark background`() {
+        // What the list actually uses. A colour that merely clears 4.5:1 still reads as grey
+        // on a dark screen, so a failing colour goes all the way to white.
+        assertEquals(0xFFFFFFFF.toInt(), ContrastUtils.ensureReadable(measuredSnippet, backgroundDark))
+        assertEquals(0xFFFFFFFF.toInt(), ContrastUtils.ensureReadable(0x4DFFFFFF.toInt(), backgroundDark))
+        assertEquals(0xFFFFFFFF.toInt(), ContrastUtils.ensureReadable(0x8A000000.toInt(), 0xFF000000.toInt()))
+    }
+
+    @Test
+    fun `the decisive repair leaves a readable colour alone`() {
+        val secondaryOnDark = 0xCCFFFFFF.toInt()
+        assertEquals(secondaryOnDark, ContrastUtils.ensureReadable(secondaryOnDark, backgroundDark))
+    }
+
+    @Test
+    fun `the decisive repair returns black on a light background`() {
+        assertEquals(0xFF000000.toInt(), ContrastUtils.ensureReadable(0xFFE8E8E8.toInt(), backgroundLight))
+    }
+
+    @Test
+    fun `translucent white is what the old alpha blind check let through`() {
+        // 30% white composites to roughly 2.9:1 here, which is what the device was showing,
+        // yet its opaque form is pure white and so passed a luminance-only test.
+        val thirtyPercentWhite = 0x4DFFFFFF.toInt()
+        assertTrue(ContrastUtils.contrastRatio(thirtyPercentWhite, backgroundDark) < 3.5)
+        assertEquals(1.0, ContrastUtils.relativeLuminance(0xFFFFFFFF.toInt()), 0.001)
+    }
+
+    @Test
     fun `light backgrounds are darkened instead`() {
         val tooLight = 0xFFE8E8E8.toInt()
         val fixed = ContrastUtils.ensureContrast(tooLight, backgroundLight)
