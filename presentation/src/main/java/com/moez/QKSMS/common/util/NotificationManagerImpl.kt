@@ -123,7 +123,7 @@ class NotificationManagerImpl @Inject constructor(
         val sender = lastRecipient?.address ?: ""
         val body = lastMessage?.body ?: ""
         val msgDate = lastMessage?.date ?: System.currentTimeMillis()
-        val smartCategory = SmartSmsClassifier.classify(sender, body, msgDate)
+        val smartCategory = SmartSmsClassifier.classify(sender, body, msgDate, threadId)
 
         // Silent Spam: if spam and silentSpam is enabled, do not display notification
         if (smartCategory is SmsCategory.Spam && prefs.silentSpam.get()) {
@@ -366,13 +366,26 @@ class NotificationManagerImpl @Inject constructor(
                 val title = "یک کد تخفیف از ${promo.brand} شناسایی شد"
                 val amountDesc = if (promo.discountAmount.isNotBlank() && promo.discountAmount != "تخفیف ویژه") "${promo.discountAmount} | " else ""
                 notification.setContentTitle(title)
-                notification.setContentText("کد: ${promo.code} | ${amountDesc}مهلت: ${promo.expiryDateText}")
+                // Show the countdown rather than a raw date; "۴ ساعت مانده" is actionable in
+                // a way that "۱۴۰۴/۰۷/۰۵" is not.
+                val deadline = promo.remainingLabel()
+                notification.setContentText("کد: ${promo.code} | ${amountDesc}$deadline")
 
                 val minOrderLine = if (!promo.minOrder.isNullOrBlank()) "\n🛒 ${promo.minOrder}" else ""
+
+                // Include the SMS itself: the card shows only the fields the extractor
+                // understood, while the conditions the sender wrote in prose live in the text.
+                val cleanBody = promo.body.replace("\uFFFD", " ").trim()
+                val excerpt = when {
+                    cleanBody.isEmpty() -> ""
+                    cleanBody.length <= 320 -> "\n\n📩 متن پیامک:\n$cleanBody"
+                    else -> "\n\n📩 متن پیامک:\n${cleanBody.take(320).trimEnd()}…"
+                }
+
                 val bigTextStyle = NotificationCompat.BigTextStyle()
                     .setBigContentTitle(title)
                     .setSummaryText(promo.brand)
-                    .bigText("🎁 کد تخفیف: ${promo.code}\n💰 تخفیف: ${promo.discountAmount}\n⏳ مهلت: ${promo.expiryDateText}$minOrderLine")
+                    .bigText("🎁 کد تخفیف: ${promo.code}\n💰 تخفیف: ${promo.discountAmount}\n⏳ $deadline$minOrderLine$excerpt")
 
                 notification.setStyle(bigTextStyle)
                 notification.setChannelId(DISCOUNT_CHANNEL_ID)

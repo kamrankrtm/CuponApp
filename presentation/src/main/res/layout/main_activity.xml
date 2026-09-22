@@ -136,7 +136,8 @@
                     android:textStyle="bold" />
             </LinearLayout>
 
-            <!-- Category Chips row -->
+            <!-- Category chips: filled at runtime from the categories that actually have
+                 codes, so the bar can never offer a filter that leads nowhere. -->
             <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -144,80 +145,10 @@
                 android:scrollbars="none">
 
                 <LinearLayout
+                    android:id="@+id/promoChipContainer"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:id="@+id/chipCatAll"
-                        android:layout_width="wrap_content"
-                        android:layout_height="30dp"
-                        android:background="@drawable/rounded_rectangle_24dp"
-                        android:backgroundTint="#0088FF"
-                        android:gravity="center"
-                        android:paddingStart="12dp"
-                        android:paddingEnd="12dp"
-                        android:text="All Codes"
-                        android:textColor="#FFFFFF"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/chipCatFood"
-                        android:layout_width="wrap_content"
-                        android:layout_height="30dp"
-                        android:layout_marginStart="6dp"
-                        android:background="@drawable/rounded_rectangle_24dp"
-                        android:backgroundTint="?attr/bubbleColor"
-                        android:gravity="center"
-                        android:paddingStart="12dp"
-                        android:paddingEnd="12dp"
-                        android:text="🍔 Food"
-                        android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="11sp" />
-
-                    <TextView
-                        android:id="@+id/chipCatShopping"
-                        android:layout_width="wrap_content"
-                        android:layout_height="30dp"
-                        android:layout_marginStart="6dp"
-                        android:background="@drawable/rounded_rectangle_24dp"
-                        android:backgroundTint="?attr/bubbleColor"
-                        android:gravity="center"
-                        android:paddingStart="12dp"
-                        android:paddingEnd="12dp"
-                        android:text="🛍️ Shopping"
-                        android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="11sp" />
-
-                    <TextView
-                        android:id="@+id/chipCatTravel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="30dp"
-                        android:layout_marginStart="6dp"
-                        android:background="@drawable/rounded_rectangle_24dp"
-                        android:backgroundTint="?attr/bubbleColor"
-                        android:gravity="center"
-                        android:paddingStart="12dp"
-                        android:paddingEnd="12dp"
-                        android:text="✈️ Travel"
-                        android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="11sp" />
-
-                    <TextView
-                        android:id="@+id/chipCatEnt"
-                        android:layout_width="wrap_content"
-                        android:layout_height="30dp"
-                        android:layout_marginStart="6dp"
-                        android:background="@drawable/rounded_rectangle_24dp"
-                        android:backgroundTint="?attr/bubbleColor"
-                        android:gravity="center"
-                        android:paddingStart="12dp"
-                        android:paddingEnd="12dp"
-                        android:text="🎬 Entertainment"
-                        android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="11sp" />
-                </LinearLayout>
+                    android:orientation="horizontal" />
             </HorizontalScrollView>
         </LinearLayout>
 

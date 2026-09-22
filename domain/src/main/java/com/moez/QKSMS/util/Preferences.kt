@@ -210,6 +210,14 @@ class Preferences @Inject constructor(
     val autoCopyOtp = rxPrefs.getBoolean("autoCopyOtp", true)
     val silentSpam = rxPrefs.getBoolean("silentSpam", true)
     val notifyDiscounts = rxPrefs.getBoolean("notifyDiscounts", true)
+
+    /**
+     * Reminders before a valuable discount code expires.
+     *
+     * Kept apart from [notifyDiscounts]: one announces a code as it arrives, the other
+     * interrupts later, and someone may well want the first without the second.
+     */
+    val notifyPromoExpiry = rxPrefs.getBoolean("notifyPromoExpiry", true)
     val jalaliCalendar = rxPrefs.getBoolean("jalaliCalendar", true)
     val defaultTab = rxPrefs.getInteger("defaultTab_v2", 1)
     val mediaAsCloudLink = rxPrefs.getBoolean("mediaAsCloudLink", true)

@@ -75,6 +75,7 @@ import kotlinx.android.synthetic.main.main_syncing.*
 import com.google.android.material.tabs.TabLayout
 import com.moez.QKSMS.common.util.DateFormatter
 import com.moez.QKSMS.feature.smart.SmartDataManager
+import com.moez.QKSMS.feature.smart.promo.BrandRegistry
 import com.moez.QKSMS.feature.smart.SmartSmsClassifier
 import com.moez.QKSMS.feature.smart.model.SmsCategory
 import com.moez.QKSMS.feature.smart.ui.FilteredConversationsAdapter
@@ -95,7 +96,13 @@ class MainActivity : QkThemedActivity(), MainView {
     @Inject lateinit var viewModelFactory: ViewModelProvider.Factory
     @Inject lateinit var dateFormatter: DateFormatter
 
-    private val promoCodesAdapter by lazy { PromoCodesAdapter(this) }
+    private val promoCodesAdapter by lazy {
+        PromoCodesAdapter(
+            context = this,
+            onDataChanged = { rebuildPromoChips() },
+            onUndoAvailable = { message, undo -> showPromoUndo(message, undo) }
+        )
+    }
     private val otpCodesAdapter by lazy { OtpCodesAdapter(this) }
     private val filteredConversationsAdapter by lazy {
         FilteredConversationsAdapter(colors, this, dateFormatter, navigator, phoneNumberUtils)
@@ -176,6 +183,8 @@ class MainActivity : QkThemedActivity(), MainView {
 
         toggle.syncState()
         try {
+            // Restore saved discount codes before the discounts tab can ask for them.
+            SmartDataManager.init(this)
             setupSmartTabs()
             setupDiscountsFilterBar()
         } catch (t: Throwable) {
@@ -617,7 +626,7 @@ class MainActivity : QkThemedActivity(), MainView {
                         val computedCat = if (hasSavedContact) {
                             SmsCategory.Personal
                         } else {
-                            SmartSmsClassifier.classify(sender, body, msgDate)
+                            SmartSmsClassifier.classify(sender, body, msgDate, id)
                         }
                         classificationCache[id] = Pair(lastMsgId, computedCat)
                         computedCat
@@ -632,25 +641,35 @@ class MainActivity : QkThemedActivity(), MainView {
                     }
                 }
 
-                // Also scan incoming SMS messages for both OTPs and Promo codes with exact timestamps
+                // Scan the inbox for OTPs and promo codes with their exact timestamps.
+                //
+                // Promo parsing is incremental: saved codes are already in memory, so only
+                // messages newer than the last scan need to be re-read. OTPs are still swept
+                // over a short window because they are pruned to the last day anyway.
                 val inboxType: Int = android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX
+                val lastScannedId = com.moez.QKSMS.feature.smart.promo.PromoStore.getLastScannedMessageId()
+                val isFirstScan = lastScannedId == 0L
+
                 val recentMessages = realm.where(com.moez.QKSMS.model.Message::class.java)
                     .equalTo("type", "sms")
                     .equalTo("boxId", inboxType)
                     .sort("date", io.realm.Sort.DESCENDING)
-                    .limit(300)
+                    .limit(if (isFirstScan) 300 else 100)
                     .findAll()
 
+                var newestScannedId = lastScannedId
                 for (msg in recentMessages) {
                     if (!msg.isValid) continue
                     val text = msg.body.trim()
+                    if (msg.id > newestScannedId) newestScannedId = msg.id
+
                     if (SmartSmsClassifier.isOtpMessage(text)) {
-                        val cat = SmartSmsClassifier.classify(msg.address, text, msg.date)
+                        val cat = SmartSmsClassifier.classify(msg.address, text, msg.date, msg.threadId)
                         if (cat is SmsCategory.Otp) {
                             newOtps.add(cat.otp)
                         }
-                    } else {
-                        val promo = SmartSmsClassifier.extractPromo(msg.address, text, msg.date)
+                    } else if (isFirstScan || msg.id > lastScannedId) {
+                        val promo = SmartSmsClassifier.extractPromo(msg.address, text, msg.date, msg.threadId)
                         if (promo != null && !promo.isExpired()) {
                             newPromos.add(promo)
                         }
@@ -660,7 +679,24 @@ class MainActivity : QkThemedActivity(), MainView {
                 newOtps.sortByDescending { it.receivedAt }
                 newPromos.sortByDescending { it.receivedAt }
 
-                SmartDataManager.setPromosAndOtps(newPromos, newOtps)
+                if (isFirstScan) {
+                    // A full sweep is authoritative, so it may replace the cached set.
+                    SmartDataManager.setPromosAndOtps(newPromos, newOtps)
+                } else {
+                    // An incremental pass only ever adds: replacing the set would drop stored
+                    // codes whose original messages have scrolled out of the scan window.
+                    // Oldest first, so the newest ends up at the head of the list.
+                    newPromos.asReversed().forEach { SmartDataManager.addPromo(it) }
+                    SmartDataManager.setOtps(newOtps)
+                }
+                com.moez.QKSMS.feature.smart.promo.PromoStore.setLastScannedMessageId(newestScannedId)
+
+                // Warn about anything valuable that is about to run out.
+                val expiringNotified = com.moez.QKSMS.feature.smart.promo.PromoExpiryNotifier
+                    .notifyExpiring(applicationContext, SmartDataManager.getPromos(), prefs.notifyPromoExpiry.get())
+                if (expiringNotified > 0) {
+                    android.util.Log.d("MainActivity", "Posted $expiringNotified expiry reminders")
+                }
 
                 runOnUiThread {
                     cachedPersonalIds = personal
@@ -687,6 +723,82 @@ class MainActivity : QkThemedActivity(), MainView {
 
     private var activePromoCategory = "all"
 
+    /**
+     * Rebuilds the category chips from the codes actually held.
+     *
+     * The bar used to be five chips hard-coded in the layout, whose slugs did not even match
+     * the ones on the model. Categories with no chip — supermarket, fintech, telecom,
+     * services — were unreachable, and a chip for an empty category was a dead end. Building
+     * the row from the data fixes both.
+     */
+    private fun rebuildPromoChips() {
+        val container = promoChipContainer ?: return
+        val counts = promoCodesAdapter.categoryCounts()
+        val total = counts["all"] ?: 0
+
+        val entries = ArrayList<Pair<String, String>>()
+        entries.add("all" to "همه")
+        for ((slug, label) in BrandRegistry.CATEGORY_LABELS) {
+            if ((counts[slug] ?: 0) > 0) entries.add(slug to label)
+        }
+
+        // Keep whatever the user had selected if it still exists.
+        if (entries.none { it.first == activePromoCategory }) {
+            activePromoCategory = "all"
+        }
+
+        container.removeAllViews()
+        val accentColor = android.graphics.Color.parseColor("#0088FF")
+        val bubbleColor = resolveThemeColor(R.attr.bubbleColor)
+        val secondaryText = resolveThemeColor(android.R.attr.textColorSecondary)
+        val density = resources.displayMetrics.density
+
+        for ((index, entry) in entries.withIndex()) {
+            val (slug, label) = entry
+            val count = if (slug == "all") total else (counts[slug] ?: 0)
+            val selected = slug == activePromoCategory
+
+            val chip = android.widget.TextView(this).apply {
+                text = if (count > 0) {
+                    "$label (${com.moez.QKSMS.feature.smart.promo.PromoValueParser.toPersianDigits(count.toString())})"
+                } else {
+                    label
+                }
+                gravity = android.view.Gravity.CENTER
+                textSize = 11f
+                setPadding((12 * density).toInt(), 0, (12 * density).toInt(), 0)
+                setBackgroundResource(R.drawable.rounded_rectangle_24dp)
+                backgroundTintList = ColorStateList.valueOf(if (selected) accentColor else bubbleColor)
+                setTextColor(if (selected) android.graphics.Color.WHITE else secondaryText)
+                setTypeface(null, if (selected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+                setOnClickListener {
+                    activePromoCategory = slug
+                    // filter() reports back through onDataChanged, which rebuilds this bar.
+                    promoCodesAdapter.filter(
+                        query = etPromoSearch?.text?.toString() ?: "",
+                        category = slug
+                    )
+                }
+            }
+
+            val params = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                (30 * density).toInt()
+            )
+            if (index > 0) params.marginStart = (6 * density).toInt()
+            container.addView(chip, params)
+        }
+    }
+
+    /** Offers to reverse the last "used" / "doesn't work" action. */
+    private fun showPromoUndo(message: String, undo: () -> Unit) {
+        val root = findViewById<View>(android.R.id.content) ?: return
+        com.google.android.material.snackbar.Snackbar
+            .make(root, message, com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
+            .setAction("بازگرداندن") { undo() }
+            .show()
+    }
+
     private fun setupDiscountsFilterBar() {
         etPromoSearch?.textChanges()
             ?.autoDisposable(scope())
@@ -694,40 +806,7 @@ class MainActivity : QkThemedActivity(), MainView {
                 promoCodesAdapter.filter(query = text.toString(), category = activePromoCategory)
             }
 
-        val chips = listOf(
-            Triple(chipCatAll, "all", "All Codes"),
-            Triple(chipCatFood, "food", "🍔 Food"),
-            Triple(chipCatShopping, "shopping", "🛍️ Shopping"),
-            Triple(chipCatTravel, "travel", "✈️ Travel"),
-            Triple(chipCatEnt, "entertainment", "🎬 Entertainment")
-        )
-
-        fun updateChipsUi(selectedCategory: String) {
-            activePromoCategory = selectedCategory
-            val accentColor = android.graphics.Color.parseColor("#0088FF")
-            val bubbleColor = resolveThemeColor(R.attr.bubbleColor)
-            val textColorSecondary = resolveThemeColor(android.R.attr.textColorSecondary)
-
-            chips.forEach { (view, cat, _) ->
-                if (view == null) return@forEach
-                if (cat == selectedCategory) {
-                    view.backgroundTintList = ColorStateList.valueOf(accentColor)
-                    view.setTextColor(android.graphics.Color.WHITE)
-                    view.setTypeface(null, android.graphics.Typeface.BOLD)
-                } else {
-                    view.backgroundTintList = ColorStateList.valueOf(bubbleColor)
-                    view.setTextColor(textColorSecondary)
-                    view.setTypeface(null, android.graphics.Typeface.NORMAL)
-                }
-            }
-            promoCodesAdapter.filter(query = etPromoSearch?.text?.toString() ?: "", category = selectedCategory)
-        }
-
-        chips.forEach { (view, cat, _) ->
-            view?.setOnClickListener {
-                updateChipsUi(cat)
-            }
-        }
+        rebuildPromoChips()
 
         btnQuickAiScan?.setOnClickListener {
             val apiKey = prefs.aiApiKey.get()
@@ -755,24 +834,33 @@ class MainActivity : QkThemedActivity(), MainView {
         }
     }
 
+    /**
+     * Runs the AI fallback over messages the local engine could not read.
+     *
+     * Consent is checked before anything leaves the device; the dialog only appears once.
+     */
     private fun startAiScan() {
-        val progressDialog = android.app.ProgressDialog(this).apply {
-            setMessage("AI is scanning SMS for discounts & coupons...")
-            setCancelable(false)
-            show()
-        }
-
-        com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.extractPromos(this, prefs) { success, msg, count ->
-            progressDialog.dismiss()
-            if (success) {
-                val updatedPromos = com.moez.QKSMS.feature.smart.SmartDataManager.getPromos()
-                promoCodesAdapter.updateData(updatedPromos)
-                empty?.setVisible(updatedPromos.isEmpty())
-                android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_LONG).show()
-            } else {
-                android.widget.Toast.makeText(this, "AI Scan failed: $msg", android.widget.Toast.LENGTH_LONG).show()
+        com.moez.QKSMS.feature.smart.ai.AiConsentDialog.ensureConsent(this, onGranted = {
+            val progressDialog = android.app.ProgressDialog(this).apply {
+                setMessage("در حال بررسی پیامک‌های تبلیغاتی با هوش مصنوعی...")
+                setCancelable(false)
+                show()
             }
-        }
+
+            com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.extractPromos(this, prefs) { success, msg, _ ->
+                if (progressDialog.isShowing && !isFinishing) progressDialog.dismiss()
+                if (success) {
+                    val updatedPromos = SmartDataManager.getPromos()
+                    promoCodesAdapter.updateData(updatedPromos)
+                    empty?.setVisible(updatedPromos.isEmpty())
+                }
+                android.widget.Toast.makeText(
+                    this,
+                    if (success) msg else "تحلیل ناموفق بود: $msg",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+        })
     }
 
     private fun applyTabFilter() {

@@ -276,6 +276,15 @@
             app:widget="@layout/settings_switch_widget" />
 
         <com.moez.QKSMS.common.widget.PreferenceView
+            android:id="@+id/prefNotifyPromoExpiry"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:icon="@drawable/ic_av_timer_black_24dp"
+            app:title="Discount expiry reminders"
+            app:summary="Warn before a valuable code expires, with the SMS text and a copy action"
+            app:widget="@layout/settings_switch_widget" />
+
+        <com.moez.QKSMS.common.widget.PreferenceView
             android:id="@+id/prefJalaliCalendar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

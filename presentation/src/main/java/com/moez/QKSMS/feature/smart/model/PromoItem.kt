@@ -1,126 +1,111 @@
 package com.moez.QKSMS.feature.smart.model
 
-import com.moez.QKSMS.common.util.JalaliCalendar
-import java.util.regex.Pattern
+import com.moez.QKSMS.feature.smart.promo.DiscountType
+import com.moez.QKSMS.feature.smart.promo.PromoValueParser
 
+/**
+ * A discount code lifted out of a promotional SMS.
+ *
+ * The `*Value` fields carry the machine-readable version of what the message said, while the
+ * neighbouring text fields carry the Persian the user actually reads. Keeping both means the
+ * list can sort and filter on real numbers without re-parsing strings on every bind.
+ */
 data class PromoItem(
     val id: String,
     val brand: String,
     val brandEn: String = "",
     val category: String = "سایر",
-    val categorySlug: String = "all",
+    val categorySlug: String = "other",
     val code: String,
     val discountAmount: String,
     val description: String,
     val minOrder: String? = null,
     val instructions: String = "",
-    val expiryDateText: String = "معتبر تا اطلاع ثانوی",
+    val expiryDateText: String = "مهلت اعلام نشده",
     val sender: String = "",
     val body: String = "",
     val receivedAt: Long = System.currentTimeMillis(),
-    var isUsed: Boolean = false,
-    var isInvalid: Boolean = false
-) {
-    companion object {
-        private val PERSIAN_MONTHS = listOf(
-            "فروردین", "اردیبهشت", "خرداد",
-            "تیر", "مرداد", "شهریور",
-            "مهر", "آبان", "آذر",
-            "دی", "بهمن", "اسفند"
-        )
+    /** Conversation this code arrived in, so a notification can open the actual message. */
+    val threadId: Long = 0L,
 
-        private fun normalize(text: String): String {
-            val chars = text.toCharArray()
-            for (i in chars.indices) {
-                when (chars[i]) {
-                    in '۰'..'۹' -> chars[i] = '0' + (chars[i] - '۰')
-                    in '٠'..'٩' -> chars[i] = '0' + (chars[i] - '٠')
-                }
-            }
-            return String(chars)
-        }
-    }
+    /** Percent for [DiscountType.PERCENT], Tomans for [DiscountType.AMOUNT]. */
+    val discountType: DiscountType = DiscountType.UNKNOWN,
+    val discountValue: Long = 0L,
+    /** Minimum basket in Tomans, 0 when the message set no condition. */
+    val minOrderValue: Long = 0L,
+    /** When the offer stops working, or null if genuinely open-ended. */
+    val expiresAt: Long? = null,
+    /** True when the sender stated a deadline; false when the app assumed a default window. */
+    val expiryIsExplicit: Boolean = false,
+    /** 0..100 — how sure the extractor is that [code] really is a usable coupon. */
+    val confidence: Int = 100,
+    /** ARGB colour for the brand avatar. */
+    val brandColor: Int = 0,
+    /** Package of the brand's app, so the card can jump straight into it. */
+    val appPackage: String? = null,
+    val website: String? = null,
+
+    var isUsed: Boolean = false,
+    var isInvalid: Boolean = false,
+    var isPinned: Boolean = false
+) {
+
+    /** Stable identity of an offer: the same code from the same brand is the same offer. */
+    val dedupeKey: String
+        get() = "${brand.trim().toLowerCase()}|${code.trim().toUpperCase()}"
 
     /**
-     * Determines whether this promotion has passed its validity or expiration date.
+     * Whether the code can no longer be used.
+     *
+     * A user who marked the code used or broken counts as expired, and so does a stated
+     * deadline that has passed. An offer with no stated deadline falls back to
+     * [PromoValueParser.DEFAULT_VALIDITY_DAYS] from when it arrived — the old code applied that
+     * 30-day cutoff to *every* promo, which silently deleted long-lived and referral codes that
+     * explicitly said they ran for longer.
      */
     fun isExpired(nowMillis: Long = System.currentTimeMillis()): Boolean {
         if (isInvalid || isUsed) return true
+        val deadline = expiresAt ?: return false
+        return nowMillis > deadline
+    }
 
-        val normExpiry = normalize(expiryDateText).trim()
-        val normBody = normalize(body).trim()
-        val combinedText = "$normExpiry $normBody"
+    /** Milliseconds left, or null when the offer has no deadline. */
+    fun remainingMillis(nowMillis: Long = System.currentTimeMillis()): Long? {
+        val deadline = expiresAt ?: return null
+        return deadline - nowMillis
+    }
 
-        val curJalali = JalaliCalendar.fromMillis(nowMillis)
-        val recJalali = JalaliCalendar.fromMillis(receivedAt)
-        val curDateNum = curJalali.year * 10000 + curJalali.month * 100 + curJalali.day
+    /**
+     * Short Persian countdown for the card: "۴ ساعت مانده", "فردا", "۶ روز مانده".
+     *
+     * A live countdown makes the urgent code obvious at a glance, which a raw Shamsi date
+     * never did.
+     */
+    fun remainingLabel(nowMillis: Long = System.currentTimeMillis()): String {
+        val remaining = remainingMillis(nowMillis) ?: return "بدون مهلت اعلام‌شده"
+        if (remaining <= 0L) return "منقضی شده"
 
-        // 1. Check for explicit Jalali date like 1403/07/05 or 1402/12/29 or 1403-7-5
-        val datePattern = Pattern.compile("(?:13|14)?(\\d{2})[/-](\\d{1,2})[/-](\\d{1,2})")
-        val dateMatcher = datePattern.matcher(normExpiry)
-        if (dateMatcher.find()) {
-            val rawYear = dateMatcher.group(1)?.toIntOrNull() ?: 0
-            val year = if (rawYear < 100) 1400 + rawYear else rawYear
-            val month = dateMatcher.group(2)?.toIntOrNull() ?: 1
-            val day = dateMatcher.group(3)?.toIntOrNull() ?: 1
-            val promoDateNum = year * 10000 + month * 100 + day
-            return promoDateNum < curDateNum
-        }
+        val minutes = remaining / (60 * 1000L)
+        val hours = remaining / (60 * 60 * 1000L)
+        val days = remaining / (24 * 60 * 60 * 1000L)
 
-        // 2. Check for Persian month name e.g. "تا ۵ مهر" or "۲۸ اسفند" in expiry text or body
-        val monthPattern = Pattern.compile("(\\d{1,2})\\s*(فروردین|اردیبهشت|خرداد|تیر|مرداد|شهریور|مهر|آبان|آذر|دی|بهمن|اسفند)")
-        val monthMatcher = monthPattern.matcher(combinedText)
-        if (monthMatcher.find()) {
-            val day = monthMatcher.group(1)?.toIntOrNull() ?: 1
-            val monthName = monthMatcher.group(2) ?: ""
-            val monthIdx = PERSIAN_MONTHS.indexOf(monthName)
-            if (monthIdx != -1) {
-                val month = monthIdx + 1
-                val targetYear = if (month >= recJalali.month) recJalali.year else recJalali.year + 1
-                val promoDateNum = targetYear * 10000 + month * 100 + day
-                return promoDateNum < curDateNum
-            }
+        return when {
+            minutes < 60 -> "${PromoValueParser.toPersianDigits(maxOf(minutes, 1L).toString())} دقیقه مانده"
+            hours < 24 -> "${PromoValueParser.toPersianDigits(hours.toString())} ساعت مانده"
+            days <= 1L -> "تا فردا"
+            days < 30 -> "${PromoValueParser.toPersianDigits(days.toString())} روز مانده"
+            else -> expiryDateText
         }
+    }
 
-        // 3. Relative terms: "امشب", "امروز", "ساعت ۲۴" -> expires at end of day received
-        if (combinedText.contains("امشب") || combinedText.contains("امروز") || combinedText.contains("ساعت 24") || combinedText.contains("ساعت ۲۴")) {
-            val isSameDay = curJalali.year == recJalali.year && curJalali.month == recJalali.month && curJalali.day == recJalali.day
-            if (!isSameDay && nowMillis > receivedAt) {
-                return true
-            }
-            if (nowMillis > receivedAt + (24L * 60 * 60 * 1000L)) {
-                return true
-            }
-        }
+    /** True when the code is close enough to expiry to deserve a warning colour. */
+    fun isUrgent(nowMillis: Long = System.currentTimeMillis()): Boolean {
+        val remaining = remainingMillis(nowMillis) ?: return false
+        return remaining in 1..URGENT_WINDOW_MS
+    }
 
-        // 4. "فردا" -> expires within 48h from receipt
-        if (combinedText.contains("فردا") && nowMillis > receivedAt + (48L * 60 * 60 * 1000L)) {
-            return true
-        }
-
-        // 5. Explicit hourly duration
-        if (combinedText.contains("24 ساعت") && nowMillis > receivedAt + (24L * 60 * 60 * 1000L)) {
-            return true
-        }
-        if (combinedText.contains("48 ساعت") && nowMillis > receivedAt + (48L * 60 * 60 * 1000L)) {
-            return true
-        }
-        if (combinedText.contains("72 ساعت") && nowMillis > receivedAt + (72L * 60 * 60 * 1000L)) {
-            return true
-        }
-        if ((combinedText.contains("3 روز") || combinedText.contains("۳ روز")) && nowMillis > receivedAt + (72L * 60 * 60 * 1000L)) {
-            return true
-        }
-        if ((combinedText.contains("7 روز") || combinedText.contains("۷ روز") || combinedText.contains("یک هفته") || combinedText.contains("1 هفته"))
-            && nowMillis > receivedAt + (7L * 24 * 60 * 60 * 1000L)) {
-            return true
-        }
-
-        // 6. Max default validity: any Iranian discount code received more than 30 days ago is expired
-        if (nowMillis - receivedAt > (30L * 24 * 60 * 60 * 1000L)) {
-            return true
-        }
-
-        return false
+    companion object {
+        /** Under 24 hours left counts as urgent. */
+        const val URGENT_WINDOW_MS = 24L * 60 * 60 * 1000L
     }
 }

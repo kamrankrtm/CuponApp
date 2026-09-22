@@ -107,6 +107,11 @@ class QKApplication : Application(), HasActivityInjector, HasBroadcastReceiverIn
 
             qkMigration.performMigration()
 
+            // Restore saved discount codes here rather than in MainActivity: an SMS arriving
+            // in the background starts the process without any activity, and the promo it
+            // carries must still be persisted.
+            com.moez.QKSMS.feature.smart.SmartDataManager.init(this)
+
             GlobalScope.launch(Dispatchers.IO) {
                 referralManager.trackReferrer()
                 billingManager.checkForPurchases()

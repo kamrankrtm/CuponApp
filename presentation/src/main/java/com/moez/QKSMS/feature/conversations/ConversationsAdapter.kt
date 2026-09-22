@@ -33,6 +33,7 @@ import com.moez.QKSMS.common.base.QkRealmAdapter
 import com.moez.QKSMS.common.base.QkViewHolder
 import com.moez.QKSMS.common.util.Colors
 import com.moez.QKSMS.common.util.DateFormatter
+import com.moez.QKSMS.common.util.ContrastUtils
 import com.moez.QKSMS.common.util.extensions.resolveThemeColor
 import com.moez.QKSMS.common.util.extensions.setTint
 import com.moez.QKSMS.model.Conversation
@@ -123,14 +124,17 @@ class ConversationsAdapter @Inject constructor(
 
         val isUnread = conversation.unread
         holder.unread.isVisible = isUnread
+        // Measure the colour that is actually painted, not the one the theme nominally names.
+        // The previous guard tested luminance of the raw attribute value, which ignores alpha,
+        // so a translucent dark grey passed as "light enough" and the snippet rendered at
+        // roughly 2.5:1 against the dark background.
         val bg = context.resolveThemeColor(android.R.attr.windowBackground)
-        val isDarkBg = androidx.core.graphics.ColorUtils.calculateLuminance(bg) < 0.5
-        val rawPrimary = context.resolveThemeColor(android.R.attr.textColorPrimary)
-        val rawSecondary = context.resolveThemeColor(android.R.attr.textColorSecondary)
-        val rawTertiary = context.resolveThemeColor(android.R.attr.textColorTertiary)
-        val textColorPrimary = if (isDarkBg && androidx.core.graphics.ColorUtils.calculateLuminance(rawPrimary) < 0.35) 0xFFFFFFFF.toInt() else rawPrimary
-        val textColorSecondary = if (isDarkBg && androidx.core.graphics.ColorUtils.calculateLuminance(rawSecondary) < 0.35) 0xCCFFFFFF.toInt() else rawSecondary
-        val textColorTertiary = if (isDarkBg && androidx.core.graphics.ColorUtils.calculateLuminance(rawTertiary) < 0.35) 0x80FFFFFF.toInt() else rawTertiary
+        val textColorPrimary = ContrastUtils.ensureContrast(
+            context.resolveThemeColor(android.R.attr.textColorPrimary), bg, ContrastUtils.MIN_CONTRAST_BODY)
+        val textColorSecondary = ContrastUtils.ensureContrast(
+            context.resolveThemeColor(android.R.attr.textColorSecondary), bg, ContrastUtils.MIN_CONTRAST_BODY)
+        val textColorTertiary = ContrastUtils.ensureContrast(
+            context.resolveThemeColor(android.R.attr.textColorTertiary), bg, ContrastUtils.MIN_CONTRAST_LARGE)
 
         if (isUnread) {
             holder.title.setTypeface(holder.title.typeface, Typeface.BOLD)
