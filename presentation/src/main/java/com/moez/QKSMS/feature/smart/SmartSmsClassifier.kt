@@ -132,9 +132,25 @@ object SmartSmsClassifier {
         return PERSONAL_NUMBER_REGEX.matcher(normalized).matches()
     }
 
+    /**
+     * Patterns for verification texts that name no fixed keyword phrase.
+     *
+     * "کد 36330 را جهت ورود به سامانه بام وارد نمایید" contains both "کد" and "ورود" but never
+     * the contiguous phrase "کد ورود", so keyword matching alone missed it and the message fell
+     * through to the promotional path.
+     */
+    private val OTP_PATTERNS = listOf(
+        Pattern.compile("کد\\s*[0-9]{4,8}\\s*(?:را|رو)\\b"),
+        Pattern.compile("(?:جهت|برای)\\s*ورود"),
+        Pattern.compile("رمز\\s*ورود"),
+        Pattern.compile("(?:کد|رمز)\\s*یک\\s*بار\\s*مصرف")
+    )
+
     fun isOtpMessage(body: String): Boolean {
-        val lower = normalizeText(body).toLowerCase()
-        return OTP_KEYWORDS.any { lower.contains(it.toLowerCase()) }
+        val normalized = normalizeText(body)
+        val lower = normalized.toLowerCase()
+        if (OTP_KEYWORDS.any { lower.contains(it.toLowerCase()) }) return true
+        return OTP_PATTERNS.any { it.matcher(normalized).find() }
     }
 
     fun extractOtpCode(body: String): String? {
@@ -349,6 +365,13 @@ object SmartSmsClassifier {
     ): PromoItem? {
         val normalizedBody = PromoValueParser.normalize(body)
         val normalizedSender = PromoValueParser.normalize(sender)
+
+        // Both gates live here rather than in the callers. MainActivity used to call this
+        // straight from the inbox scan, skipping the promotional check that only `classify`
+        // applied, so a bank's login SMS was filed under discounts and the SMS Retriever hash
+        // on its last line was offered to the user as a coupon.
+        if (PromoCodeExtractor.isVerificationMessage(normalizedBody)) return null
+        if (!PromoCodeExtractor.looksPromotional(normalizedBody)) return null
 
         val candidate = PromoCodeExtractor.extract(normalizedBody) ?: return null
 

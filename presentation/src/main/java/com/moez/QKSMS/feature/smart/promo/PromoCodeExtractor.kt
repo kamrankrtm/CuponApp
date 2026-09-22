@@ -50,6 +50,63 @@ object PromoCodeExtractor {
     )
 
     /**
+     * Words that mark a message as an actual offer.
+     *
+     * Without this gate any SMS carrying a stray alphanumeric token became a "discount": a
+     * bank's login message was filed under discounts and its SMS Retriever hash was offered to
+     * the user as a coupon code.
+     */
+    private val PROMOTIONAL_SIGNALS = listOf(
+        "تخفیف", "کد تخفیف", "درصد تخفیف", "جشنواره", "ارسال رایگان", "هدیه", "کوپن",
+        "حراج", "فروش ویژه", "پیشنهاد ویژه", "شگفت انگیز", "اعتبار هدیه", "بن خرید",
+        "کمپین", "کش بک", "کشبک", "off", "discount", "promo", "coupon", "sale", "cashback"
+    )
+
+    /**
+     * Phrases that mark a message as a login or verification code.
+     *
+     * These veto promo extraction outright. A bank that also runs promotions is fine; a
+     * message telling the user to type a code to sign in is not an offer, whatever else it
+     * happens to contain.
+     */
+    private val VERIFICATION_SIGNALS = listOf(
+        "جهت ورود", "برای ورود", "رمز ورود", "کد ورود", "کد تایید", "کد فعالسازی",
+        "کد فعال سازی", "رمز یکبار مصرف", "رمز یکبارمصرف", "رمز پویا", "کد احراز",
+        "کد امنیتی", "کد عبور", "رمز دوم", "verification code", "login code",
+        "security code", "one time password", "otp"
+    )
+
+    /** "کد 36330 را ..." — a numeric code the user is told to type, i.e. a one-time password. */
+    private val NUMERIC_CODE_INSTRUCTION =
+        Pattern.compile("کد\\s*[0-9]{4,8}\\s*(?:را|رو)\\b")
+
+    /** Whether the message is advertising something. */
+    fun looksPromotional(normalizedBody: String): Boolean {
+        val lower = normalizedBody.toLowerCase()
+        return PROMOTIONAL_SIGNALS.any { lower.contains(it) }
+    }
+
+    /** Whether the message is a login / verification code rather than an offer. */
+    fun isVerificationMessage(normalizedBody: String): Boolean {
+        val lower = normalizedBody.toLowerCase()
+        if (VERIFICATION_SIGNALS.any { lower.contains(it) }) return true
+        return NUMERIC_CODE_INSTRUCTION.matcher(normalizedBody).find()
+    }
+
+    /**
+     * The 11-character signature Android's SMS Retriever API appends to verification texts.
+     *
+     * It looks exactly like a coupon code — mixed case, letters and digits, alone on the last
+     * line — which is how one ended up on a card as "کپی کد (QVCOXY7HHZR)".
+     */
+    fun looksLikeSmsRetrieverHash(token: String): Boolean {
+        if (token.length != 11) return false
+        if (!token.any { it in 'a'..'z' }) return false
+        if (!token.any { it in 'A'..'Z' }) return false
+        return token.all { it.isLetterOrDigit() || it == '+' || it == '/' }
+    }
+
+    /**
      * Finds the coupon code, or null when the message does not actually carry one.
      *
      * @param normalizedBody body with digits and characters already normalized
@@ -69,6 +126,7 @@ object PromoCodeExtractor {
             val trimmed = line.trim()
             if (trimmed.contains(" ") || trimmed.contains(".") || trimmed.contains("/")) continue
             if (!isPlausible(trimmed)) continue
+            if (looksLikeSmsRetrieverHash(trimmed)) continue
             return CodeCandidate(trimmed, adjustConfidence(trimmed, STANDALONE_CONFIDENCE))
         }
 

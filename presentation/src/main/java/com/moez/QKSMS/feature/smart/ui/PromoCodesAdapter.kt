@@ -59,10 +59,9 @@ class PromoCodesAdapter(
      */
     private val secondaryTextColor: Int by lazy {
         val background = context.resolveThemeColor(android.R.attr.windowBackground, Color.BLACK)
-        ContrastUtils.ensureContrast(
+        ContrastUtils.ensureReadable(
             context.resolveThemeColor(android.R.attr.textColorSecondary, Color.GRAY),
-            background,
-            ContrastUtils.MIN_CONTRAST_BODY
+            background
         )
     }
 

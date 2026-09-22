@@ -91,7 +91,12 @@ class FilteredConversationsAdapter(
         val view = layoutInflater.inflate(R.layout.conversation_list_item, parent, false)
 
         if (viewType == VIEW_TYPE_UNREAD) {
-            val textColorPrimary = parent.context.resolveThemeColor(android.R.attr.textColorPrimary)
+            // Same repair as onBindViewHolder, which overwrites this a moment later; keeping
+            // them in step avoids a flash of unreadable text on the first frame.
+            val textColorPrimary = ContrastUtils.ensureReadable(
+                parent.context.resolveThemeColor(android.R.attr.textColorPrimary),
+                parent.context.resolveThemeColor(android.R.attr.windowBackground)
+            )
             view.title.setTypeface(view.title.typeface, Typeface.BOLD)
             view.snippet.setTypeface(view.snippet.typeface, Typeface.BOLD)
             view.snippet.setTextColor(textColorPrimary)
@@ -177,12 +182,12 @@ class FilteredConversationsAdapter(
         // so a translucent dark grey passed as "light enough" and the snippet rendered at
         // roughly 2.5:1 against the dark background.
         val bg = context.resolveThemeColor(android.R.attr.windowBackground)
-        val textColorPrimary = ContrastUtils.ensureContrast(
-            context.resolveThemeColor(android.R.attr.textColorPrimary), bg, ContrastUtils.MIN_CONTRAST_BODY)
-        val textColorSecondary = ContrastUtils.ensureContrast(
-            context.resolveThemeColor(android.R.attr.textColorSecondary), bg, ContrastUtils.MIN_CONTRAST_BODY)
-        val textColorTertiary = ContrastUtils.ensureContrast(
-            context.resolveThemeColor(android.R.attr.textColorTertiary), bg, ContrastUtils.MIN_CONTRAST_LARGE)
+        val textColorPrimary = ContrastUtils.ensureReadable(
+            context.resolveThemeColor(android.R.attr.textColorPrimary), bg)
+        val textColorSecondary = ContrastUtils.ensureReadable(
+            context.resolveThemeColor(android.R.attr.textColorSecondary), bg)
+        val textColorTertiary = ContrastUtils.ensureReadable(
+            context.resolveThemeColor(android.R.attr.textColorTertiary), bg)
 
         if (isUnread) {
             holder.itemView.title.setTypeface(holder.itemView.title.typeface, Typeface.BOLD)

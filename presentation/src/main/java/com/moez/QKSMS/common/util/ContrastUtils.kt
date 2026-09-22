@@ -65,6 +65,19 @@ object ContrastUtils {
     }
 
     /**
+     * Returns [foreground] when it is readable on [background], otherwise plain white or black.
+     *
+     * Where [ensureContrast] lifts a failing colour only as far as the minimum requires, this
+     * goes the whole way. The message list uses it because a colour that merely clears 4.5:1
+     * still reads as grey on a dark screen, and what is wanted there is white text.
+     */
+    fun ensureReadable(foreground: Int, background: Int, minRatio: Double = MIN_CONTRAST_BODY): Int {
+        if (contrastRatio(foreground, background) >= minRatio) return foreground
+        val backgroundIsDark = relativeLuminance(background or (0xFF shl 24)) < 0.5
+        return if (backgroundIsDark) 0xFFFFFFFF.toInt() else 0xFF000000.toInt()
+    }
+
+    /**
      * Returns [foreground] when it is readable on [background], otherwise the nearest tint of
      * white or black that is.
      *
