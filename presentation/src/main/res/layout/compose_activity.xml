@@ -127,8 +127,8 @@
     <View
         android:id="@+id/sendAsGroupShadow"
         android:layout_width="match_parent"
-        android:layout_height="8dp"
-        android:background="@drawable/ab_shadow"
+        android:layout_height="0.5dp"
+        android:background="?android:attr/divider"
         app:layout_constraintTop_toBottomOf="@id/sendAsGroupBackground" />
 
     <androidx.constraintlayout.widget.Group
@@ -151,9 +151,9 @@
         android:id="@+id/messageBackground"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="12dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="6dp"
+        android:layout_marginBottom="10dp"
         android:background="@drawable/rounded_rectangle_22dp"
         android:backgroundTint="?attr/bubbleColor"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -298,7 +298,7 @@
         android:id="@+id/sendWhatsApp"
         android:layout_width="44dp"
         android:layout_height="44dp"
-        android:layout_marginEnd="2dp"
+        android:layout_marginEnd="4dp"
         android:background="?android:attr/selectableItemBackgroundBorderless"
         android:contentDescription="ارسال در واتس‌اپ"
         android:padding="8dp"
@@ -306,16 +306,19 @@
         app:layout_constraintBottom_toBottomOf="@id/messageBackground"
         app:layout_constraintEnd_toStartOf="@id/send" />
 
+    <!-- Filled accent circle with an up arrow, tinted with the conversation colour at runtime -->
     <ImageView
         android:id="@+id/send"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:layout_marginEnd="8dp"
-        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="4dp"
+        android:background="@drawable/circle"
+        android:backgroundTint="@color/blue_500"
         android:contentDescription="@string/compose_send_cd"
-        android:padding="10dp"
-        android:src="@drawable/ic_send_black_24dp"
-        android:tint="?android:textColorSecondary"
+        android:padding="7dp"
+        android:src="@drawable/ic_arrow_upward_black_24dp"
+        android:tint="@color/white"
         app:layout_constraintBottom_toBottomOf="@id/messageBackground"
         app:layout_constraintEnd_toEndOf="parent" />
 
@@ -364,8 +367,8 @@
 
     <View
         android:layout_width="match_parent"
-        android:layout_height="8dp"
-        android:background="@drawable/ab_shadow"
+        android:layout_height="0.5dp"
+        android:background="?android:attr/divider"
         app:layout_constraintTop_toBottomOf="@id/toolbar" />
 
     <View
@@ -530,14 +533,16 @@
 
     <ImageView
         android:id="@+id/attach"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
         android:layout_marginStart="12dp"
+        android:layout_marginBottom="4dp"
         android:background="@drawable/circle"
+        android:backgroundTint="?attr/bubbleColor"
         android:contentDescription="@string/compose_attach_cd"
-        android:elevation="4dp"
-        android:padding="10dp"
+        android:padding="7dp"
         android:src="@drawable/ic_add_black_24dp"
+        android:tint="?android:attr/textColorSecondary"
         app:layout_constraintBottom_toBottomOf="@id/messageBackground"
         app:layout_constraintStart_toStartOf="parent"
         tools:backgroundTint="@color/tools_theme"

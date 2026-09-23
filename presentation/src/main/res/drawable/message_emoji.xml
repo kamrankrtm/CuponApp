@@ -22,7 +22,7 @@
 
     <solid android:color="@android:color/transparent" />
     <padding
-        android:bottom="8dp"
-        android:top="8dp" />
+        android:bottom="9dp"
+        android:top="9dp" />
 
 </shape>

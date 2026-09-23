@@ -179,7 +179,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 val hasInput = !s.isNullOrBlank() || (attachmentAdapter.itemCount > 0)
                 send.isEnabled = hasInput
-                send.imageAlpha = if (hasInput) 255 else 128
+                send.alpha = if (hasInput) 1f else 0.4f
                 sendWhatsApp.isEnabled = hasInput
                 sendWhatsApp.imageAlpha = if (hasInput) 255 else 128
             }
@@ -203,8 +203,8 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
 
         theme
                 .doOnNext { loading.setTint(it.theme) }
-                .doOnNext { attach.setBackgroundTint(it.theme) }
-                .doOnNext { attach.setTint(it.textPrimary) }
+                .doOnNext { send.setBackgroundTint(it.theme) }
+                .doOnNext { send.setTint(it.textPrimary) }
                 .doOnNext { messageAdapter.theme = it }
                 .autoDisposable(scope())
                 .subscribe()
@@ -214,6 +214,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         // These theme attributes don't apply themselves on API 21
         if (Build.VERSION.SDK_INT <= 22) {
             messageBackground.setBackgroundTint(resolveThemeColor(R.attr.bubbleColor))
+            attach.setBackgroundTint(resolveThemeColor(R.attr.bubbleColor))
         }
 
         sendWhatsApp.setOnClickListener {
@@ -311,7 +312,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         val canSend = state.canSend || hasInput
 
         send.isEnabled = canSend
-        send.imageAlpha = if (canSend) 255 else 128
+        send.alpha = if (canSend) 1f else 0.4f
 
         sendWhatsApp.isEnabled = canSend
         sendWhatsApp.imageAlpha = if (canSend) 255 else 128
