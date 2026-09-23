@@ -48,7 +48,7 @@ class PromoCodesAdapter(
         const val UNCERTAIN_THRESHOLD = 60
 
         /** Warning colour for a code about to expire. */
-        val URGENT_COLOR = Color.parseColor("#E53935")
+        val URGENT_COLOR = Color.parseColor("#FF3B30")
     }
 
     /**
