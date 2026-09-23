@@ -123,3 +123,18 @@ fun RecyclerView.scrapViews() {
     recycledViewPool.clear()
     adapter?.notifyDataSetChanged()
 }
+
+/**
+ * Every [com.moez.QKSMS.common.widget.PreferenceView] below this group, in layout order.
+ * Settings rows are nested inside grouped cards, so direct children are not enough.
+ */
+fun ViewGroup.findPreferenceViews(): List<com.moez.QKSMS.common.widget.PreferenceView> {
+    val found = ArrayList<com.moez.QKSMS.common.widget.PreferenceView>()
+    for (index in 0 until childCount) {
+        when (val child = getChildAt(index)) {
+            is com.moez.QKSMS.common.widget.PreferenceView -> found.add(child)
+            is ViewGroup -> found.addAll(child.findPreferenceViews())
+        }
+    }
+    return found
+}

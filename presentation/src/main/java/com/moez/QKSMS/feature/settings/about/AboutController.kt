@@ -23,6 +23,7 @@ import com.jakewharton.rxbinding2.view.clicks
 import com.moez.QKSMS.BuildConfig
 import com.moez.QKSMS.R
 import com.moez.QKSMS.common.base.QkController
+import com.moez.QKSMS.common.util.extensions.findPreferenceViews
 import com.moez.QKSMS.common.widget.PreferenceView
 import com.moez.QKSMS.injection.appComponent
 import io.reactivex.Observable
@@ -51,9 +52,7 @@ class AboutController : QkController<AboutView, Unit, AboutPresenter>(), AboutVi
         showBackButton(true)
     }
 
-    override fun preferenceClicks(): Observable<PreferenceView> = (0 until preferences.childCount)
-            .map { index -> preferences.getChildAt(index) }
-            .mapNotNull { view -> view as? PreferenceView }
+    override fun preferenceClicks(): Observable<PreferenceView> = preferences.findPreferenceViews()
             .map { preference -> preference.clicks().map { preference } }
             .let { preferences -> Observable.merge(preferences) }
 

@@ -32,6 +32,7 @@ import android.os.Build
 import android.os.PowerManager
 import android.provider.ContactsContract
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
@@ -371,30 +372,32 @@ class NotificationManagerImpl @Inject constructor(
                 val deadline = promo.remainingLabel()
                 notification.setContentText("کد: ${promo.code} | ${amountDesc}$deadline")
 
-                val minOrderLine = if (!promo.minOrder.isNullOrBlank()) "\n🛒 ${promo.minOrder}" else ""
+                val minOrderLine = if (!promo.minOrder.isNullOrBlank()) "\n${promo.minOrder}" else ""
 
                 // Include the SMS itself: the card shows only the fields the extractor
                 // understood, while the conditions the sender wrote in prose live in the text.
                 val cleanBody = promo.body.replace("\uFFFD", " ").trim()
                 val excerpt = when {
                     cleanBody.isEmpty() -> ""
-                    cleanBody.length <= 320 -> "\n\n📩 متن پیامک:\n$cleanBody"
-                    else -> "\n\n📩 متن پیامک:\n${cleanBody.take(320).trimEnd()}…"
+                    cleanBody.length <= 320 -> "\n\nمتن پیامک:\n$cleanBody"
+                    else -> "\n\nمتن پیامک:\n${cleanBody.take(320).trimEnd()}…"
                 }
 
                 val bigTextStyle = NotificationCompat.BigTextStyle()
                     .setBigContentTitle(title)
                     .setSummaryText(promo.brand)
-                    .bigText("🎁 کد تخفیف: ${promo.code}\n💰 تخفیف: ${promo.discountAmount}\n⏳ $deadline$minOrderLine$excerpt")
+                    .bigText("کد تخفیف: ${promo.code}\nتخفیف: ${promo.discountAmount}\n$deadline$minOrderLine$excerpt")
 
                 notification.setStyle(bigTextStyle)
                 notification.setChannelId(DISCOUNT_CHANNEL_ID)
+                notification.setColor(ContextCompat.getColor(context, R.color.tabDiscounts))
                 // Only Copy action for Promo - no Reply/Archive buttons
-                notification.addAction(R.drawable.ic_content_copy_black_24dp, "📋 کپی کد: ${promo.code}", copyPI)
+                notification.addAction(R.drawable.ic_content_copy_black_24dp, "کپی کد ${promo.code}", copyPI)
             }
             is SmsCategory.Otp -> {
                 val otp = smartCategory.otp
-                val title = "🔑 ${otp.code}"
+                // The code itself is the headline, in the OTP accent
+                val title = otp.code
                 val text = "از ${otp.serviceName}"
                 notification.setContentTitle(title)
                 notification.setContentText(text)
@@ -404,6 +407,7 @@ class NotificationManagerImpl @Inject constructor(
                     .bigText("کد تایید ورود: ${otp.code}\nسرویس: ${otp.serviceName}\n(کد به صورت خودکار به کلیپ‌بورد کپی شد)")
                 notification.setStyle(bigTextStyle)
                 notification.setChannelId(OTP_CHANNEL_ID)
+                notification.setColor(ContextCompat.getColor(context, R.color.tabOtp))
                 notification.setPriority(NotificationCompat.PRIORITY_MAX)
                 // No action buttons for OTP - just prominent code and sender
             }
@@ -415,9 +419,10 @@ class NotificationManagerImpl @Inject constructor(
                     null -> "تراکنش بانکی"
                 }
                 val amountStr = smartCategory.amount?.let { " ($it)" } ?: ""
-                val title = "💳 $bank: $type$amountStr"
+                val title = "$bank · $type$amountStr"
                 notification.setContentTitle(title)
                 notification.setContentText(body)
+                notification.setColor(ContextCompat.getColor(context, R.color.tabBanking))
                 // Banking: show full message body in BigTextStyle, no action buttons
                 val bigTextStyle = NotificationCompat.BigTextStyle()
                     .setBigContentTitle(title)
@@ -427,6 +432,7 @@ class NotificationManagerImpl @Inject constructor(
             }
             is SmsCategory.Spam -> {
                 notification.setChannelId(SPAM_CHANNEL_ID)
+                notification.setColor(ContextCompat.getColor(context, R.color.tabSpam))
                 notification.priority = NotificationCompat.PRIORITY_MIN
             }
             else -> Unit
