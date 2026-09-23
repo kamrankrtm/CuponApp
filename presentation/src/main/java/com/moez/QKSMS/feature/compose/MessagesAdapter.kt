@@ -238,12 +238,14 @@ class MessagesAdapter @Inject constructor(
         val media = message.parts.filter { !it.isSmil() && !it.isText() }
         holder.containerView.setPadding(bottom = if (canGroup(message, next)) 0 else 16.dpToPx(context))
 
-        // Bind the avatar and bubble colour
+        // Bind the avatar and bubble colour. As in the system Messages app, the accent belongs to
+        // what you send; incoming bubbles stay neutral (bubbleColor, set in the layout).
         if (!message.isMe()) {
             holder.avatar.setRecipient(contactCache[message.address])
             holder.avatar.setVisible(!canGroup(message, next), View.INVISIBLE)
-
+        } else {
             holder.body.setTextColor(theme.textPrimary)
+            holder.body.setLinkTextColor(theme.textPrimary)
             holder.body.setBackgroundTint(theme.theme)
         }
 

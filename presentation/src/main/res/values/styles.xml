@@ -62,6 +62,7 @@
         <item name="android:gravity">start|center_vertical</item>
         <item name="android:maxLines">1</item>
         <item name="android:textColor">?android:attr/textColorPrimary</item>
+        <item name="android:textStyle">bold</item>
         <item name="textSize">toolbar</item>
     </style>
 
@@ -71,10 +72,30 @@
         <item name="android:layout_marginBottom">16dp</item>
         <item name="android:layout_marginEnd">24dp</item>
         <item name="android:layout_marginStart">72dp</item>
-        <item name="android:layout_marginTop">16dp</item>
-        <item name="android:textStyle">bold</item>
-        <item name="textColor">theme</item>
-        <item name="textSize">secondary</item>
+        <item name="android:layout_marginTop">24dp</item>
+        <item name="android:letterSpacing">0.04</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textColor">?android:attr/textColorSecondary</item>
+        <item name="textSize">tertiary</item>
+    </style>
+
+    <!-- Grouped settings: a small caps header above a rounded card of rows -->
+    <style name="SettingsGroupHeader" parent="PreferenceCategory">
+        <item name="android:layout_marginStart">32dp</item>
+        <item name="android:layout_marginEnd">32dp</item>
+        <item name="android:layout_marginTop">28dp</item>
+        <item name="android:layout_marginBottom">8dp</item>
+    </style>
+
+    <style name="SettingsGroupCard">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginStart">16dp</item>
+        <item name="android:layout_marginEnd">16dp</item>
+        <item name="cardBackgroundColor">?attr/cardColor</item>
+        <item name="cardCornerRadius">14dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeWidth">0dp</item>
     </style>
 
     <style name="CollapsingToolbarCollapsedText">
@@ -105,10 +126,12 @@
     <style name="DrawerRow">
         <item name="android:layout_height">48dp</item>
         <item name="android:layout_width">match_parent</item>
-        <item name="android:background">?attr/selectableItemBackground</item>
+        <item name="android:layout_marginStart">10dp</item>
+        <item name="android:layout_marginEnd">10dp</item>
+        <item name="android:background">@drawable/drawer_item_background</item>
         <item name="android:gravity">center_vertical</item>
-        <item name="android:paddingStart">16dp</item>
-        <item name="android:paddingEnd">16dp</item>
+        <item name="android:paddingStart">14dp</item>
+        <item name="android:paddingEnd">14dp</item>
     </style>
 
     <style name="DrawerText">
@@ -117,19 +140,30 @@
         <item name="android:layout_weight">1</item>
         <item name="android:lines">1</item>
         <item name="android:textColor">?android:attr/textColorPrimary</item>
-        <item name="android:textStyle">bold</item>
-        <item name="textSize">secondary</item>
+        <item name="textSize">primary</item>
     </style>
 
     <style name="DrawerIcon">
-        <item name="android:layout_height">24dp</item>
-        <item name="android:layout_width">24dp</item>
-        <item name="android:layout_marginEnd">32dp</item>
+        <item name="android:layout_height">22dp</item>
+        <item name="android:layout_width">22dp</item>
+        <item name="android:layout_marginEnd">20dp</item>
+    </style>
+
+    <style name="DrawerDivider">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">0.5dp</item>
+        <item name="android:layout_marginStart">24dp</item>
+        <item name="android:layout_marginEnd">24dp</item>
+        <item name="android:layout_marginTop">10dp</item>
+        <item name="android:layout_marginBottom">10dp</item>
+        <item name="android:background">?android:attr/divider</item>
     </style>
 
     <style name="SmartTabTextAppearance" parent="TextAppearance.Design.Tab">
-        <item name="android:textSize">13sp</item>
+        <item name="android:textSize">14sp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="textAllCaps">false</item>
     </style>
 
 </resources>

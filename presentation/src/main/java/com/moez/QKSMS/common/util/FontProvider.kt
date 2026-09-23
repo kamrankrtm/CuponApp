@@ -29,26 +29,19 @@ import javax.inject.Singleton
 @Singleton
 class FontProvider @Inject constructor(context: Context) {
 
-    private var lato: Typeface? = null
-    private val pendingCallbacks = ArrayList<(Typeface) -> Unit>()
-
-    init {
-        ResourcesCompat.getFont(context, R.font.lato, object : ResourcesCompat.FontCallback() {
-            override fun onFontRetrievalFailed(reason: Int) {
-                Timber.w("Font retrieval failed: $reason")
-            }
-
-            override fun onFontRetrieved(typeface: Typeface) {
-                lato = typeface
-
-                pendingCallbacks.forEach { lato?.run(it) }
-                pendingCallbacks.clear()
-            }
-        }, null)
+    /**
+     * The app typeface (Dubai), bundled with the APK. Loading a local font is synchronous and
+     * can't fail the way a downloadable one could, so there is no pending-callback queue.
+     */
+    private val appFont: Typeface? = try {
+        ResourcesCompat.getFont(context, R.font.app_font)
+    } catch (e: Exception) {
+        Timber.w(e, "Failed to load the app font")
+        null
     }
 
-    fun getLato(callback: (Typeface) -> Unit) {
-        lato?.run(callback) ?: pendingCallbacks.add(callback)
+    fun getAppFont(callback: (Typeface) -> Unit) {
+        appFont?.run(callback)
     }
 
 }

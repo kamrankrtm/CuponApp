@@ -5,18 +5,18 @@
     android:layout_height="wrap_content"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:paddingStart="18dp"
-    android:paddingTop="14dp"
-    android:paddingEnd="18dp"
+    android:paddingStart="22dp"
+    android:paddingTop="18dp"
+    android:paddingEnd="22dp"
     android:paddingBottom="6dp">
 
     <com.moez.QKSMS.common.widget.QkTextView
         android:id="@+id/sectionTitle"
-        style="@style/TextSecondary"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="13sp"
+        android:textColor="?android:attr/textColorPrimary"
+        android:textSize="17sp"
         android:textStyle="bold"
         tools:text="⏰ امروز تمام می‌شود" />
 

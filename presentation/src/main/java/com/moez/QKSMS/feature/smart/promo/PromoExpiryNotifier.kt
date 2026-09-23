@@ -85,7 +85,7 @@ object PromoExpiryNotifier {
                 )
             }
 
-            val title = "⏰ کد ${promo.brand} رو به اتمام است"
+            val title = "کد ${promo.brand} رو به اتمام است"
             val body = "${promo.discountAmount} • ${promo.remainingLabel(now)}"
 
             val notification = NotificationCompat.Builder(
@@ -93,6 +93,7 @@ object PromoExpiryNotifier {
                 NotificationManagerImpl.DISCOUNT_CHANNEL_ID
             )
                 .setSmallIcon(R.drawable.ic_notification)
+                .setColor(androidx.core.content.ContextCompat.getColor(context, R.color.tabDiscounts))
                 .setContentTitle(title)
                 .setContentText(body)
                 .setStyle(

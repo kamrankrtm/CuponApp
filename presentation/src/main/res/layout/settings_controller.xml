@@ -23,7 +23,7 @@
     android:id="@+id/contentView"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:attr/windowBackground">
+    android:background="?attr/groupedBackground">
 
     <LinearLayout
         android:id="@+id/preferences"
@@ -31,380 +31,457 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingTop="8dp"
-        android:paddingBottom="8dp">
+        android:paddingBottom="32dp">
 
         <com.moez.QKSMS.common.widget.QkTextView
-            style="@style/PreferenceCategory"
+            style="@style/SettingsGroupHeader"
             android:text="@string/settings_category_appearance" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/theme"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_color_lens_black_24dp"
-            app:title="@string/settings_theme_title"
-            app:widget="@layout/settings_theme_widget" />
+        <com.google.android.material.card.MaterialCardView
+            style="@style/SettingsGroupCard"
+            android:layout_marginTop="0dp">
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/night"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_invert_colors_black_24dp"
-            app:title="@string/settings_night_title"
-            tools:summary="Automatic" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:divider="@drawable/settings_row_divider"
+                android:orientation="vertical"
+                android:showDividers="middle">
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/black"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            app:title="@string/settings_black_title"
-            app:widget="@layout/settings_switch_widget" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/theme"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_color_lens_black_24dp"
+                app:title="@string/settings_theme_title"
+                app:widget="@layout/settings_theme_widget" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/nightStart"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            app:title="@string/settings_night_start_title"
-            tools:summary="6:00PM" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/night"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_invert_colors_black_24dp"
+                app:title="@string/settings_night_title"
+                tools:summary="Automatic" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/nightEnd"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            app:title="@string/settings_night_end_title"
-            tools:summary="9:00AM" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/black"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                app:title="@string/settings_black_title"
+                app:widget="@layout/settings_switch_widget" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/textSize"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_format_size_black_24dp"
-            app:title="@string/settings_text_size_title" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/nightStart"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                app:title="@string/settings_night_start_title"
+                tools:summary="6:00PM" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/autoColor"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_person_black_24dp"
-            app:title="@string/settings_automatic_colors_title"
-            app:widget="@layout/settings_switch_widget" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/nightEnd"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                app:title="@string/settings_night_end_title"
+                tools:summary="9:00AM" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/systemFont"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_title_black_24dp"
-            app:title="@string/settings_system_font_title"
-            app:widget="@layout/settings_switch_widget" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/textSize"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_format_size_black_24dp"
+                app:title="@string/settings_text_size_title" />
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp"
-            android:background="?android:attr/divider" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/autoColor"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_person_black_24dp"
+                app:title="@string/settings_automatic_colors_title"
+                app:widget="@layout/settings_switch_widget" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/systemFont"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_title_black_24dp"
+                app:title="@string/settings_system_font_title"
+                app:widget="@layout/settings_switch_widget" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
 
         <com.moez.QKSMS.common.widget.QkTextView
-            style="@style/PreferenceCategory"
+            style="@style/SettingsGroupHeader"
             android:text="@string/settings_category_general" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/notifications"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_notifications_black_24dp"
-            app:title="@string/settings_notifications_title" />
+        <com.google.android.material.card.MaterialCardView
+            style="@style/SettingsGroupCard"
+            android:layout_marginTop="0dp">
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/autoEmoji"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            app:title="@string/settings_auto_emoji_title"
-            app:widget="@layout/settings_switch_widget" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:divider="@drawable/settings_row_divider"
+                android:orientation="vertical"
+                android:showDividers="middle">
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/delayed"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_av_timer_black_24dp"
-            app:title="@string/settings_delayed_title"
-            tools:summary="No delay" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/notifications"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_notifications_black_24dp"
+                app:title="@string/settings_notifications_title" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/swipeActions"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="visible"
-            app:icon="@drawable/ic_clear_all_black_24dp"
-            app:summary="@string/settings_swipe_actions_summary"
-            app:title="@string/settings_swipe_actions" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/autoEmoji"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                app:title="@string/settings_auto_emoji_title"
+                app:widget="@layout/settings_switch_widget" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/delivery"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_check_white_24dp"
-            app:summary="@string/settings_delivery_summary"
-            app:title="@string/settings_delivery_title"
-            app:widget="@layout/settings_switch_widget" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/delayed"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_av_timer_black_24dp"
+                app:title="@string/settings_delayed_title"
+                tools:summary="No delay" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/signature"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_short_text_black_24dp"
-            app:title="@string/settings_signature_title" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/swipeActions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="visible"
+                app:icon="@drawable/ic_clear_all_black_24dp"
+                app:summary="@string/settings_swipe_actions_summary"
+                app:title="@string/settings_swipe_actions" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/unicode"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_translate_black_24dp"
-            app:summary="@string/settings_unicode_summary"
-            app:title="@string/settings_unicode_title"
-            app:widget="@layout/settings_switch_widget" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/delivery"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_check_white_24dp"
+                app:summary="@string/settings_delivery_summary"
+                app:title="@string/settings_delivery_title"
+                app:widget="@layout/settings_switch_widget" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/mobileOnly"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_smartphone_black_24dp"
-            app:summary="@string/settings_mobile_summary"
-            app:title="@string/settings_mobile_title"
-            app:widget="@layout/settings_switch_widget" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/signature"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_short_text_black_24dp"
+                app:title="@string/settings_signature_title" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/autoDelete"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_baseline_history_toggle_off_24"
-            app:title="@string/settings_auto_delete"
-            tools:summary="Never" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/unicode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_translate_black_24dp"
+                app:summary="@string/settings_unicode_summary"
+                app:title="@string/settings_unicode_title"
+                app:widget="@layout/settings_switch_widget" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/longAsMms"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_message_black_24dp"
-            app:summary="@string/settings_long_as_mms_summary"
-            app:title="@string/settings_long_as_mms_title"
-            app:widget="@layout/settings_switch_widget" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/mobileOnly"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_smartphone_black_24dp"
+                app:summary="@string/settings_mobile_summary"
+                app:title="@string/settings_mobile_title"
+                app:widget="@layout/settings_switch_widget" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/mmsSize"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="visible"
-            app:icon="@drawable/ic_photo_size_select_actual_black_24dp"
-            app:title="@string/settings_mms_size_title"
-            tools:summary="100KB" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/autoDelete"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_baseline_history_toggle_off_24"
+                app:title="@string/settings_auto_delete"
+                tools:summary="Never" />
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp"
-            android:background="?android:attr/divider" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/longAsMms"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_message_black_24dp"
+                app:summary="@string/settings_long_as_mms_summary"
+                app:title="@string/settings_long_as_mms_title"
+                app:widget="@layout/settings_switch_widget" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/sync"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_sync_black_24dp"
-            app:summary="@string/settings_sync_summary"
-            app:title="@string/settings_sync_title" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/mmsSize"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="visible"
+                app:icon="@drawable/ic_photo_size_select_actual_black_24dp"
+                app:title="@string/settings_mms_size_title"
+                tools:summary="100KB" />
 
-        <ProgressBar
-            android:id="@+id/syncingProgress"
-            style="@style/Widget.AppCompat.ProgressBar.Horizontal"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="72dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="16dp"
-            android:indeterminate="true"
-            app:layout_constraintBottom_toBottomOf="parent" />
+            </LinearLayout>
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp"
-            android:background="?android:attr/divider" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/SettingsGroupCard"
+            android:layout_marginTop="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:divider="@drawable/settings_row_divider"
+                android:orientation="vertical"
+                android:showDividers="middle">
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/sync"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_sync_black_24dp"
+                app:summary="@string/settings_sync_summary"
+                app:title="@string/settings_sync_title" />
+
+            <ProgressBar
+                android:id="@+id/syncingProgress"
+                style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="72dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginBottom="16dp"
+                android:indeterminate="true"
+                app:layout_constraintBottom_toBottomOf="parent" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
 
         <com.moez.QKSMS.common.widget.QkTextView
-            style="@style/PreferenceCategory"
+            style="@style/SettingsGroupHeader"
             android:text="Smart Messaging Features" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefDefaultTab"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_inbox_black_24dp"
-            app:title="Default Startup Tab"
-            app:summary="Personal" />
+        <com.google.android.material.card.MaterialCardView
+            style="@style/SettingsGroupCard"
+            android:layout_marginTop="0dp">
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefAutoCopyOtp"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_content_copy_black_24dp"
-            app:title="Auto-copy OTP verification codes"
-            app:summary="Automatically copy one-time passcodes to clipboard"
-            app:widget="@layout/settings_switch_widget" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:divider="@drawable/settings_row_divider"
+                android:orientation="vertical"
+                android:showDividers="middle">
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefSilentSpam"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_block_white_24dp"
-            app:title="Mute spam and promotional ads"
-            app:summary="Silence notifications for ad messages without discount codes"
-            app:widget="@layout/settings_switch_widget" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefDefaultTab"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_inbox_black_24dp"
+                app:title="Default Startup Tab"
+                app:summary="Personal" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefNotifyDiscounts"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_local_offer_black_24dp"
-            app:title="Discount promo notifications"
-            app:summary="Show brand name and direct 1-click copy action in notification"
-            app:widget="@layout/settings_switch_widget" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAutoCopyOtp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_content_copy_black_24dp"
+                app:title="Auto-copy OTP verification codes"
+                app:summary="Automatically copy one-time passcodes to clipboard"
+                app:widget="@layout/settings_switch_widget" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefNotifyPromoExpiry"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_av_timer_black_24dp"
-            app:title="Discount expiry reminders"
-            app:summary="Warn before a valuable code expires, with the SMS text and a copy action"
-            app:widget="@layout/settings_switch_widget" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefSilentSpam"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_block_white_24dp"
+                app:title="Mute spam and promotional ads"
+                app:summary="Silence notifications for ad messages without discount codes"
+                app:widget="@layout/settings_switch_widget" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefJalaliCalendar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_event_black_24dp"
-            app:title="Solar Jalali calendar"
-            app:summary="Display dates using Persian Jalali calendar"
-            app:widget="@layout/settings_switch_widget" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefNotifyDiscounts"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_local_offer_black_24dp"
+                app:title="Discount promo notifications"
+                app:summary="Show brand name and direct 1-click copy action in notification"
+                app:widget="@layout/settings_switch_widget" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefNotifyPromoExpiry"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_av_timer_black_24dp"
+                app:title="Discount expiry reminders"
+                app:summary="Warn before a valuable code expires, with the SMS text and a copy action"
+                app:widget="@layout/settings_switch_widget" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefJalaliCalendar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_event_black_24dp"
+                app:title="Solar Jalali calendar"
+                app:summary="Display dates using Persian Jalali calendar"
+                app:widget="@layout/settings_switch_widget" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
 
         <TextView
-            style="@style/PreferenceCategory"
+            style="@style/SettingsGroupHeader"
             android:text="Cloud Media Sharing (MMS Alternative)" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefMediaAsCloudLink"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_file_upload_black_24dp"
-            app:title="Upload media to cloud link"
-            app:summary="Upload photos and videos to cloud instead of MMS"
-            app:widget="@layout/settings_switch_widget" />
+        <com.google.android.material.card.MaterialCardView
+            style="@style/SettingsGroupCard"
+            android:layout_marginTop="0dp">
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefFilesIrToken"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_settings_black_24dp"
-            app:title="Files.ir API Token"
-            app:summary="Optional user API key for direct account uploads" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:divider="@drawable/settings_row_divider"
+                android:orientation="vertical"
+                android:showDividers="middle">
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefFilesIrEndpoint"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_settings_black_24dp"
-            app:title="Files.ir Server Endpoint"
-            app:summary="Default: https://my.files.ir" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefMediaAsCloudLink"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_file_upload_black_24dp"
+                app:title="Upload media to cloud link"
+                app:summary="Upload photos and videos to cloud instead of MMS"
+                app:widget="@layout/settings_switch_widget" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefZayaApiKey"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_settings_black_24dp"
-            app:title="Zaya.io API Key"
-            app:summary="Shorten links before sending SMS" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefFilesIrToken"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_settings_black_24dp"
+                app:title="Files.ir API Token"
+                app:summary="Optional user API key for direct account uploads" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefTestCloudConnection"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_file_upload_black_24dp"
-            app:title="Test Cloud Connection"
-            app:summary="Test connectivity to Files.ir and Zaya.io" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefFilesIrEndpoint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_settings_black_24dp"
+                app:title="Files.ir Server Endpoint"
+                app:summary="Default: https://my.files.ir" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefZayaApiKey"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_settings_black_24dp"
+                app:title="Zaya.io API Key"
+                app:summary="Shorten links before sending SMS" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefTestCloudConnection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_file_upload_black_24dp"
+                app:title="Test Cloud Connection"
+                app:summary="Test connectivity to Files.ir and Zaya.io" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
 
         <TextView
-            style="@style/PreferenceCategory"
+            style="@style/SettingsGroupHeader"
             android:text="AI Discount Extraction" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefAiApiKey"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_star_black_24dp"
-            app:title="AI API Key (AvalAI / OpenAI)"
-            app:summary="Enter your API key to extract promo codes using AI" />
+        <com.google.android.material.card.MaterialCardView
+            style="@style/SettingsGroupCard"
+            android:layout_marginTop="0dp">
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefAiBaseUrl"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_settings_black_24dp"
-            app:title="AI Service Endpoint"
-            app:summary="Default: https://api.avalai.ir/v1" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:divider="@drawable/settings_row_divider"
+                android:orientation="vertical"
+                android:showDividers="middle">
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefAiModel"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_local_offer_black_24dp"
-            app:title="AI Model"
-            app:summary="Default: gemini-2.5-flash-lite" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAiApiKey"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_star_black_24dp"
+                app:title="AI API Key (AvalAI / OpenAI)"
+                app:summary="Enter your API key to extract promo codes using AI" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefTestAiConnection"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_sync_black_24dp"
-            app:title="Test AI Connection"
-            app:summary="Verify API key and server connection" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAiBaseUrl"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_settings_black_24dp"
+                app:title="AI Service Endpoint"
+                app:summary="Default: https://api.avalai.ir/v1" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefRunAiScan"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_local_offer_black_24dp"
-            app:title="Scan Inbox with AI"
-            app:summary="Extract active discount codes from promotional SMS" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAiModel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_local_offer_black_24dp"
+                app:title="AI Model"
+                app:summary="Default: gemini-2.5-flash-lite" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/prefAiAutoSendReply"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_send_black_24dp"
-            app:title="Auto-Send AI Replies"
-            app:summary="Send generated AI reply immediately without prompt"
-            app:widget="@layout/settings_switch_widget" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefTestAiConnection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_sync_black_24dp"
+                app:title="Test AI Connection"
+                app:summary="Verify API key and server connection" />
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp"
-            android:background="?android:attr/divider" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefRunAiScan"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_local_offer_black_24dp"
+                app:title="Scan Inbox with AI"
+                app:summary="Extract active discount codes from promotional SMS" />
 
-        <com.moez.QKSMS.common.widget.PreferenceView
-            android:id="@+id/about"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:icon="@drawable/ic_info_black_24dp"
-            app:title="@string/settings_about_title"
-            tools:summary="Version 3.0.7" />
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAiAutoSendReply"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_send_black_24dp"
+                app:title="Auto-Send AI Replies"
+                app:summary="Send generated AI reply immediately without prompt"
+                app:widget="@layout/settings_switch_widget" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/SettingsGroupCard"
+            android:layout_marginTop="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:divider="@drawable/settings_row_divider"
+                android:orientation="vertical"
+                android:showDividers="middle">
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/about"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_info_black_24dp"
+                app:title="@string/settings_about_title"
+                tools:summary="Version 3.0.7" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
 

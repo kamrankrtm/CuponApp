@@ -100,6 +100,10 @@ abstract class QkThemedActivity : QkActivity() {
     @SuppressLint("InlinedApi")
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(getActivityThemeRes(prefs.black.get()))
+        if (!prefs.systemFont.get()) {
+            // `theme` is shadowed by the colour observable below, so ask for the Resources.Theme explicitly
+            getTheme().applyStyle(R.style.AppFontOverlay, true)
+        }
         super.onCreate(savedInstanceState)
 
         // When certain preferences change, we need to recreate the activity

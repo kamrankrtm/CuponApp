@@ -27,6 +27,8 @@
     <com.moez.QKSMS.common.widget.QkTextView
         android:id="@+id/timestamp"
         style="@style/TextSecondary"
+        android:textStyle="bold"
+        app:textSize="tertiary"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center"
@@ -80,8 +82,8 @@
 
     <com.moez.QKSMS.common.widget.AvatarView
         android:id="@+id/avatar"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
         android:layout_marginStart="12dp"
         app:layout_constraintBottom_toBottomOf="@id/body"
         app:layout_constraintStart_toStartOf="parent" />
@@ -91,11 +93,12 @@
         style="@style/TextPrimary"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
+        android:layout_marginStart="8dp"
         android:layout_marginTop="2dp"
-        android:layout_marginEnd="12dp"
+        android:layout_marginEnd="60dp"
         android:autoLink="email|phone|web"
         android:background="@drawable/message_only"
+        android:backgroundTint="?attr/bubbleColor"
         android:gravity="start|center_vertical"
         android:minHeight="36dp"
         app:layout_constrainedWidth="true"
@@ -112,7 +115,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="start"
-        android:layout_marginStart="72dp"
+        android:layout_marginStart="58dp"
         android:layout_marginTop="4dp"
         android:layout_marginBottom="4dp"
         android:textColor="?android:attr/textColorSecondary"
