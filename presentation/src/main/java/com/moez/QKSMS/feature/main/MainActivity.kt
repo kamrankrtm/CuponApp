@@ -226,14 +226,8 @@ class MainActivity : QkThemedActivity(), MainView {
                     syncingProgress?.indeterminateTintList = ColorStateList.valueOf(theme.theme)
                     plusIcon.setTint(theme.theme)
                     rateIcon.setTint(theme.theme)
-                    compose.setBackgroundTint(theme.theme)
-
-                    // Set the FAB compose icon color
-                    compose.setTint(theme.textPrimary)
-
-                    // Theme Smart TabLayout
-                    smartTabLayout?.setSelectedTabIndicatorColor(theme.theme)
-                    smartTabLayout?.setTabTextColors(resolveThemeColor(android.R.attr.textColorSecondary), theme.theme)
+                    // The compose button and tab capsule follow the active category, not the contact theme
+                    applyTabAccent()
                 }
 
         // These theme attributes don't apply themselves on API 21
@@ -512,15 +506,18 @@ class MainActivity : QkThemedActivity(), MainView {
         tabs.addTab(tabs.newTab().setText("OTP"))
         tabs.addTab(tabs.newTab().setText("Discounts"))
         tabs.addTab(tabs.newTab().setText("Spam"))
+        tabs.setTabTextColors(resolveThemeColor(android.R.attr.textColorSecondary), android.graphics.Color.WHITE)
 
         val defaultTab = prefs.defaultTab.get().coerceIn(0, 5)
         currentTabPosition = defaultTab
         tabs.getTabAt(defaultTab)?.select()
+        applyTabAccent()
 
         tabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 tab?.let {
                     currentTabPosition = it.position
+                    applyTabAccent()
                     applyTabFilter()
                     recyclerView.post { recyclerView.scrollToPosition(0) }
                 }
@@ -533,6 +530,19 @@ class MainActivity : QkThemedActivity(), MainView {
                 recyclerView.post { recyclerView.scrollToPosition(0) }
             }
         })
+    }
+
+    /** One accent per tab, in tab order; see the tab* colours for the light and dark values. */
+    private val tabAccentColors by lazy {
+        intArrayOf(R.color.tabAll, R.color.tabPersonal, R.color.tabBanking, R.color.tabOtp, R.color.tabDiscounts, R.color.tabSpam)
+            .map { res -> androidx.core.content.ContextCompat.getColor(this, res) }
+    }
+
+    private fun applyTabAccent() {
+        val accent = tabAccentColors.getOrElse(currentTabPosition) { tabAccentColors[0] }
+        smartTabLayout?.setSelectedTabIndicatorColor(accent)
+        compose.setBackgroundTint(accent)
+        compose.setTint(android.graphics.Color.WHITE)
     }
 
     private val classificationCache = java.util.concurrent.ConcurrentHashMap<Long, Pair<Long, SmsCategory>>()
@@ -748,7 +758,7 @@ class MainActivity : QkThemedActivity(), MainView {
         }
 
         container.removeAllViews()
-        val accentColor = android.graphics.Color.parseColor("#0088FF")
+        val accentColor = androidx.core.content.ContextCompat.getColor(this, R.color.tabDiscounts)
         val bubbleColor = resolveThemeColor(R.attr.bubbleColor)
         val secondaryText = resolveThemeColor(android.R.attr.textColorSecondary)
         val density = resources.displayMetrics.density
@@ -765,8 +775,8 @@ class MainActivity : QkThemedActivity(), MainView {
                     label
                 }
                 gravity = android.view.Gravity.CENTER
-                textSize = 11f
-                setPadding((12 * density).toInt(), 0, (12 * density).toInt(), 0)
+                textSize = 12f
+                setPadding((14 * density).toInt(), 0, (14 * density).toInt(), 0)
                 setBackgroundResource(R.drawable.rounded_rectangle_24dp)
                 backgroundTintList = ColorStateList.valueOf(if (selected) accentColor else bubbleColor)
                 setTextColor(if (selected) android.graphics.Color.WHITE else secondaryText)
@@ -783,9 +793,9 @@ class MainActivity : QkThemedActivity(), MainView {
 
             val params = android.widget.LinearLayout.LayoutParams(
                 android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-                (30 * density).toInt()
+                (32 * density).toInt()
             )
-            if (index > 0) params.marginStart = (6 * density).toInt()
+            if (index > 0) params.marginStart = (8 * density).toInt()
             container.addView(chip, params)
         }
     }

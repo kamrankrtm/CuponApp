@@ -71,7 +71,7 @@ class ConversationsAdapter @Inject constructor(
 
             view.snippet.setTypeface(view.snippet.typeface, Typeface.BOLD)
             view.snippet.setTextColor(textColorPrimary)
-            view.snippet.maxLines = 5
+            view.snippet.maxLines = 3
 
             view.unread.isVisible = true
 
@@ -153,7 +153,7 @@ class ConversationsAdapter @Inject constructor(
             holder.title.setTypeface(holder.title.typeface, Typeface.BOLD)
             holder.snippet.setTypeface(holder.snippet.typeface, Typeface.BOLD)
             holder.snippet.setTextColor(textColorPrimary)
-            holder.snippet.maxLines = 5
+            holder.snippet.maxLines = 3
             holder.date.setTypeface(holder.date.typeface, Typeface.BOLD)
             holder.date.setTextColor(textColorPrimary)
             holder.unread.setTint(theme)
@@ -162,7 +162,7 @@ class ConversationsAdapter @Inject constructor(
             holder.title.setTextColor(textColorPrimary)
             holder.snippet.setTypeface(Typeface.create(holder.snippet.typeface, Typeface.NORMAL), Typeface.NORMAL)
             holder.snippet.setTextColor(textColorSecondary)
-            holder.snippet.maxLines = 1
+            holder.snippet.maxLines = 2
             holder.date.setTypeface(Typeface.create(holder.date.typeface, Typeface.NORMAL), Typeface.NORMAL)
             holder.date.setTextColor(textColorTertiary)
         }
