@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brighter accents for dark backgrounds, matching the system dark palette -->
+    <color name="blue_500">#0A84FF</color>
+    <color name="red_500">#FF453A</color>
+
+    <color name="tabAll">#5E5CE6</color>
+    <color name="tabPersonal">#BF5AF2</color>
+    <color name="tabBanking">#30D158</color>
+    <color name="tabOtp">#0A84FF</color>
+    <color name="tabDiscounts">#FF9F0A</color>
+    <color name="tabSpam">#98989D</color>
+</resources>

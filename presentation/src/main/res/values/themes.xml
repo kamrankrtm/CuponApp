@@ -24,6 +24,9 @@
     <attr name="switchThumbDisabled" format="color" />
     <attr name="switchTrackEnabled" format="color" />
     <attr name="switchTrackDisabled" format="color" />
+    <!-- Background behind grouped content (settings, cards), and the cards themselves -->
+    <attr name="groupedBackground" format="reference|color" />
+    <attr name="cardColor" format="reference|color" />
 
     <style name="AppLaunchTheme" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
         <item name="android:navigationBarColor">@color/backgroundDark</item>
@@ -56,6 +59,11 @@
         <item name="android:windowContentTransitions">true</item>
         <item name="actionBarPopupTheme">@style/PopupTheme</item>
         <item name="bubbleColor">@color/bubbleLight</item>
+        <item name="groupedBackground">@color/groupedLight</item>
+        <item name="cardColor">@color/cardLight</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.App.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.App.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.App.Large</item>
         <item name="colorPrimary">@color/backgroundLight</item>
         <item name="colorPrimaryDark">@color/backgroundLight</item>
         <item name="colorPrimaryVariant">@color/backgroundLight</item>
@@ -83,6 +91,11 @@
         <item name="android:windowBackground">@color/backgroundLight</item>
         <item name="actionBarPopupTheme">@style/PopupTheme</item>
         <item name="bubbleColor">@color/bubbleLight</item>
+        <item name="groupedBackground">@color/groupedLight</item>
+        <item name="cardColor">@color/cardLight</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.App.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.App.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.App.Large</item>
         <item name="colorPrimary">@color/backgroundLight</item>
         <item name="colorPrimaryDark">@color/backgroundLight</item>
         <item name="colorPrimaryVariant">@color/backgroundLight</item>
@@ -99,6 +112,28 @@
         <item name="windowActionBar">false</item>
     </style>
 
+    <!-- Applied on top of the activity theme unless the user picked the system font, so that
+         plain TextViews, tabs, buttons and dialogs share the Dubai typeface with QkTextViews -->
+    <style name="AppFontOverlay">
+        <item name="android:fontFamily">@font/app_font</item>
+        <item name="fontFamily">@font/app_font</item>
+    </style>
+
+    <style name="ShapeAppearance.App.Small" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">10dp</item>
+    </style>
+
+    <style name="ShapeAppearance.App.Medium" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">14dp</item>
+    </style>
+
+    <style name="ShapeAppearance.App.Large" parent="ShapeAppearance.MaterialComponents.LargeComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">20dp</item>
+    </style>
+
     <style name="PopupTheme" parent="ThemeOverlay.AppCompat.Light">
         <item name="android:colorBackground">@color/backgroundLight</item>
         <item name="android:textColor">@color/textPrimary</item>
@@ -110,6 +145,8 @@
         <item name="android:statusBarColor">@color/black</item>
         <item name="android:windowBackground">@color/black</item>
         <item name="bubbleColor">@color/bubbleBlack</item>
+        <item name="groupedBackground">@color/black</item>
+        <item name="cardColor">@color/bubbleBlack</item>
         <item name="colorPrimary">@color/black</item>
         <item name="colorPrimaryDark">@color/black</item>
         <item name="colorPrimaryVariant">@color/black</item>

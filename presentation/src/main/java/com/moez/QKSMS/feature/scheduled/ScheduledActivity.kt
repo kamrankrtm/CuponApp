@@ -59,8 +59,8 @@ class ScheduledActivity : QkThemedActivity(), ScheduledView {
         viewModel.bindView(this)
 
         if (!prefs.systemFont.get()) {
-            fontProvider.getLato { lato ->
-                val typeface = Typeface.create(lato, Typeface.BOLD)
+            fontProvider.getAppFont { appFont ->
+                val typeface = Typeface.create(appFont, Typeface.BOLD)
                 collapsingToolbar.setCollapsedTitleTypeface(typeface)
                 collapsingToolbar.setExpandedTitleTypeface(typeface)
             }

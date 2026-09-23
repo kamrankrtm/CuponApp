@@ -101,8 +101,8 @@ class TextViewStyler @Inject constructor(
         var textSizeAttr = 0
 
         if (!prefs.systemFont.get()) {
-            fontProvider.getLato { lato ->
-                textView.setTypeface(lato, textView.typeface?.style ?: Typeface.NORMAL)
+            fontProvider.getAppFont { appFont ->
+                textView.setTypeface(appFont, textView.typeface?.style ?: Typeface.NORMAL)
             }
         }
 
