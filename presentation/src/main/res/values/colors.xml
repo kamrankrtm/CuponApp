@@ -87,6 +87,9 @@
     <color name="tabDiscounts">#F28A00</color>
     <color name="tabSpam">#8E8E93</color>
 
+    <!-- Dashed edge of the coupon panel on discount cards -->
+    <color name="ticketStroke">#C7C7CC</color>
+
     <array name="random_colors">
         <item>#007AFF</item>
         <item>#34C759</item>

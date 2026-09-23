@@ -10,4 +10,6 @@
     <color name="tabOtp">#0A84FF</color>
     <color name="tabDiscounts">#FF9F0A</color>
     <color name="tabSpam">#98989D</color>
+
+    <color name="ticketStroke">#48484A</color>
 </resources>
