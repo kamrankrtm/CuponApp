@@ -12,8 +12,8 @@ import java.util.regex.Pattern
 
 object SmartSmsClassifier {
 
-    // Regex for Iranian personal phone numbers: 0912..., +98912..., 98912...
-    private val PERSONAL_NUMBER_REGEX = Pattern.compile("^(?:\\+98|98|0)?9\\d{9}$")
+    // An Iranian mobile once its +98 / 0098 / 98 / 0 prefix is gone: 912..., ten digits
+    private val PERSONAL_NUMBER_REGEX = Pattern.compile("^9\\d{9}$")
 
     // OTP detection patterns
     private val OTP_KEYWORDS = listOf(
@@ -82,12 +82,61 @@ object SmartSmsClassifier {
         }
 
         // 4. Check for Personal Contact / 09..., or a sender the user marked "not spam"
-        if (isPersonalNumber(cleanSender) || TrustedSenders.isTrusted(cleanSender)) {
+        if (isPersonalNumber(cleanSender) || SenderOverrides.isTrusted(cleanSender)) {
             return SmsCategory.Personal
         }
 
         // 5. Commercial sender or bulk promotion without discount -> Spam
         return SmsCategory.Spam
+    }
+
+    /**
+     * The category of a conversation for the tabs. People saved as contacts are Personal, but
+     * a saved service number (a bank saved as "Blu Bank") still goes to Banking when its
+     * messages are transactions. Where the user moved the sender is applied by the caller.
+     */
+    fun classifyConversation(
+        sender: String,
+        body: String,
+        hasSavedContact: Boolean,
+        date: Long = System.currentTimeMillis(),
+        threadId: Long = 0L
+    ): SmsCategory {
+        if (SenderOverrides.isTrusted(sender)) return SmsCategory.Personal
+        if (!hasSavedContact) return classify(sender, body, date, threadId)
+        if (isPersonalNumber(sender)) return SmsCategory.Personal
+        val category = classify(sender, body, date, threadId)
+        return if (category is SmsCategory.Banking) category else SmsCategory.Personal
+    }
+
+    /**
+     * [classify], with the user's own choice for the sender (Move to …, Not spam) on top.
+     * Verification codes are left as they are, so a code from a moved sender is still copied
+     * and announced.
+     */
+    fun classifyForUser(
+        sender: String,
+        body: String,
+        date: Long = System.currentTimeMillis(),
+        threadId: Long = 0L
+    ): SmsCategory {
+        val category = classify(sender, body, date, threadId)
+        if (category is SmsCategory.Otp) return category
+        return when (SenderOverrides.tabFor(sender)) {
+            SenderOverrides.Tab.SPAM -> SmsCategory.Spam
+            SenderOverrides.Tab.BANKING -> category as? SmsCategory.Banking ?: movedToBanking(sender.trim(), body.trim())
+            SenderOverrides.Tab.PERSONAL, null -> category
+        }
+    }
+
+    /** A message from a sender moved to Banking that reads like no transaction we know. */
+    private fun movedToBanking(sender: String, body: String): SmsCategory.Banking {
+        val isDeposit = when {
+            body.contains("واریز") -> true
+            body.contains("برداشت") -> false
+            else -> null
+        }
+        return SmsCategory.Banking(extractBankName(sender, body), extractBankingAmount(body), isDeposit)
     }
 
     fun normalizeDigits(input: String): String {
@@ -121,6 +170,7 @@ object SmartSmsClassifier {
         val normalized = normalizeDigits(sender).replace("\\s+".toRegex(), "").replace("-", "")
         val plain = when {
             normalized.startsWith("+98") -> normalized.substring(3)
+            normalized.startsWith("0098") -> normalized.substring(4)
             normalized.startsWith("98") -> normalized.substring(2)
             normalized.startsWith("0") -> normalized.substring(1)
             else -> normalized
@@ -129,7 +179,9 @@ object SmartSmsClassifier {
         if (plain.startsWith("998") || plain.startsWith("999")) {
             return false
         }
-        return PERSONAL_NUMBER_REGEX.matcher(normalized).matches()
+        // Matched after the prefix is gone: no mobile starts 098, so "9830005513" is the short
+        // code 30005513 behind the country code, not the mobile 0983 0005513
+        return PERSONAL_NUMBER_REGEX.matcher(plain).matches()
     }
 
     /**
@@ -447,44 +499,138 @@ object SmartSmsClassifier {
         }
     }
 
+    /** Words that make a message an advertisement, whatever amounts it quotes. */
+    private val AD_SIGNALS = listOf(
+        "تخفیف", "جشنواره", "ارسال رایگان", "فروشگاه", "قرعه", "جایزه", "هدیه", "off", "discount"
+    )
+
+    /** The opt-out line the law requires under every advertisement: "لغو11". */
+    private val OPT_OUT = Pattern.compile("لغو\\s*\\d")
+
+    /** An amount written with thousands separators: 400,000 (digits already normalised). */
+    private const val GROUPED_AMOUNT = "\\d{1,3}(?:[,٬]\\d{3})+"
+
+    /** The way statements write money leaving or arriving: "400,000-", "+7,000,000". */
+    private val SIGNED_AMOUNT = Pattern.compile("[+\\-−]\\s?$GROUPED_AMOUNT|$GROUPED_AMOUNT\\s?[+\\-−]")
+
+    /** A stated balance: "مانده:1,234,567", "موجودی حساب 1,234,567". */
+    private val BALANCE = Pattern.compile("(?:مانده|موجودی)(?:\\s*حساب)?\\s*[:：]?\\s*[+\\-−]?\\s?$GROUPED_AMOUNT")
+
+    /** An account or card number, which statements lead with. */
+    private val ACCOUNT_NUMBER = Pattern.compile("\\d{10,}")
+
+    private val WALLET_MOVES = listOf("شارژ شد", "واریز", "برداشت", "پرداخت", "کسر شد", "افزایش")
+
+    /** Receipts from payment gateways such as Zarinpal. */
+    private val GATEWAY_RECEIPTS = listOf("خرید از درگاه", "پرداخت از درگاه", "درگاه پرداخت", "پرداخت موفق", "تراکنش موفق")
+
+    private val STRICT_BANKING_KEYWORDS = listOf(
+        "واریز", "برداشت", "مانده حساب", "موجودی:", "مانده فعلی", "مانده:", "انتقال:", "حساب:",
+        "انتقال وجه", "انتقال پل", "انتقال پایا", "حواله پایا", "انتقال ساتنا", "خرید با کارت",
+        "خرید از:", "صورتحساب", "کسر شد", "افزایش موجودی",
+        "از حساب شما پرید", "به حساب شما نشست", "رمز اینترنتی"
+    )
+
+    /** Pairs that together only a bank would write, e.g. (واریز and موجودی). */
+    private val FINANCIAL_PAIRS = listOf(
+        "واریز" to "موجودی",
+        "برداشت" to "موجودی",
+        "واریز" to "حساب",
+        "برداشت" to "حساب",
+        "کسر" to "حساب",
+        "خرید با کارت" to "مانده حساب"
+    )
+
+    /** Latin sender ids banks send from ("B.QMEHRIRAN", "BLUBANK"), with the name to show. */
+    private val BANK_SENDER_IDS = listOf(
+        "mehriran" to "بانک قرض‌الحسنه مهر ایران",
+        "resalat" to "بانک قرض‌الحسنه رسالت",
+        "blubank" to "بلوبانک",
+        "blu" to "بلوبانک",
+        "wepod" to "ویپاد (ترابانک پاسارگاد)",
+        "melli" to "بانک ملی ایران",
+        "mellat" to "بانک ملت",
+        "saderat" to "بانک صادرات ایران",
+        "tejarat" to "بانک تجارت",
+        "sepah" to "بانک سپه",
+        "pasargad" to "بانک پاسارگاد",
+        "saman" to "بانک سامان",
+        "parsian" to "بانک پارسیان",
+        "ayandeh" to "بانک آینده",
+        "keshavarzi" to "بانک کشاورزی",
+        "maskan" to "بانک مسکن",
+        "eghtesad" to "بانک اقتصاد نوین",
+        "karafarin" to "بانک کارآفرین",
+        "gardeshgari" to "بانک گردشگری",
+        "iranzamin" to "بانک ایران زمین",
+        "sarmayeh" to "بانک سرمایه",
+        "postbank" to "پست بانک ایران",
+        "bank" to ""
+    )
+
+    /** Wallets and gateways, named when a transaction comes from one rather than a bank. */
+    private val PAYMENT_SERVICES = listOf(
+        "زرین پال" to "زرین‌پال",
+        "زرینپال" to "زرین‌پال",
+        "بازارپی" to "بازارپی",
+        "بازار پی" to "بازارپی",
+        "دیجی پی" to "دیجی‌پی",
+        "دیجیپی" to "دیجی‌پی",
+        "اسنپ پی" to "اسنپ‌پی",
+        "اسنپپی" to "اسنپ‌پی",
+        "کیف پول" to "کیف پول"
+    )
+
+    /** "بلو" opens every Blu Bank message but also sits inside ordinary words, so it must stand alone. */
+    private val BLU_WORD = Pattern.compile("(?<!\\p{L})بلو(?!\\p{L})")
+
+    /** Arabic letters and digits made Persian/ASCII, and the zero-width joiner made a space. */
+    private fun bankingText(text: String): String = normalizeText(text).replace('‌', ' ')
+
     private fun isBankingMessage(sender: String, body: String): Boolean {
-        val cleanBody = normalizeText(body)
-        // 1. If message contains commercial advertisement signals, it is NOT a banking transaction!
-        val adSignals = listOf("تخفیف", "جشنواره", "لغو11", "لغو۱۱", "لغو ۱۱", "ارسال رایگان", "فروشگاه", "off", "discount")
-        if (adSignals.any { cleanBody.contains(it, ignoreCase = true) }) {
+        val text = bankingText(body)
+        val lower = text.toLowerCase()
+        if (AD_SIGNALS.any { lower.contains(it) } || OPT_OUT.matcher(text).find()) {
             return false
         }
 
-        val hasBankKeyword = IRANIAN_BANKS.any { (kw, _) ->
-            cleanBody.contains(kw, ignoreCase = true) || sender.contains(kw, ignoreCase = true)
-        } || sender.contains("bank", ignoreCase = true) || sender.contains("بانک")
+        val senderText = bankingText(sender).toLowerCase()
+        val hasBankKeyword = IRANIAN_BANKS.any { (kw, _) -> text.contains(kw) || senderText.contains(kw) } ||
+                BANK_SENDER_IDS.any { (id, _) -> senderText.contains(id) } ||
+                senderText.contains("بانک") ||
+                BLU_WORD.matcher(text).find()
 
-        val strictBankingKeywords = listOf(
-            "واریز", "برداشت", "مانده حساب", "موجودی:", "مانده فعلی",
-            "انتقال وجه", "انتقال پل", "انتقال پایا", "حواله پایا", "انتقال ساتنا", "خرید با کارت",
-            "خرید از:", "صورتحساب", "کسر شد", "افزایش موجودی",
-            "از حساب شما پرید", "به حساب شما نشست", "رمز اینترنتی"
-        )
-        val matchedKws = strictBankingKeywords.count { cleanBody.contains(it, ignoreCase = true) }
+        // The shape of a transaction: a signed amount against an account, a stated balance, a
+        // wallet movement or a gateway receipt. Advertisements never write money this way.
+        val signedAmount = SIGNED_AMOUNT.matcher(text).find()
+        val balance = BALANCE.matcher(text).find()
+        val accountish = text.contains("حساب") || text.contains("کارت") || ACCOUNT_NUMBER.matcher(text).find()
+        val wallet = text.contains("کیف پول") && WALLET_MOVES.any { text.contains(it) }
+        val gateway = GATEWAY_RECEIPTS.any { text.contains(it) }
+        if ((signedAmount && (accountish || hasBankKeyword)) || balance || wallet || gateway) return true
 
+        // Someone texting about money is not a bank: the looser word rules are for service senders
+        if (isPersonalNumber(sender)) return false
+
+        val matchedKws = STRICT_BANKING_KEYWORDS.count { text.contains(it) }
         if (hasBankKeyword && matchedKws >= 1) return true
-
-        // Financial pairs like (واریز and موجودی), (برداشت and موجودی)
-        val financialPairs = listOf(
-            "واریز" to "موجودی",
-            "برداشت" to "موجودی",
-            "واریز" to "حساب",
-            "برداشت" to "حساب",
-            "خرید با کارت" to "مانده حساب"
-        )
-        return financialPairs.any { (p1, p2) -> cleanBody.contains(p1, ignoreCase = true) && cleanBody.contains(p2, ignoreCase = true) }
+        return FINANCIAL_PAIRS.any { (p1, p2) -> text.contains(p1) && text.contains(p2) }
     }
 
     private fun extractBankName(sender: String, body: String): String {
+        val text = bankingText(body)
+        val senderText = bankingText(sender).toLowerCase()
         for ((kw, name) in IRANIAN_BANKS) {
-            if (body.contains(kw, ignoreCase = true) || sender.contains(kw, ignoreCase = true)) {
+            if (text.contains(kw) || senderText.contains(kw)) {
                 return name
             }
+        }
+        for ((id, name) in BANK_SENDER_IDS) {
+            if (name.isNotEmpty() && senderText.contains(id)) return name
+        }
+        if (BLU_WORD.matcher(text).find()) return "بلوبانک"
+        for ((kw, name) in PAYMENT_SERVICES) {
+            if (text.contains(kw)) return name
         }
         return if (sender.isNotBlank()) sender else "پیامک بانکی"
     }

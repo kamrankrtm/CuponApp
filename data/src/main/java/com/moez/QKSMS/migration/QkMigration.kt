@@ -35,6 +35,8 @@ class QkMigration @Inject constructor(
 ) {
 
     fun performMigration() {
+        resetSystemFontOnce()
+
         GlobalScope.launch {
             val oldVersion = prefs.version.get()
 
@@ -44,6 +46,18 @@ class QkMigration @Inject constructor(
 
             prefs.version.set(context.versionCode)
         }
+    }
+
+    /**
+     * "Use system font" was the way to read Persian while the bundled font was the Latin-only
+     * Lato, so it may still be on from then and hide Dubai everywhere. It is cleared once, here
+     * rather than in the coroutine below so that no screen reads it first; switching it back on
+     * in Settings sticks.
+     */
+    private fun resetSystemFontOnce() {
+        if (prefs.systemFontReset.get()) return
+        prefs.systemFont.set(false)
+        prefs.systemFontReset.set(true)
     }
 
     private fun upgradeTo370() {

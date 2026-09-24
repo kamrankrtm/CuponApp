@@ -126,7 +126,8 @@ class NotificationManagerImpl @Inject constructor(
         val sender = lastRecipient?.address ?: ""
         val body = lastMessage?.body ?: ""
         val msgDate = lastMessage?.date ?: System.currentTimeMillis()
-        val smartCategory = SmartSmsClassifier.classify(sender, body, msgDate, threadId)
+        // The user's "Move to …" choice for this sender decides, except for verification codes
+        val smartCategory = SmartSmsClassifier.classifyForUser(sender, body, msgDate, threadId)
 
         // Silent Spam: if spam and silentSpam is enabled, do not display notification
         if (smartCategory is SmsCategory.Spam && prefs.silentSpam.get()) {

@@ -99,6 +99,8 @@ class Preferences @Inject constructor(
     val black = rxPrefs.getBoolean("black", false)
     val autoColor = rxPrefs.getBoolean("autoColor", false)
     val systemFont = rxPrefs.getBoolean("systemFont", false)
+    // Set once an old "use system font" choice has been cleared for the bundled Dubai font
+    val systemFontReset = rxPrefs.getBoolean("systemFontReset", false)
     val textSize = rxPrefs.getInteger("textSize", TEXT_SIZE_NORMAL)
     val blockingManager = rxPrefs.getInteger("blockingManager", BLOCKING_MANAGER_QKSMS)
     val drop = rxPrefs.getBoolean("drop", false)

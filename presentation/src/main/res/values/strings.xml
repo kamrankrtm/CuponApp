@@ -23,6 +23,14 @@
     <string name="spam_not_spam">Not spam</string>
     <string name="spam_info">Ads without a code arrive silently. Swipe right on a sender to move it to Personal.</string>
     <string name="spam_moved_to_personal">Moved to Personal. You\'ll get notifications from %s</string>
+    <string name="sender_sheet_subtitle">Messages from this sender will go there from now on</string>
+    <string name="sender_move_personal">Move to Personal</string>
+    <string name="sender_move_banking">Move to Banking</string>
+    <string name="sender_move_spam">Move to Spam</string>
+    <string name="sender_select">Select</string>
+    <string name="sender_moved_personal">%s moved to Personal</string>
+    <string name="sender_moved_banking">%s moved to Banking</string>
+    <string name="sender_moved_spam">%s moved to Spam. Its messages will be silent</string>
 
     <string name="shortcut_compose_long_label">New conversation</string>
     <string name="shortcut_compose_short_label">Compose</string>

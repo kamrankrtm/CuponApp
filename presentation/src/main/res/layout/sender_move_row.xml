@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One destination in the move sheet: a coloured tile like the drawer's, then the label -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:minHeight="52dp"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp">
+
+    <ImageView
+        android:id="@+id/rowIcon"
+        style="@style/DrawerIcon"
+        tools:backgroundTint="@color/tabBanking"
+        tools:src="@drawable/ic_lc_landmark" />
+
+    <com.moez.QKSMS.common.widget.QkTextView
+        android:id="@+id/rowLabel"
+        style="@style/TextPrimary"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="left"
+        android:lines="1"
+        tools:text="Move to Banking" />
+
+</LinearLayout>

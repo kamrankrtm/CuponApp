@@ -19,6 +19,7 @@
 package com.moez.QKSMS.feature.compose
 
 import android.content.Context
+import android.os.Build
 import android.net.Uri
 import android.os.Vibrator
 import android.provider.ContactsContract
@@ -214,6 +215,9 @@ class ComposeViewModel @Inject constructor(
                 val position = messages.indexOfFirst { it.id == selected } + 1
                 newState { copy(searchSelectionPosition = position, searchResults = messages.size) }
             }
+            // A combiner may not return null, which the branch above does when no message matches
+            // the search that opened the conversation (it matched the contact's name instead)
+            Unit
         }.subscribe()
 
         val latestSubId = messages
@@ -332,6 +336,8 @@ class ComposeViewModel @Inject constructor(
                     }
 
                     ClipboardUtils.copy(context, text)
+                    // Android 13 and later confirm a copy on screen themselves
+                    if (Build.VERSION.SDK_INT < 33) context.makeToast(R.string.toast_copied) else Unit
                 }
                 .autoDisposable(view.scope())
                 .subscribe { view.clearSelection() }

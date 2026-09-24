@@ -50,6 +50,9 @@ class FilteredConversationsAdapter(
             notifyDataSetChanged()
         }
 
+    /** Called with the conversation's id when a row is long-pressed. */
+    var onLongPress: ((conversationId: Long) -> Unit)? = null
+
     /** Banking reads per conversation, keyed by the last message id they were made from. */
     private val bankingCache = HashMap<Long, Pair<Long, SmsCategory.Banking?>>()
 
@@ -118,6 +121,17 @@ class FilteredConversationsAdapter(
         if (id >= 0) navigator.showConversation(id)
     }
 
+    /** Hands a long-pressed row to [onLongPress]; false lets the press fall through. */
+    private fun longPress(position: Int): Boolean {
+        if (position == RecyclerView.NO_POSITION || position !in 0 until itemCount) return false
+        if (hasHeader && position == 0) return false
+        val id = getItemId(position)
+        val handler = onLongPress
+        if (id < 0 || handler == null) return false
+        handler(id)
+        return true
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): QkViewHolder {
         val layoutInflater = LayoutInflater.from(parent.context)
 
@@ -130,6 +144,7 @@ class FilteredConversationsAdapter(
             val view = layoutInflater.inflate(R.layout.bank_transaction_item, parent, false)
             return BankViewHolder(view).apply {
                 view.setOnClickListener { open(adapterPosition) }
+                view.setOnLongClickListener { longPress(adapterPosition) }
             }
         }
 
@@ -148,6 +163,7 @@ class FilteredConversationsAdapter(
 
         return QkViewHolder(view).apply {
             view.setOnClickListener { open(adapterPosition) }
+            view.setOnLongClickListener { longPress(adapterPosition) }
         }
     }
 

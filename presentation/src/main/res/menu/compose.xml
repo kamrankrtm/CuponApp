@@ -41,33 +41,34 @@
         android:visible="false"
         app:showAsAction="always" />
 
+    <!-- A long-pressed message offers Copy and Delete up front; the rest waits in the overflow -->
     <item
-        android:id="@+id/details"
-        android:icon="@drawable/ic_lc_info"
+        android:id="@+id/copy"
+        android:icon="@drawable/ic_lc_copy"
         android:title="@string/compose_menu_copy"
         android:visible="false"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="always" />
 
     <item
         android:id="@+id/delete"
         android:icon="@drawable/ic_lc_trash"
         android:title="@string/compose_menu_delete"
         android:visible="false"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="always" />
 
     <item
-        android:id="@+id/copy"
-        android:icon="@drawable/ic_lc_copy"
-        android:title="@string/compose_menu_copy"
+        android:id="@+id/details"
+        android:icon="@drawable/ic_lc_info"
+        android:title="@string/menu_info"
         android:visible="false"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="never" />
 
     <item
         android:id="@+id/forward"
         android:icon="@drawable/ic_lc_forward"
         android:title="@string/compose_menu_forward"
         android:visible="false"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="never" />
 
     <item
         android:id="@+id/previous"

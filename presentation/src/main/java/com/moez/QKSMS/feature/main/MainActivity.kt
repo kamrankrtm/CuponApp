@@ -78,13 +78,17 @@ import com.moez.QKSMS.common.widget.CategoryBar
 import com.moez.QKSMS.feature.smart.SmartDataManager
 import com.moez.QKSMS.feature.smart.promo.BrandRegistry
 import com.moez.QKSMS.feature.smart.SmartSmsClassifier
-import com.moez.QKSMS.feature.smart.TrustedSenders
+import com.moez.QKSMS.feature.smart.SenderOverrides
+import com.moez.QKSMS.feature.smart.SenderOverrides.Tab
 import com.moez.QKSMS.feature.smart.model.SmsCategory
 import com.moez.QKSMS.feature.smart.ui.FilteredConversationsAdapter
 import com.moez.QKSMS.feature.smart.ui.OtpCodesAdapter
 import com.moez.QKSMS.feature.smart.ui.PromoCodesAdapter
+import com.moez.QKSMS.feature.smart.ui.SenderMoveSheet
 import com.moez.QKSMS.feature.smart.ui.SpamSwipeCallback
 import com.moez.QKSMS.model.Conversation
+import io.realm.RealmChangeListener
+import io.realm.RealmResults
 import javax.inject.Inject
 
 class MainActivity : QkThemedActivity(), MainView {
@@ -122,6 +126,24 @@ class MainActivity : QkThemedActivity(), MainView {
     private var lastScannedConversationId: Long = -1
     private var lastSyncProgress: SyncRepository.SyncProgress = SyncRepository.SyncProgress.Idle
     private var currentState: MainState? = null
+
+    /**
+     * The inbox the Personal, Banking and Spam lists are cut from. Only a new MainState used to
+     * re-cut them, so reading a conversation left its unread dot behind; they now follow every
+     * change to the inbox, a moment later so that a sync's burst of changes costs one pass.
+     */
+    private var watchedInbox: RealmResults<Conversation>? = null
+    private val refreshFilteredTabs = Runnable {
+        val page = currentState?.page
+        val inbox = watchedInbox
+        if (page is Inbox && page.selected == 0 && inbox != null && inbox.isValid && inbox.isLoaded) {
+            refreshInbox(inbox)
+        }
+    }
+    private val inboxListener = RealmChangeListener<RealmResults<Conversation>> {
+        recyclerView.removeCallbacks(refreshFilteredTabs)
+        recyclerView.postDelayed(refreshFilteredTabs, 150)
+    }
 
     override val onNewIntentIntent: Subject<Intent> = PublishSubject.create()
     override val activityResumedIntent: Subject<Boolean> = PublishSubject.create()
@@ -187,6 +209,8 @@ class MainActivity : QkThemedActivity(), MainView {
         }
 
         toggle.syncState()
+        conversationsAdapter.onLongPress = { id -> showMoveSheet(id) }
+        filteredConversationsAdapter.onLongPress = { id -> showMoveSheet(id) }
         try {
             // Restore saved discount codes before the discounts tab can ask for them.
             SmartDataManager.init(this)
@@ -316,20 +340,9 @@ class MainActivity : QkThemedActivity(), MainView {
                     empty.setText(R.string.inbox_empty_text)
                 } else {
                     val rawData = state.page.data
-                    val count = rawData?.size ?: 0
-                    val firstId = rawData?.firstOrNull()?.id ?: -1L
-                    val countOrStructureChanged = count != lastScannedConversationCount || firstId != lastScannedConversationId
-
-                    currentConversationsList = rawData?.toList() ?: emptyList()
                     conversationsAdapter.updateData(rawData)
-
-                    if (countOrStructureChanged) {
-                        lastScannedConversationCount = count
-                        lastScannedConversationId = firstId
-                        classifyConversationsImmediately(currentConversationsList)
-                        preClassifyConversations()
-                    }
-                    applyTabFilter()
+                    watchInbox(rawData)
+                    refreshInbox(rawData)
                 }
             }
 
@@ -424,6 +437,8 @@ class MainActivity : QkThemedActivity(), MainView {
     override fun onDestroy() {
         super.onDestroy()
         disposables.dispose()
+        recyclerView.removeCallbacks(refreshFilteredTabs)
+        watchInbox(null)
     }
 
     override fun showBackButton(show: Boolean) {
@@ -567,6 +582,17 @@ class MainActivity : QkThemedActivity(), MainView {
             val lastMsg = conv.lastMessage
             val lastMsgId = lastMsg?.id ?: -1L
 
+            // Where the user moved this sender wins over anything its messages say
+            val chosen = SenderOverrides.tabFor(conv.recipients.firstOrNull()?.address ?: "")
+            if (chosen != null) {
+                when (chosen) {
+                    Tab.PERSONAL -> personal.add(id)
+                    Tab.BANKING -> banking.add(id)
+                    Tab.SPAM -> spam.add(id)
+                }
+                continue
+            }
+
             // Check if cached
             val cached = classificationCache[id]
             if (cached != null && cached.first == lastMsgId) {
@@ -581,9 +607,13 @@ class MainActivity : QkThemedActivity(), MainView {
 
             val hasSavedContact = conv.recipients.any { it.contact != null }
             val sender = conv.recipients.firstOrNull()?.address ?: ""
-            if (hasSavedContact || SmartSmsClassifier.isPersonalNumber(sender) || TrustedSenders.isTrusted(sender)) {
-                personal.add(id)
+            val personalNow = when {
+                SmartSmsClassifier.isPersonalNumber(sender) -> true
+                // A service number saved as a contact (a bank, say) is judged by its messages
+                hasSavedContact -> SmartSmsClassifier.classifyConversation(sender, lastMsg?.body ?: "", true) is SmsCategory.Personal
+                else -> false
             }
+            if (personalNow) personal.add(id)
         }
 
         cachedPersonalIds = personal
@@ -641,22 +671,30 @@ class MainActivity : QkThemedActivity(), MainView {
                         val body = lastMsg?.body ?: ""
                         val msgDate = lastMsg?.date ?: System.currentTimeMillis()
 
-                        // A sender the user marked "not spam" belongs with their contacts
-                        val computedCat = if (hasSavedContact || TrustedSenders.isTrusted(sender)) {
-                            SmsCategory.Personal
-                        } else {
-                            SmartSmsClassifier.classify(sender, body, msgDate, id)
-                        }
+                        // Contacts and senders marked "not spam" are Personal; a bank saved as a
+                        // contact still goes to Banking
+                        val computedCat = SmartSmsClassifier.classifyConversation(sender, body, hasSavedContact, msgDate, id)
                         classificationCache[id] = Pair(lastMsgId, computedCat)
                         computedCat
                     }
 
+                    // The list is where the user moved the sender, if they did; the codes in the
+                    // message are collected either way
+                    when (SenderOverrides.tabFor(conv.recipients.firstOrNull()?.address ?: "")) {
+                        Tab.PERSONAL -> personal.add(id)
+                        Tab.BANKING -> banking.add(id)
+                        Tab.SPAM -> spam.add(id)
+                        null -> when (cat) {
+                            is SmsCategory.Personal -> personal.add(id)
+                            is SmsCategory.Banking -> banking.add(id)
+                            is SmsCategory.Spam -> spam.add(id)
+                            else -> Unit
+                        }
+                    }
                     when (cat) {
-                        is SmsCategory.Personal -> personal.add(id)
-                        is SmsCategory.Banking -> banking.add(id)
-                        is SmsCategory.Spam -> spam.add(id)
                         is SmsCategory.Promo -> if (!cat.promo.isExpired()) newPromos.add(cat.promo)
                         is SmsCategory.Otp -> newOtps.add(cat.otp)
+                        else -> Unit
                     }
                 }
 
@@ -932,11 +970,11 @@ class MainActivity : QkThemedActivity(), MainView {
                     } else {
                         currentConversationsList.filter { conv ->
                             if (!conv.isValid) return@filter false
-                            if (conv.recipients.any { it.contact != null }) return@filter true
                             val sender = conv.recipients.firstOrNull()?.address ?: ""
-                            if (TrustedSenders.isTrusted(sender)) return@filter true
+                            SenderOverrides.tabFor(sender)?.let { tab -> return@filter tab == Tab.PERSONAL }
                             val body = conv.lastMessage?.body ?: ""
-                            SmartSmsClassifier.classify(sender, body) is SmsCategory.Personal
+                            val hasSavedContact = conv.recipients.any { it.contact != null }
+                            SmartSmsClassifier.classifyConversation(sender, body, hasSavedContact) is SmsCategory.Personal
                         }
                     }
                     filteredConversationsAdapter.frequentContacts = getFrequentContacts(list)
@@ -1007,39 +1045,108 @@ class MainActivity : QkThemedActivity(), MainView {
         helper?.attachToRecyclerView(recyclerView)
     }
 
-    /**
-     * Moves a conversation out of Spam. Its senders become trusted, so from now on it is listed
-     * under Personal and its messages notify normally; the snackbar offers to undo that.
-     */
+    /** Swiping right in Spam: the sender goes to Personal and notifies normally from now on. */
     private fun markNotSpam(conversationId: Long) {
+        moveSender(conversationId, Tab.PERSONAL, fromSpam = true)
+    }
+
+    /**
+     * A long press on a conversation: where its sender can be moved to, and in All, "Select"
+     * for the multi-select a long press used to start.
+     */
+    private fun showMoveSheet(conversationId: Long) {
+        val conversation = currentConversationsList.firstOrNull { it.isValid && it.id == conversationId } ?: return
+        if (conversation.recipients.none { it.address.isNotBlank() }) return
+        val current = when (conversationId) {
+            in cachedPersonalIds -> Tab.PERSONAL
+            in cachedBankingIds -> Tab.BANKING
+            in cachedSpamIds -> Tab.SPAM
+            else -> null
+        }
+        SenderMoveSheet.show(this, conversation.getTitle(), conversation.recipients.toList(), current,
+                offerSelect = currentTabPosition == 0,
+                onMove = { tab -> moveSender(conversationId, tab) },
+                onSelect = { conversationsAdapter.startSelection(conversationId) })
+    }
+
+    /**
+     * Puts a conversation's senders in [tab] for good: the lists change at once and later
+     * messages follow, notifying the way that tab does. The snackbar puts back what was there.
+     */
+    private fun moveSender(conversationId: Long, tab: Tab, fromSpam: Boolean = false) {
         val conversation = currentConversationsList.firstOrNull { it.isValid && it.id == conversationId } ?: return
         val addresses = conversation.recipients.map { it.address }.filter { it.isNotBlank() }
         if (addresses.isEmpty()) return
         val title = conversation.getTitle()
+        val before = SenderOverrides.snapshot(addresses)
 
-        TrustedSenders.trust(addresses)
-        reclassify(conversationId, toPersonal = true)
+        SenderOverrides.move(addresses, tab)
+        reclassify(conversation)
 
-        Snackbar.make(drawerLayout, getString(R.string.spam_moved_to_personal, title), Snackbar.LENGTH_LONG)
+        val message = when {
+            fromSpam -> getString(R.string.spam_moved_to_personal, title)
+            tab == Tab.PERSONAL -> getString(R.string.sender_moved_personal, title)
+            tab == Tab.BANKING -> getString(R.string.sender_moved_banking, title)
+            else -> getString(R.string.sender_moved_spam, title)
+        }
+        Snackbar.make(drawerLayout, message, Snackbar.LENGTH_LONG)
                 .setAction(R.string.button_undo) {
-                    TrustedSenders.untrust(addresses)
-                    reclassify(conversationId, toPersonal = false)
+                    SenderOverrides.restore(before)
+                    currentConversationsList.firstOrNull { it.isValid && it.id == conversationId }?.let { reclassify(it) }
                 }
                 .setActionTextColor(colors.theme().theme)
                 .show()
     }
 
-    private fun reclassify(conversationId: Long, toPersonal: Boolean) {
-        classificationCache.remove(conversationId)
-        if (toPersonal) {
-            cachedSpamIds = HashSet(cachedSpamIds).apply { remove(conversationId) }
-            cachedPersonalIds = HashSet(cachedPersonalIds).apply { add(conversationId) }
-        } else {
-            cachedPersonalIds = HashSet(cachedPersonalIds).apply { remove(conversationId) }
+    /** Lists [conversation] where it now belongs right away; the background pass then confirms it. */
+    private fun reclassify(conversation: Conversation) {
+        val id = conversation.id
+        val tab = tabOf(conversation)
+        classificationCache.remove(id)
+        cachedPersonalIds = HashSet(cachedPersonalIds).apply { if (tab == Tab.PERSONAL) add(id) else remove(id) }
+        cachedBankingIds = HashSet(cachedBankingIds).apply { if (tab == Tab.BANKING) add(id) else remove(id) }
+        cachedSpamIds = HashSet(cachedSpamIds).apply { if (tab == Tab.SPAM) add(id) else remove(id) }
+        applyTabFilter()
+        preClassifyConversations()
+    }
+
+    /** The list a conversation belongs in: where the user put its sender, else what its last message says. */
+    private fun tabOf(conversation: Conversation): Tab? {
+        val sender = conversation.recipients.firstOrNull()?.address ?: ""
+        SenderOverrides.tabFor(sender)?.let { return it }
+        val last = conversation.lastMessage
+        val category = SmartSmsClassifier.classifyConversation(sender, last?.body ?: "",
+                conversation.recipients.any { it.contact != null }, last?.date ?: System.currentTimeMillis(), conversation.id)
+        return when (category) {
+            is SmsCategory.Personal -> Tab.PERSONAL
+            is SmsCategory.Banking -> Tab.BANKING
+            is SmsCategory.Spam -> Tab.SPAM
+            else -> null
+        }
+    }
+
+    /** Re-cuts the Personal, Banking and Spam lists from the inbox, classifying what is new. */
+    private fun refreshInbox(rawData: RealmResults<Conversation>?) {
+        val count = rawData?.size ?: 0
+        val firstId = rawData?.firstOrNull()?.id ?: -1L
+        val countOrStructureChanged = count != lastScannedConversationCount || firstId != lastScannedConversationId
+
+        currentConversationsList = rawData?.toList() ?: emptyList()
+
+        if (countOrStructureChanged) {
+            lastScannedConversationCount = count
+            lastScannedConversationId = firstId
+            classifyConversationsImmediately(currentConversationsList)
+            preClassifyConversations()
         }
         applyTabFilter()
-        // The background pass settles the exact category, e.g. banking or spam again after an undo
-        preClassifyConversations()
+    }
+
+    private fun watchInbox(data: RealmResults<Conversation>?) {
+        if (watchedInbox === data) return
+        watchedInbox?.takeIf { it.isValid }?.removeChangeListener(inboxListener)
+        watchedInbox = data
+        data?.addChangeListener(inboxListener)
     }
 
     private fun getFrequentContacts(personalList: List<Conversation>): List<Conversation> {

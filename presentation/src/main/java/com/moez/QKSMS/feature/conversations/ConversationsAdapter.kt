@@ -51,9 +51,18 @@ class ConversationsAdapter @Inject constructor(
     private val phoneNumberUtils: PhoneNumberUtils
 ) : QkRealmAdapter<Conversation>() {
 
+    /** Called for a long press outside multi-select; without it a long press starts selecting. */
+    var onLongPress: ((conversationId: Long) -> Unit)? = null
+
     init {
         // This is how we access the threadId for the swipe actions
         setHasStableIds(true)
+    }
+
+    /** Starts multi-select with [conversationId], as a long press used to. */
+    fun startSelection(conversationId: Long) {
+        toggleSelection(conversationId)
+        notifyDataSetChanged()
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): QkViewHolder {
@@ -83,8 +92,16 @@ class ConversationsAdapter @Inject constructor(
             }
             view.setOnLongClickListener {
                 val conversation = getItem(adapterPosition) ?: return@setOnLongClickListener true
-                toggleSelection(conversation.id)
-                view.isActivated = isSelected(conversation.id)
+                val handler = onLongPress
+                when {
+                    // While selecting, a long press adds to the selection as before
+                    toggleSelection(conversation.id, false) -> view.isActivated = isSelected(conversation.id)
+                    handler != null -> handler(conversation.id)
+                    else -> {
+                        toggleSelection(conversation.id)
+                        view.isActivated = isSelected(conversation.id)
+                    }
+                }
                 true
             }
         }

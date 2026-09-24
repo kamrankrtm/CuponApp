@@ -239,11 +239,15 @@ object BrandRegistry {
         .flatMap { brand -> brand.keywords.map { it.toLowerCase() to brand } }
         .sortedByDescending { it.first.length }
 
-    /** Sender ids plus keywords, for the sweep over the sender field. */
+    /** Named sender ids plus keywords, for the sweep over the sender field. */
     private val SENDER_INDEX: List<Pair<String, Brand>> = BRANDS
-        .flatMap { brand -> (brand.senderIds + brand.keywords).map { it.toLowerCase() to brand } }
+        .flatMap { brand -> (brand.senderIds + brand.keywords).filterNot { isNumber(it) }.map { it.toLowerCase() to brand } }
         .distinctBy { it.first + "|" + it.second.en }
         .sortedByDescending { it.first.length }
+
+    /** Numeric sender ids, without the country prefix, compared as whole numbers. */
+    private val NUMBER_INDEX: List<Pair<String, Brand>> = BRANDS
+        .flatMap { brand -> brand.senderIds.filter { isNumber(it) }.map { localNumber(it) to brand } }
 
     private const val BODY_BASE = 1000
     private const val SENDER_BASE = 600
@@ -301,8 +305,40 @@ object BrandRegistry {
     fun match(normalizedSender: String, normalizedBody: String): Brand? {
         val scores = HashMap<Brand, Int>()
         scoreField(normalizedBody, KEYWORD_INDEX, BODY_BASE, scores)
-        scoreField(normalizedSender, SENDER_INDEX, SENDER_BASE, scores)
+        if (isNumber(normalizedSender)) {
+            scoreNumber(normalizedSender, scores)
+        } else {
+            scoreField(normalizedSender, SENDER_INDEX, SENDER_BASE, scores)
+        }
         return scores.maxBy { it.value }?.key
+    }
+
+    /**
+     * A numeric sender belongs to a brand only when it is that brand's number. Matching the
+     * digits anywhere inside the sender labelled every "+98 1000…" bulk line as MCI (98100)
+     * and Bank Melli's 700717 line as Irancell (98700). A long number may carry a suffix.
+     */
+    private fun scoreNumber(sender: String, scores: HashMap<Brand, Int>) {
+        val number = localNumber(sender)
+        for ((id, brand) in NUMBER_INDEX) {
+            if (number == id || (id.length >= 7 && number.startsWith(id))) {
+                val score = SENDER_BASE + id.length * 10
+                if (score > (scores[brand] ?: 0)) scores[brand] = score
+            }
+        }
+    }
+
+    private fun isNumber(sender: String): Boolean =
+        sender.any { it.isDigit() } && sender.all { it.isDigit() || it == '+' || it == ' ' || it == '-' }
+
+    /** Digits only, without +98 / 0098: "+983000445" becomes "3000445". */
+    private fun localNumber(sender: String): String {
+        val digits = sender.filter { it.isDigit() }
+        return when {
+            digits.startsWith("0098") -> digits.substring(4)
+            digits.startsWith("98") -> digits.substring(2)
+            else -> digits
+        }
     }
 
     /** Looks a brand up by its exact Persian name, used when rehydrating persisted promos. */
