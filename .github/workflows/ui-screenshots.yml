@@ -1,8 +1,11 @@
 name: UI Screenshots
 
 # Builds the app, runs it on an emulator with sample SMS, and captures every main screen in
-# light and dark mode. Run on demand from the Actions tab; it does not publish a release.
+# light and dark mode. Runs for a push to main whose head commit message contains [shots],
+# or on demand from the Actions tab. It never publishes a release.
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       note:
@@ -20,6 +23,7 @@ concurrency:
 jobs:
   build:
     name: Build APK
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[shots]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

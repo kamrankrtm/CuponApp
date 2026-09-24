@@ -5,6 +5,11 @@ on:
     branches: [ main, master ]
     tags:
       - 'v*'
+    # A push that only touches the screenshot tooling has nothing new to release.
+    paths-ignore:
+      - '.github/shots-request'
+      - '.github/scripts/**'
+      - '.github/workflows/ui-screenshots.yml'
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
