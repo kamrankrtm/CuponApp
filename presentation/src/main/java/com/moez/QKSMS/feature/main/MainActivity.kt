@@ -210,17 +210,8 @@ class MainActivity : QkThemedActivity(), MainView {
         theme
                 .autoDisposable(scope())
                 .subscribe { theme ->
-                    // Set the color for the drawer icons
-                    val states = arrayOf(
-                            intArrayOf(android.R.attr.state_activated),
-                            intArrayOf(-android.R.attr.state_activated))
-
-                    resolveThemeColor(android.R.attr.textColorSecondary)
-                            .let { textSecondary -> ColorStateList(states, intArrayOf(theme.theme, textSecondary)) }
-                            .let { tintList ->
-                                inboxIcon.imageTintList = tintList
-                                archivedIcon.imageTintList = tintList
-                            }
+                    // Drawer icons are white glyphs on fixed colour tiles; the active row is
+                    // marked by its fill (drawer_item_background), not by recolouring the icon
 
                     // Miscellaneous views
                     listOf(plusBadge1, plusBadge2).forEach { badge ->
@@ -303,7 +294,11 @@ class MainActivity : QkThemedActivity(), MainView {
         rateLayout.setVisible(state.showRating)
 
         compose.setVisible(state.page is Inbox || state.page is Archived)
-        conversationsAdapter.emptyView = empty.takeIf { state.page is Inbox || state.page is Archived }
+        // Only the All list and the archive are the conversations adapter's to empty; the other
+        // categories decide for themselves in applyTabFilter
+        conversationsAdapter.emptyView = empty.takeIf {
+            (state.page is Inbox && currentTabPosition == 0) || state.page is Archived
+        }
         searchAdapter.emptyView = empty.takeIf { state.page is Searching }
 
         currentState = state
@@ -901,6 +896,7 @@ class MainActivity : QkThemedActivity(), MainView {
 
             discountsFilterBar?.visibility = if (currentTabPosition == 4) View.VISIBLE else View.GONE
             spamInfoBar?.visibility = if (currentTabPosition == 5) View.VISIBLE else View.GONE
+            if (currentTabPosition != 0) conversationsAdapter.emptyView = null
 
             // Search and compose float at the bottom of the conversation lists only
             val conversationList = currentTabPosition == 0 || currentTabPosition == 1
@@ -924,7 +920,10 @@ class MainActivity : QkThemedActivity(), MainView {
                     useSwipe(itemTouchHelper)
                     compose.setVisible(true)
                     empty.setText(R.string.inbox_empty_text)
-                    empty.setVisible(currentConversationsList.isEmpty())
+                    // Until Realm has loaded the list it is neither empty nor full
+                    val data = state.page.data
+                    empty.setVisible(data != null && data.isLoaded && data.isEmpty())
+                    conversationsAdapter.emptyView = empty
                 }
                 1 -> {
                     // Personal: Saved contacts or 09... personal numbers

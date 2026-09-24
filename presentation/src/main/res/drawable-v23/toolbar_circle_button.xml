@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 40dp filled circle centred in the toolbar button, whatever width the action menu gives it;
+     the ripple stays inside the circle. API 21-22 use the inset version in drawable/. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?android:attr/colorControlHighlight">
+    <item
+        android:width="40dp"
+        android:height="40dp"
+        android:gravity="center">
+        <shape android:shape="oval">
+            <solid android:color="?attr/bubbleColor" />
+        </shape>
+    </item>
+</ripple>

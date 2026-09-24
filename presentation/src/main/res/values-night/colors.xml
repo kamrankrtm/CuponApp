@@ -6,6 +6,7 @@
     <color name="success">#30D158</color>
     <color name="danger">#FF6961</color>
 
+    <color name="composerBorder">#3A3A3C</color>
     <color name="chevron">#5A5A5E</color>
     <color name="avatarTop">#6F7480</color>
     <color name="avatarBottom">#4F535D</color>

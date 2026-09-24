@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ~ Copyright (C) 2019 Moez Bhatti <moez.bhatti@gmail.com>
+  ~ Copyright (C) 2017 Moez Bhatti <moez.bhatti@gmail.com>
   ~
   ~ This file is part of QKSMS.
   ~
@@ -17,21 +17,26 @@
   ~ You should have received a copy of the GNU General Public License
   ~ along with QKSMS.  If not, see <http://www.gnu.org/licenses/>.
   -->
+<!-- A settings row: icon tile, title (and summary), then the value, a chevron or a switch -->
 <merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="?attr/selectableItemBackground"
     android:gravity="center_vertical"
+    android:minHeight="52dp"
     android:orientation="horizontal"
     tools:parentTag="com.moez.QKSMS.common.widget.PreferenceView">
 
     <ImageView
         android:id="@+id/icon"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
-        android:layout_marginStart="24dp"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_marginStart="16dp"
         android:duplicateParentState="true"
+        android:importantForAccessibility="no"
+        android:padding="3dp"
         android:visibility="invisible" />
 
     <LinearLayout
@@ -40,10 +45,10 @@
         android:layout_weight="1"
         android:duplicateParentState="true"
         android:orientation="vertical"
-        android:paddingLeft="24dp"
-        android:paddingTop="16dp"
-        android:paddingRight="24dp"
-        android:paddingBottom="16dp">
+        android:paddingStart="14dp"
+        android:paddingTop="11dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="11dp">
 
         <com.moez.QKSMS.common.widget.QkTextView
             android:id="@+id/titleView"
@@ -51,18 +56,35 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:duplicateParentState="true"
+            android:lineSpacingMultiplier="0.86"
             tools:text="Default SMS App" />
 
         <com.moez.QKSMS.common.widget.QkTextView
             android:id="@+id/summaryView"
-            style="@style/TextSecondary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
             android:duplicateParentState="true"
+            android:lineSpacingMultiplier="0.86"
+            android:textColor="?android:attr/textColorSecondary"
+            app:textSize="tertiary"
             tools:text="QKSMS is your default SMS app" />
 
     </LinearLayout>
+
+    <com.moez.QKSMS.common.widget.QkTextView
+        android:id="@+id/valueView"
+        style="@style/TextPrimary"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="4dp"
+        android:duplicateParentState="true"
+        android:ellipsize="end"
+        android:maxWidth="150dp"
+        android:maxLines="1"
+        android:textColor="?android:attr/textColorSecondary"
+        android:visibility="gone"
+        tools:text="Automatic"
+        tools:visibility="visible" />
 
     <FrameLayout
         android:id="@+id/widgetFrame"
@@ -70,5 +92,18 @@
         android:layout_height="match_parent"
         android:layout_marginEnd="16dp"
         android:duplicateParentState="true" />
+
+    <ImageView
+        android:id="@+id/chevronView"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_marginStart="2dp"
+        android:layout_marginEnd="14dp"
+        android:duplicateParentState="true"
+        android:importantForAccessibility="no"
+        android:src="@drawable/ic_lc_chevron_right"
+        android:tint="@color/chevron"
+        android:visibility="gone"
+        tools:visibility="visible" />
 
 </merge>

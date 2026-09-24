@@ -85,6 +85,7 @@
         <item name="android:layout_marginEnd">32dp</item>
         <item name="android:layout_marginTop">28dp</item>
         <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:fontFamily">?attr/fontMedium</item>
     </style>
 
     <style name="SettingsGroupCard">
@@ -128,10 +129,11 @@
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_marginStart">10dp</item>
         <item name="android:layout_marginEnd">10dp</item>
+        <item name="android:layout_marginBottom">2dp</item>
         <item name="android:background">@drawable/drawer_item_background</item>
         <item name="android:gravity">center_vertical</item>
-        <item name="android:paddingStart">14dp</item>
-        <item name="android:paddingEnd">14dp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
     </style>
 
     <style name="DrawerText">
@@ -143,10 +145,15 @@
         <item name="textSize">primary</item>
     </style>
 
+    <!-- A white glyph on a rounded colour tile; each row sets android:backgroundTint -->
     <style name="DrawerIcon">
-        <item name="android:layout_height">22dp</item>
-        <item name="android:layout_width">22dp</item>
-        <item name="android:layout_marginEnd">20dp</item>
+        <item name="android:layout_height">30dp</item>
+        <item name="android:layout_width">30dp</item>
+        <item name="android:layout_marginEnd">14dp</item>
+        <item name="android:background">@drawable/icon_tile</item>
+        <item name="android:padding">6dp</item>
+        <item name="android:tint">@color/white</item>
+        <item name="android:importantForAccessibility">no</item>
     </style>
 
     <style name="DrawerDivider">

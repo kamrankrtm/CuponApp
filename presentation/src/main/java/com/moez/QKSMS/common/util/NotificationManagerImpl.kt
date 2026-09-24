@@ -31,6 +31,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.ContactsContract
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
@@ -62,6 +63,7 @@ import com.moez.QKSMS.feature.smart.ClipboardHelper
 import com.moez.QKSMS.feature.smart.SmartDataManager
 import com.moez.QKSMS.feature.smart.SmartSmsClassifier
 import com.moez.QKSMS.feature.smart.model.SmsCategory
+import com.moez.QKSMS.feature.smart.promo.BrandRegistry
 import com.moez.QKSMS.receiver.CopyClipReceiver
 import com.moez.QKSMS.util.tryOrNull
 import javax.inject.Inject
@@ -227,17 +229,22 @@ class NotificationManagerImpl @Inject constructor(
                 }
                 ?.let { futureGet -> tryOrNull(false) { futureGet.get() } }
 
+        // People without a photo get their initials, as in the conversation list
+        val largeIcon = avatar ?: conversation.recipients.takeIf { it.size == 1 }
+                ?.first()?.contact?.name
+                ?.let { name -> NotificationArt.monogram(context, name) }
+
         // Bind the notification contents based on the notification preview mode
         when (prefs.notificationPreviews(threadId).get()) {
             Preferences.NOTIFICATION_PREVIEWS_ALL -> {
                 notification
-                        .setLargeIcon(avatar)
+                        .setLargeIcon(largeIcon)
                         .setStyle(messagingStyle)
             }
 
             Preferences.NOTIFICATION_PREVIEWS_NAME -> {
                 notification
-                        .setLargeIcon(avatar)
+                        .setLargeIcon(largeIcon)
                         .setContentTitle(conversation.getTitle())
                         .setContentText(context.resources.getQuantityString(
                                 R.plurals.notification_new_messages, messages.size, messages.size))
@@ -336,7 +343,7 @@ class NotificationManagerImpl @Inject constructor(
                                     PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
                                 )
                                 val label = actionLabels.getOrNull(action) ?: "AI Smart Reply"
-                                NotificationCompat.Action.Builder(R.drawable.ic_star_black_24dp, "🤖 $label", pi)
+                                NotificationCompat.Action.Builder(R.drawable.ic_lc_sparkles, label, pi)
                                     .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
                                     .build()
                             }
@@ -364,52 +371,86 @@ class NotificationManagerImpl @Inject constructor(
                     copyIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT
                 )
-                val title = "یک کد تخفیف از ${promo.brand} شناسایی شد"
-                val amountDesc = if (promo.discountAmount.isNotBlank() && promo.discountAmount != "تخفیف ویژه") "${promo.discountAmount} | " else ""
-                notification.setContentTitle(title)
+                // "Snappfood · 70,000 Toman" reads as the offer itself; code, time left and the
+                // minimum order follow on one line
+                val hasAmount = promo.discountAmount.isNotBlank() && promo.discountAmount != "تخفیف ویژه"
+                val title = if (hasAmount) "${promo.brand} · ${promo.discountAmount}" else "کد تخفیف ${promo.brand}"
                 // Show the countdown rather than a raw date; "۴ ساعت مانده" is actionable in
                 // a way that "۱۴۰۴/۰۷/۰۵" is not.
                 val deadline = promo.remainingLabel()
-                notification.setContentText("کد: ${promo.code} | ${amountDesc}$deadline")
-
-                val minOrderLine = if (!promo.minOrder.isNullOrBlank()) "\n${promo.minOrder}" else ""
+                val line = listOfNotNull("کد ${promo.code}", deadline.takeIf { it.isNotBlank() },
+                        promo.minOrder?.takeIf { it.isNotBlank() }).joinToString(" · ")
+                notification.setContentTitle(title)
+                notification.setContentText(line)
 
                 // Include the SMS itself: the card shows only the fields the extractor
                 // understood, while the conditions the sender wrote in prose live in the text.
                 val cleanBody = promo.body.replace("\uFFFD", " ").trim()
                 val excerpt = when {
                     cleanBody.isEmpty() -> ""
-                    cleanBody.length <= 320 -> "\n\nمتن پیامک:\n$cleanBody"
-                    else -> "\n\nمتن پیامک:\n${cleanBody.take(320).trimEnd()}…"
+                    cleanBody.length <= 320 -> "\n\n$cleanBody"
+                    else -> "\n\n${cleanBody.take(320).trimEnd()}…"
                 }
 
                 val bigTextStyle = NotificationCompat.BigTextStyle()
                     .setBigContentTitle(title)
-                    .setSummaryText(promo.brand)
-                    .bigText("کد تخفیف: ${promo.code}\nتخفیف: ${promo.discountAmount}\n$deadline$minOrderLine$excerpt")
+                    .bigText("$line$excerpt")
 
                 notification.setStyle(bigTextStyle)
                 notification.setChannelId(DISCOUNT_CHANNEL_ID)
                 notification.setColor(ContextCompat.getColor(context, R.color.tabDiscounts))
+                val brandColor = promo.brandColor.takeIf { it != 0 } ?: BrandRegistry.fallbackColor(promo.brand)
+                notification.setLargeIcon(NotificationArt.brandTile(context, brandColor,
+                        promo.brandEn.ifBlank { promo.brand }))
                 // Only Copy action for Promo - no Reply/Archive buttons
-                notification.addAction(R.drawable.ic_content_copy_black_24dp, "کپی کد ${promo.code}", copyPI)
+                notification.addAction(R.drawable.ic_lc_copy, "کپی کد ${promo.code}", copyPI)
             }
             is SmsCategory.Otp -> {
                 val otp = smartCategory.otp
-                // The code itself is the headline, in the OTP accent
-                val title = otp.code
-                val text = "از ${otp.serviceName}"
-                notification.setContentTitle(title)
-                notification.setContentText(text)
-                val bigTextStyle = NotificationCompat.BigTextStyle()
-                    .setBigContentTitle(title)
-                    .setSummaryText(otp.serviceName)
-                    .bigText("کد تایید ورود: ${otp.code}\nسرویس: ${otp.serviceName}\n(کد به صورت خودکار به کلیپ‌بورد کپی شد)")
-                notification.setStyle(bigTextStyle)
+                val otpColor = ContextCompat.getColor(context, R.color.tabOtp)
+                val copied = prefs.autoCopyOtp.get()
+                val note = if (copied) "کد به صورت خودکار کپی شد" else "برای کپی، دکمه‌ی زیر را بزنید"
+
+                // Text versions for accessibility, wearables and anything that ignores custom views
+                notification.setContentTitle(otp.code)
+                notification.setContentText("از ${otp.serviceName}")
+
+                // The code is the headline: large, spaced like people read it aloud
+                val code = spacedCode(otp.code)
+                val small = RemoteViews(context.packageName, R.layout.notification_otp).apply {
+                    setTextViewText(R.id.otpCode, code)
+                    setTextViewText(R.id.otpService, otp.serviceName)
+                }
+                val big = RemoteViews(context.packageName, R.layout.notification_otp_expanded).apply {
+                    setTextViewText(R.id.otpService, otp.serviceName)
+                    setTextViewText(R.id.otpCode, code)
+                    setTextViewText(R.id.otpNote, note)
+                }
+                notification.setStyle(NotificationCompat.DecoratedCustomViewStyle())
+                notification.setCustomContentView(small)
+                notification.setCustomBigContentView(big)
+                notification.setCustomHeadsUpContentView(small)
+                notification.setLargeIcon(null as android.graphics.Bitmap?)
                 notification.setChannelId(OTP_CHANNEL_ID)
-                notification.setColor(ContextCompat.getColor(context, R.color.tabOtp))
+                notification.setColor(otpColor)
                 notification.setPriority(NotificationCompat.PRIORITY_MAX)
-                // No action buttons for OTP - just prominent code and sender
+
+                // The lock screen only says a code arrived; the code itself needs an unlock
+                notification.setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                notification.setPublicVersion(NotificationCompat.Builder(context, OTP_CHANNEL_ID)
+                        .setSmallIcon(R.drawable.ic_notification)
+                        .setColor(otpColor)
+                        .setContentTitle("کد تایید جدید")
+                        .setContentText("برای دیدن کد، قفل گوشی را باز کنید")
+                        .build())
+
+                val copyIntent = Intent(context, CopyClipReceiver::class.java).apply {
+                    putExtra(CopyClipReceiver.EXTRA_TEXT, otp.code)
+                    putExtra(CopyClipReceiver.EXTRA_LABEL, "OTP")
+                }
+                val copyPI = PendingIntent.getBroadcast(context, (threadId + 300000).toInt(), copyIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT)
+                notification.addAction(R.drawable.ic_lc_copy, if (copied) "کپی مجدد کد" else "کپی کد", copyPI)
             }
             is SmsCategory.Banking -> {
                 val bank = smartCategory.bankName
@@ -418,16 +459,24 @@ class NotificationManagerImpl @Inject constructor(
                     false -> "برداشت / تراکنش"
                     null -> "تراکنش بانکی"
                 }
-                val amountStr = smartCategory.amount?.let { " ($it)" } ?: ""
-                val title = "$bank · $type$amountStr"
+                val sign = when (smartCategory.isDeposit) {
+                    true -> "+"
+                    false -> "−"
+                    null -> ""
+                }
+                // "Bank Mellat · Deposit", then the signed amount; the full SMS (balance and all)
+                // is one expand away
+                val title = "$bank · $type"
+                val amount = smartCategory.amount?.takeIf { it.isNotBlank() }?.let { sign + it }
                 notification.setContentTitle(title)
-                notification.setContentText(body)
+                notification.setContentText(amount ?: body)
                 notification.setColor(ContextCompat.getColor(context, R.color.tabBanking))
+                notification.setLargeIcon(NotificationArt.glyphTile(context,
+                        ContextCompat.getColor(context, R.color.tabBanking), R.drawable.ic_lc_landmark))
                 // Banking: show full message body in BigTextStyle, no action buttons
                 val bigTextStyle = NotificationCompat.BigTextStyle()
                     .setBigContentTitle(title)
-                    .setSummaryText(bank)
-                    .bigText(body)
+                    .bigText(if (amount != null) "$amount\n$body" else body)
                 notification.setStyle(bigTextStyle)
             }
             is SmsCategory.Spam -> {
@@ -460,6 +509,16 @@ class NotificationManagerImpl @Inject constructor(
                     wakeLock.acquire(5000)
                 }
             }
+        }
+    }
+
+    /** Digits in groups of three or four, the way people read a code aloud. */
+    private fun spacedCode(code: String): String {
+        if (!code.all { it.isDigit() }) return code
+        return when (code.length) {
+            6, 7 -> code.substring(0, 3) + " " + code.substring(3)
+            8 -> code.substring(0, 4) + " " + code.substring(4)
+            else -> code
         }
     }
 

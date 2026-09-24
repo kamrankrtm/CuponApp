@@ -31,6 +31,7 @@ import android.os.Bundle
 import android.provider.ContactsContract
 import android.provider.MediaStore
 import android.text.format.DateFormat
+import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -39,6 +40,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
 import androidx.core.view.isVisible
 import com.moez.QKSMS.feature.cloud.CloudUploadManager
@@ -150,6 +152,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
 
     private var cameraDestination: Uri? = null
     private var lastRenderedState: ComposeState? = null
+    private var headerRecipientsKey: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AndroidInjection.inject(this)
@@ -213,9 +216,11 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
 
         // These theme attributes don't apply themselves on API 21
         if (Build.VERSION.SDK_INT <= 22) {
-            messageBackground.setBackgroundTint(resolveThemeColor(R.attr.bubbleColor))
             attach.setBackgroundTint(resolveThemeColor(R.attr.bubbleColor))
         }
+
+        // The centred header stands in for the old info button
+        toolbarHeader.setOnClickListener { optionsItemIntent.onNext(R.id.info) }
 
         sendWhatsApp.setOnClickListener {
             val text = message.text?.toString() ?: ""
@@ -259,7 +264,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         toolbarSubtitle.text = getString(R.string.compose_subtitle_results, state.searchSelectionPosition,
                 state.searchResults)
 
-        toolbarTitle.setVisible(!state.editingMode)
+        bindHeader(state)
         chips.setVisible(state.editingMode)
         composeBar.setVisible(!state.loading)
 
@@ -269,8 +274,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         toolbar.menu.findItem(R.id.add)?.isVisible = state.editingMode
         toolbar.menu.findItem(R.id.call)?.isVisible = !state.editingMode && state.selectedMessages == 0
                 && state.query.isEmpty()
-        toolbar.menu.findItem(R.id.info)?.isVisible = !state.editingMode && state.selectedMessages == 0
-                && state.query.isEmpty()
+        toolbar.menu.findItem(R.id.info)?.isVisible = false // the header opens the details instead
         toolbar.menu.findItem(R.id.copy)?.isVisible = !state.editingMode && state.selectedMessages > 0
         toolbar.menu.findItem(R.id.details)?.isVisible = !state.editingMode && state.selectedMessages == 1
         toolbar.menu.findItem(R.id.delete)?.isVisible = !state.editingMode && state.selectedMessages > 0
@@ -316,6 +320,35 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
 
         sendWhatsApp.isEnabled = canSend
         sendWhatsApp.imageAlpha = if (canSend) 255 else 128
+    }
+
+    /**
+     * The header shows who the conversation is with: their avatar over the name, centred, with a
+     * chevron that says it opens the details. While selecting or searching it is just a title.
+     */
+    private fun bindHeader(state: ComposeState) {
+        val conversationHeader = !state.editingMode && state.selectedMessages == 0 && state.query.isEmpty()
+        toolbarHeader.setVisible(!state.editingMode)
+        toolbarHeader.isClickable = conversationHeader
+        toolbarAvatar.setVisible(conversationHeader)
+        toolbarChevron.setVisible(conversationHeader)
+        toolbarTitle.textSize = if (conversationHeader) 14f else 17f
+
+        (toolbarHeader.layoutParams as? Toolbar.LayoutParams)?.let { params ->
+            val vertical = if (conversationHeader) Gravity.TOP else Gravity.CENTER_VERTICAL
+            if (params.gravity != Gravity.CENTER_HORIZONTAL or vertical) {
+                params.gravity = Gravity.CENTER_HORIZONTAL or vertical
+                toolbarHeader.layoutParams = params
+            }
+        }
+
+        // Rebinding the avatar reloads the photo, so only do it when the people change
+        val recipients = state.messages?.first?.takeIf { it.isValid }?.recipients?.toList().orEmpty()
+        val key = recipients.joinToString(",") { recipient -> "${recipient.address}:${recipient.contact?.lookupKey}" }
+        if (conversationHeader && key != headerRecipientsKey) {
+            headerRecipientsKey = key
+            toolbarAvatar.recipients = recipients
+        }
     }
 
     override fun clearSelection() = messageAdapter.clearSelection()
@@ -456,10 +489,6 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
                 android.widget.Toast.makeText(this, "لاگ‌ها پاک شدند", android.widget.Toast.LENGTH_SHORT).show()
             }
             .show()
-    }
-
-    override fun getColoredMenuItems(): List<Int> {
-        return super.getColoredMenuItems() + R.id.call
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

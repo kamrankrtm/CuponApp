@@ -64,6 +64,7 @@
     <color name="separatorDark">#2C2C2E</color>
 
     <!-- Disclosure chevrons and other quiet glyphs; decorative, so not held to text contrast -->
+    <color name="composerBorder">#DCDCE1</color>
     <color name="chevron">#C4C4C7</color>
 
     <!-- Monogram avatars: a soft grey gradient, like the system contact photo placeholder -->

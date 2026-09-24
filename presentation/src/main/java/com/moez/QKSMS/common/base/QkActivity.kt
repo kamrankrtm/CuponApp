@@ -60,6 +60,11 @@ abstract class QkActivity : AppCompatActivity() {
     override fun setContentView(layoutResID: Int) {
         super.setContentView(layoutResID)
         setSupportActionBar(toolbar)
+        // Layouts with their own title view show the title there; the toolbar's built-in one
+        // would otherwise print it a second time (e.g. "0 selected" beside the inbox title)
+        if (toolbarTitle != null) {
+            supportActionBar?.setDisplayShowTitleEnabled(false)
+        }
         title = title // The title may have been set before layout inflation
     }
 

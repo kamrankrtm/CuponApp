@@ -68,6 +68,8 @@
         <item name="fontMedium">sans-serif-medium</item>
         <item name="toolbarNavigationButtonStyle">@style/Widget.App.Toolbar.Navigation</item>
         <item name="actionOverflowButtonStyle">@style/Widget.App.OverflowButton</item>
+        <item name="actionButtonStyle">@style/Widget.App.ActionButton</item>
+        <item name="homeAsUpIndicator">@drawable/ic_nav_back</item>
         <item name="groupedBackground">@color/groupedLight</item>
         <item name="cardColor">@color/cardLight</item>
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.App.Small</item>
@@ -136,6 +138,14 @@
         <item name="android:background">@drawable/toolbar_circle_button</item>
         <item name="android:minWidth">56dp</item>
         <item name="android:scaleType">center</item>
+    </style>
+
+    <style name="Widget.App.ActionButton" parent="Widget.AppCompat.ActionButton">
+        <item name="android:background">@drawable/toolbar_circle_button</item>
+        <item name="android:minWidth">56dp</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
     </style>
 
     <style name="Widget.App.OverflowButton" parent="Widget.AppCompat.ActionButton.Overflow">

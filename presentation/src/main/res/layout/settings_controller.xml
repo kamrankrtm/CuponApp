@@ -52,7 +52,9 @@
                 android:id="@+id/theme"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_color_lens_black_24dp"
+                app:icon="@drawable/ic_lc_palette"
+                app:iconTileColor="@color/tilePink"
+                app:chevron="true"
                 app:title="@string/settings_theme_title"
                 app:widget="@layout/settings_theme_widget" />
 
@@ -60,7 +62,10 @@
                 android:id="@+id/night"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_invert_colors_black_24dp"
+                app:icon="@drawable/ic_lc_moon"
+                app:iconTileColor="@color/tileIndigo"
+                app:chevron="true"
+                app:valueSummary="true"
                 app:title="@string/settings_night_title"
                 tools:summary="Automatic" />
 
@@ -68,6 +73,8 @@
                 android:id="@+id/black"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_moon_star"
+                app:iconTileColor="@color/tileGray"
                 android:visibility="gone"
                 app:title="@string/settings_black_title"
                 app:widget="@layout/settings_switch_widget" />
@@ -76,6 +83,10 @@
                 android:id="@+id/nightStart"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_sunset"
+                app:iconTileColor="@color/tileIndigo"
+                app:chevron="true"
+                app:valueSummary="true"
                 android:visibility="gone"
                 app:title="@string/settings_night_start_title"
                 tools:summary="6:00PM" />
@@ -84,6 +95,10 @@
                 android:id="@+id/nightEnd"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_sunrise"
+                app:iconTileColor="@color/tileIndigo"
+                app:chevron="true"
+                app:valueSummary="true"
                 android:visibility="gone"
                 app:title="@string/settings_night_end_title"
                 tools:summary="9:00AM" />
@@ -92,14 +107,18 @@
                 android:id="@+id/textSize"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_format_size_black_24dp"
+                app:icon="@drawable/ic_lc_type"
+                app:iconTileColor="@color/tileBlue"
+                app:chevron="true"
+                app:valueSummary="true"
                 app:title="@string/settings_text_size_title" />
 
             <com.moez.QKSMS.common.widget.PreferenceView
                 android:id="@+id/autoColor"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_person_black_24dp"
+                app:icon="@drawable/ic_lc_user"
+                app:iconTileColor="@color/tileOrange"
                 app:title="@string/settings_automatic_colors_title"
                 app:widget="@layout/settings_switch_widget" />
 
@@ -107,7 +126,8 @@
                 android:id="@+id/systemFont"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_title_black_24dp"
+                app:icon="@drawable/ic_lc_case"
+                app:iconTileColor="@color/tileGray"
                 app:title="@string/settings_system_font_title"
                 app:widget="@layout/settings_switch_widget" />
 
@@ -134,13 +154,17 @@
                 android:id="@+id/notifications"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_notifications_black_24dp"
+                app:icon="@drawable/ic_lc_bell"
+                app:iconTileColor="@color/tileRed"
+                app:chevron="true"
                 app:title="@string/settings_notifications_title" />
 
             <com.moez.QKSMS.common.widget.PreferenceView
                 android:id="@+id/autoEmoji"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_smile"
+                app:iconTileColor="@color/tileOrange"
                 android:visibility="gone"
                 app:title="@string/settings_auto_emoji_title"
                 app:widget="@layout/settings_switch_widget" />
@@ -149,7 +173,10 @@
                 android:id="@+id/delayed"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_av_timer_black_24dp"
+                app:icon="@drawable/ic_lc_timer"
+                app:iconTileColor="@color/tileIndigo"
+                app:chevron="true"
+                app:valueSummary="true"
                 app:title="@string/settings_delayed_title"
                 tools:summary="No delay" />
 
@@ -157,8 +184,10 @@
                 android:id="@+id/swipeActions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_swipe"
+                app:iconTileColor="@color/tileTeal"
+                app:chevron="true"
                 android:visibility="visible"
-                app:icon="@drawable/ic_clear_all_black_24dp"
                 app:summary="@string/settings_swipe_actions_summary"
                 app:title="@string/settings_swipe_actions" />
 
@@ -166,7 +195,8 @@
                 android:id="@+id/delivery"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_check_white_24dp"
+                app:icon="@drawable/ic_lc_check_check"
+                app:iconTileColor="@color/tileGreen"
                 app:summary="@string/settings_delivery_summary"
                 app:title="@string/settings_delivery_title"
                 app:widget="@layout/settings_switch_widget" />
@@ -175,14 +205,17 @@
                 android:id="@+id/signature"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_short_text_black_24dp"
+                app:icon="@drawable/ic_lc_signature"
+                app:iconTileColor="@color/tileGray"
+                app:chevron="true"
                 app:title="@string/settings_signature_title" />
 
             <com.moez.QKSMS.common.widget.PreferenceView
                 android:id="@+id/unicode"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_translate_black_24dp"
+                app:icon="@drawable/ic_lc_languages"
+                app:iconTileColor="@color/tileTeal"
                 app:summary="@string/settings_unicode_summary"
                 app:title="@string/settings_unicode_title"
                 app:widget="@layout/settings_switch_widget" />
@@ -191,7 +224,8 @@
                 android:id="@+id/mobileOnly"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_smartphone_black_24dp"
+                app:icon="@drawable/ic_lc_smartphone"
+                app:iconTileColor="@color/tileGray"
                 app:summary="@string/settings_mobile_summary"
                 app:title="@string/settings_mobile_title"
                 app:widget="@layout/settings_switch_widget" />
@@ -200,7 +234,10 @@
                 android:id="@+id/autoDelete"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_baseline_history_toggle_off_24"
+                app:icon="@drawable/ic_lc_trash"
+                app:iconTileColor="@color/tileRed"
+                app:chevron="true"
+                app:valueSummary="true"
                 app:title="@string/settings_auto_delete"
                 tools:summary="Never" />
 
@@ -208,7 +245,8 @@
                 android:id="@+id/longAsMms"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_message_black_24dp"
+                app:icon="@drawable/ic_lc_long_mms"
+                app:iconTileColor="@color/tileBlue"
                 app:summary="@string/settings_long_as_mms_summary"
                 app:title="@string/settings_long_as_mms_title"
                 app:widget="@layout/settings_switch_widget" />
@@ -217,8 +255,11 @@
                 android:id="@+id/mmsSize"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_image"
+                app:iconTileColor="@color/tilePurple"
+                app:chevron="true"
+                app:valueSummary="true"
                 android:visibility="visible"
-                app:icon="@drawable/ic_photo_size_select_actual_black_24dp"
                 app:title="@string/settings_mms_size_title"
                 tools:summary="100KB" />
 
@@ -241,7 +282,8 @@
                 android:id="@+id/sync"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_sync_black_24dp"
+                app:icon="@drawable/ic_lc_sync"
+                app:iconTileColor="@color/tileGreen"
                 app:summary="@string/settings_sync_summary"
                 app:title="@string/settings_sync_title" />
 
@@ -279,7 +321,10 @@
                 android:id="@+id/prefDefaultTab"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_inbox_black_24dp"
+                app:icon="@drawable/ic_lc_tab"
+                app:iconTileColor="@color/tileBlue"
+                app:chevron="true"
+                app:valueSummary="true"
                 app:title="Default Startup Tab"
                 app:summary="Personal" />
 
@@ -287,7 +332,8 @@
                 android:id="@+id/prefAutoCopyOtp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_content_copy_black_24dp"
+                app:icon="@drawable/ic_lc_key"
+                app:iconTileColor="@color/tabOtp"
                 app:title="Auto-copy OTP verification codes"
                 app:summary="Automatically copy one-time passcodes to clipboard"
                 app:widget="@layout/settings_switch_widget" />
@@ -296,7 +342,8 @@
                 android:id="@+id/prefSilentSpam"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_block_white_24dp"
+                app:icon="@drawable/ic_lc_bell_off"
+                app:iconTileColor="@color/tileGray"
                 app:title="Mute spam and promotional ads"
                 app:summary="Silence notifications for ad messages without discount codes"
                 app:widget="@layout/settings_switch_widget" />
@@ -305,7 +352,8 @@
                 android:id="@+id/prefNotifyDiscounts"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_local_offer_black_24dp"
+                app:icon="@drawable/ic_lc_ticket"
+                app:iconTileColor="@color/tabDiscounts"
                 app:title="Discount promo notifications"
                 app:summary="Show brand name and direct 1-click copy action in notification"
                 app:widget="@layout/settings_switch_widget" />
@@ -314,7 +362,8 @@
                 android:id="@+id/prefNotifyPromoExpiry"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_av_timer_black_24dp"
+                app:icon="@drawable/ic_lc_hourglass"
+                app:iconTileColor="@color/tileRed"
                 app:title="Discount expiry reminders"
                 app:summary="Warn before a valuable code expires, with the SMS text and a copy action"
                 app:widget="@layout/settings_switch_widget" />
@@ -323,7 +372,8 @@
                 android:id="@+id/prefJalaliCalendar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_event_black_24dp"
+                app:icon="@drawable/ic_lc_calendar"
+                app:iconTileColor="@color/tileGreen"
                 app:title="Solar Jalali calendar"
                 app:summary="Display dates using Persian Jalali calendar"
                 app:widget="@layout/settings_switch_widget" />
@@ -351,7 +401,8 @@
                 android:id="@+id/prefMediaAsCloudLink"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_file_upload_black_24dp"
+                app:icon="@drawable/ic_lc_cloud"
+                app:iconTileColor="@color/tileBlue"
                 app:title="Upload media to cloud link"
                 app:summary="Upload photos and videos to cloud instead of MMS"
                 app:widget="@layout/settings_switch_widget" />
@@ -360,7 +411,9 @@
                 android:id="@+id/prefFilesIrToken"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_settings_black_24dp"
+                app:icon="@drawable/ic_lc_token"
+                app:iconTileColor="@color/tileGray"
+                app:chevron="true"
                 app:title="Files.ir API Token"
                 app:summary="Optional user API key for direct account uploads" />
 
@@ -368,7 +421,9 @@
                 android:id="@+id/prefFilesIrEndpoint"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_settings_black_24dp"
+                app:icon="@drawable/ic_lc_server"
+                app:iconTileColor="@color/tileGray"
+                app:chevron="true"
                 app:title="Files.ir Server Endpoint"
                 app:summary="Default: https://my.files.ir" />
 
@@ -376,7 +431,9 @@
                 android:id="@+id/prefZayaApiKey"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_settings_black_24dp"
+                app:icon="@drawable/ic_lc_link"
+                app:iconTileColor="@color/tileTeal"
+                app:chevron="true"
                 app:title="Zaya.io API Key"
                 app:summary="Shorten links before sending SMS" />
 
@@ -384,7 +441,8 @@
                 android:id="@+id/prefTestCloudConnection"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_file_upload_black_24dp"
+                app:icon="@drawable/ic_lc_wifi"
+                app:iconTileColor="@color/tileGreen"
                 app:title="Test Cloud Connection"
                 app:summary="Test connectivity to Files.ir and Zaya.io" />
 
@@ -411,7 +469,9 @@
                 android:id="@+id/prefAiApiKey"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_star_black_24dp"
+                app:icon="@drawable/ic_lc_sparkles"
+                app:iconTileColor="@color/tilePurple"
+                app:chevron="true"
                 app:title="AI API Key (AvalAI / OpenAI)"
                 app:summary="Enter your API key to extract promo codes using AI" />
 
@@ -419,7 +479,9 @@
                 android:id="@+id/prefAiBaseUrl"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_settings_black_24dp"
+                app:icon="@drawable/ic_lc_globe"
+                app:iconTileColor="@color/tileGray"
+                app:chevron="true"
                 app:title="AI Service Endpoint"
                 app:summary="Default: https://api.avalai.ir/v1" />
 
@@ -427,7 +489,10 @@
                 android:id="@+id/prefAiModel"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_local_offer_black_24dp"
+                app:icon="@drawable/ic_lc_cpu"
+                app:iconTileColor="@color/tileIndigo"
+                app:chevron="true"
+                app:valueSummary="true"
                 app:title="AI Model"
                 app:summary="Default: gemini-2.5-flash-lite" />
 
@@ -435,7 +500,8 @@
                 android:id="@+id/prefTestAiConnection"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_sync_black_24dp"
+                app:icon="@drawable/ic_lc_activity"
+                app:iconTileColor="@color/tileGreen"
                 app:title="Test AI Connection"
                 app:summary="Verify API key and server connection" />
 
@@ -443,7 +509,8 @@
                 android:id="@+id/prefRunAiScan"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_local_offer_black_24dp"
+                app:icon="@drawable/ic_lc_search"
+                app:iconTileColor="@color/tilePurple"
                 app:title="Scan Inbox with AI"
                 app:summary="Extract active discount codes from promotional SMS" />
 
@@ -451,7 +518,8 @@
                 android:id="@+id/prefAiAutoSendReply"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_send_black_24dp"
+                app:icon="@drawable/ic_lc_send"
+                app:iconTileColor="@color/tileBlue"
                 app:title="Auto-Send AI Replies"
                 app:summary="Send generated AI reply immediately without prompt"
                 app:widget="@layout/settings_switch_widget" />
@@ -475,7 +543,10 @@
                 android:id="@+id/about"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_info_black_24dp"
+                app:icon="@drawable/ic_lc_info"
+                app:iconTileColor="@color/tileGray"
+                app:chevron="true"
+                app:valueSummary="true"
                 app:title="@string/settings_about_title"
                 tools:summary="Version 3.0.7" />
 

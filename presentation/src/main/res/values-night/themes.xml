@@ -37,6 +37,8 @@
         <item name="fontMedium">sans-serif-medium</item>
         <item name="toolbarNavigationButtonStyle">@style/Widget.App.Toolbar.Navigation</item>
         <item name="actionOverflowButtonStyle">@style/Widget.App.OverflowButton</item>
+        <item name="actionButtonStyle">@style/Widget.App.ActionButton</item>
+        <item name="homeAsUpIndicator">@drawable/ic_nav_back</item>
         <item name="groupedBackground">@color/groupedDark</item>
         <item name="cardColor">@color/cardDark</item>
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.App.Small</item>

@@ -136,8 +136,7 @@ abstract class QkThemedActivity : QkActivity() {
     override fun onPostCreate(savedInstanceState: Bundle?) {
         super.onPostCreate(savedInstanceState)
 
-        // The overflow glyph sits on a round button, like the navigation icon: label colour
-        val textSecondary = resolveThemeColor(android.R.attr.textColorSecondary)
+        // Toolbar glyphs sit on round buttons, like the navigation icon: label colour
         val textPrimary = resolveThemeColor(android.R.attr.textColorPrimary)
         toolbar?.overflowIcon = toolbar?.overflowIcon?.apply { setTint(textPrimary) }
 
@@ -146,7 +145,7 @@ abstract class QkThemedActivity : QkActivity() {
             menu.iterator().forEach { menuItem ->
                 val tint = when (menuItem.itemId) {
                     in getColoredMenuItems() -> theme.theme
-                    else -> textSecondary
+                    else -> textPrimary
                 }
 
                 menuItem.icon = menuItem.icon?.apply { setTint(tint) }

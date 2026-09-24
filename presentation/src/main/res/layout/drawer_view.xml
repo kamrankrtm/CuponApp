@@ -31,17 +31,33 @@
         android:paddingTop="8dp"
         android:paddingBottom="8dp">
 
-        <com.moez.QKSMS.common.widget.QkTextView
+        <!-- The app's icon and name, like the header of a sidebar -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingStart="24dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="22dp"
             android:paddingTop="28dp"
-            android:paddingEnd="24dp"
-            android:paddingBottom="16dp"
-            android:text="@string/brand_name"
-            android:textColor="?android:attr/textColorPrimary"
-            android:textSize="30sp"
-            android:textStyle="bold" />
+            android:paddingEnd="22dp"
+            android:paddingBottom="18dp">
+
+            <ImageView
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:importantForAccessibility="no"
+                android:src="@mipmap/ic_launcher" />
+
+            <com.moez.QKSMS.common.widget.QkTextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:text="@string/brand_name"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
 
         <LinearLayout
             android:id="@+id/inbox"
@@ -50,8 +66,8 @@
             <ImageView
                 android:id="@+id/inboxIcon"
                 style="@style/DrawerIcon"
-                android:src="@drawable/ic_inbox_black_24dp"
-                tools:tint="@color/tools_theme" />
+                android:backgroundTint="@color/tileBlue"
+                android:src="@drawable/ic_lc_inbox" />
 
             <com.moez.QKSMS.common.widget.QkTextView
                 style="@style/DrawerText"
@@ -66,8 +82,8 @@
             <ImageView
                 android:id="@+id/archivedIcon"
                 style="@style/DrawerIcon"
-                android:src="@drawable/ic_archive_white_24dp"
-                tools:tint="?android:attr/textColorSecondary" />
+                android:backgroundTint="@color/tileGray"
+                android:src="@drawable/ic_lc_archive" />
 
             <com.moez.QKSMS.common.widget.QkTextView
                 style="@style/DrawerText"
@@ -83,8 +99,8 @@
 
             <ImageView
                 style="@style/DrawerIcon"
-                android:src="@drawable/ic_import_export_black_24dp"
-                android:tint="?android:attr/textColorSecondary" />
+                android:backgroundTint="@color/tileGreen"
+                android:src="@drawable/ic_lc_backup" />
 
             <com.moez.QKSMS.common.widget.QkTextView
                 style="@style/DrawerText"
@@ -94,10 +110,13 @@
                 android:id="@+id/plusBadge1"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@drawable/rounded_rectangle_2dp"
-                android:padding="4dp"
+                android:background="@drawable/rounded_rectangle_22dp"
+                android:fontFamily="?attr/fontMedium"
+                android:paddingStart="9dp"
+                android:paddingTop="1dp"
+                android:paddingEnd="9dp"
+                android:paddingBottom="1dp"
                 android:text="@string/title_qksms_plus"
-                android:textStyle="bold"
                 app:textSize="tertiary"
                 tools:backgroundTint="@color/tools_theme"
                 tools:textColor="@color/textPrimaryDark" />
@@ -110,8 +129,8 @@
 
             <ImageView
                 style="@style/DrawerIcon"
-                android:src="@drawable/ic_event_black_24dp"
-                android:tint="?android:attr/textColorSecondary" />
+                android:backgroundTint="@color/tileOrange"
+                android:src="@drawable/ic_lc_scheduled" />
 
             <com.moez.QKSMS.common.widget.QkTextView
                 style="@style/DrawerText"
@@ -121,10 +140,13 @@
                 android:id="@+id/plusBadge2"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@drawable/rounded_rectangle_2dp"
-                android:padding="4dp"
+                android:background="@drawable/rounded_rectangle_22dp"
+                android:fontFamily="?attr/fontMedium"
+                android:paddingStart="9dp"
+                android:paddingTop="1dp"
+                android:paddingEnd="9dp"
+                android:paddingBottom="1dp"
                 android:text="@string/title_qksms_plus"
-                android:textStyle="bold"
                 app:textSize="tertiary"
                 tools:backgroundTint="@color/tools_theme"
                 tools:textColor="@color/textPrimaryDark" />
@@ -137,8 +159,8 @@
 
             <ImageView
                 style="@style/DrawerIcon"
-                android:src="@drawable/ic_block_white_24dp"
-                android:tint="?android:attr/textColorSecondary" />
+                android:backgroundTint="@color/tileRed"
+                android:src="@drawable/ic_lc_ban" />
 
             <com.moez.QKSMS.common.widget.QkTextView
                 style="@style/DrawerText"
@@ -154,8 +176,8 @@
 
             <ImageView
                 style="@style/DrawerIcon"
-                android:src="@drawable/ic_settings_black_24dp"
-                android:tint="?android:attr/textColorSecondary" />
+                android:backgroundTint="@color/tileGray"
+                android:src="@drawable/ic_lc_settings" />
 
             <com.moez.QKSMS.common.widget.QkTextView
                 style="@style/DrawerText"
@@ -169,8 +191,8 @@
 
             <ImageView
                 style="@style/DrawerIcon"
-                android:src="@drawable/ic_star_black_24dp"
-                android:tint="?android:attr/textColorSecondary" />
+                android:backgroundTint="@color/tabDiscounts"
+                android:src="@drawable/ic_lc_star" />
 
             <com.moez.QKSMS.common.widget.QkTextView
                 style="@style/DrawerText"
@@ -184,8 +206,8 @@
 
             <ImageView
                 style="@style/DrawerIcon"
-                android:src="@drawable/ic_help_black_24dp"
-                android:tint="?android:attr/textColorSecondary" />
+                android:backgroundTint="@color/tileBlue"
+                android:src="@drawable/ic_lc_help" />
 
             <com.moez.QKSMS.common.widget.QkTextView
                 style="@style/DrawerText"
@@ -199,8 +221,8 @@
 
             <ImageView
                 style="@style/DrawerIcon"
-                android:src="@drawable/ic_people_black_24dp"
-                android:tint="?android:attr/textColorSecondary" />
+                android:backgroundTint="@color/tileGreen"
+                android:src="@drawable/ic_lc_users" />
 
             <com.moez.QKSMS.common.widget.QkTextView
                 style="@style/DrawerText"
@@ -224,7 +246,7 @@
                 android:id="@+id/plusIcon"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_star_black_24dp"
+                android:src="@drawable/ic_lc_star"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
@@ -260,8 +282,8 @@
                 android:id="@+id/plusNext"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_chevron_right_black_24dp"
-                android:tint="?android:attr/textColorTertiary"
+                android:src="@drawable/ic_lc_chevron_right"
+                android:tint="@color/chevron"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
@@ -283,7 +305,7 @@
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:layout_marginStart="16dp"
-                android:src="@drawable/ic_favorite_black_24dp"
+                android:src="@drawable/ic_lc_heart"
                 app:layout_constraintBottom_toBottomOf="@id/rateSummary"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="@id/rateTitle"

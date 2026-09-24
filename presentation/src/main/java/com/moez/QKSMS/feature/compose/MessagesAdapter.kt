@@ -236,13 +236,15 @@ class MessagesAdapter @Inject constructor(
 
         // Bind the grouping
         val media = message.parts.filter { !it.isSmil() && !it.isText() }
-        holder.containerView.setPadding(bottom = if (canGroup(message, next)) 0 else 16.dpToPx(context))
+        holder.containerView.setPadding(bottom = if (canGroup(message, next)) 0 else 12.dpToPx(context))
 
         // Bind the avatar and bubble colour. As in the system Messages app, the accent belongs to
         // what you send; incoming bubbles stay neutral (bubbleColor, set in the layout).
         if (!message.isMe()) {
+            // Only a group chat needs to say who sent what; the header already shows the one person
+            val group = conversation?.recipients?.size ?: 0 > 1
             holder.avatar.setRecipient(contactCache[message.address])
-            holder.avatar.setVisible(!canGroup(message, next), View.INVISIBLE)
+            holder.avatar.setVisible(group && !canGroup(message, next), if (group) View.INVISIBLE else View.GONE)
         } else {
             holder.body.setTextColor(theme.textPrimary)
             holder.body.setLinkTextColor(theme.textPrimary)

@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.moez.QKSMS.R
+import com.moez.QKSMS.common.util.NotificationArt
 import com.moez.QKSMS.common.util.NotificationManagerImpl
 import androidx.core.app.TaskStackBuilder
 import com.moez.QKSMS.feature.compose.ComposeActivity
@@ -85,8 +86,12 @@ object PromoExpiryNotifier {
                 )
             }
 
+            // Same shape as the discount notification: the offer, then code and time left;
+            // the brand's own tile as the large icon, no emoji
             val title = "کد ${promo.brand} رو به اتمام است"
-            val body = "${promo.discountAmount} • ${promo.remainingLabel(now)}"
+            val line = listOfNotNull("کد ${promo.code}", promo.remainingLabel(now).takeIf { it.isNotBlank() },
+                    promo.discountAmount.takeIf { it.isNotBlank() }).joinToString(" · ")
+            val brandColor = promo.brandColor.takeIf { it != 0 } ?: BrandRegistry.fallbackColor(promo.brand)
 
             val notification = NotificationCompat.Builder(
                 context,
@@ -94,23 +99,21 @@ object PromoExpiryNotifier {
             )
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(androidx.core.content.ContextCompat.getColor(context, R.color.tabDiscounts))
+                .setLargeIcon(NotificationArt.brandTile(context, brandColor, promo.brandEn.ifBlank { promo.brand }))
                 .setContentTitle(title)
-                .setContentText(body)
+                .setContentText(line)
                 .setStyle(
                     NotificationCompat.BigTextStyle()
                         .setBigContentTitle(title)
                         .bigText(
-                            "🎁 کد: ${promo.code}\n" +
-                                "💰 تخفیف: ${promo.discountAmount}\n" +
-                                "⏳ ${promo.remainingLabel(now)}" +
-                                (promo.minOrder?.let { "\n🛒 $it" } ?: "") +
+                            line + (promo.minOrder?.takeIf { it.isNotBlank() }?.let { "\n$it" } ?: "") +
                                 messageExcerpt(promo)
                         )
                 )
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setAutoCancel(true)
                 .setContentIntent(openPendingIntent)
-                .addAction(R.drawable.ic_content_copy_black_24dp, "📋 کپی کد", copyPendingIntent)
+                .addAction(R.drawable.ic_lc_copy, "کپی کد", copyPendingIntent)
                 .build()
 
             manager.notify(notificationId, notification)
@@ -130,7 +133,7 @@ object PromoExpiryNotifier {
         val body = promo.body.replace("\uFFFD", " ").trim()
         if (body.isEmpty()) return ""
         val excerpt = if (body.length <= MAX_EXCERPT) body else body.take(MAX_EXCERPT).trimEnd() + "…"
-        return "\n\n📩 متن پیامک:\n$excerpt"
+        return "\n\n$excerpt"
     }
 
     /** Anything longer is cut off by the system before the user can read it anyway. */

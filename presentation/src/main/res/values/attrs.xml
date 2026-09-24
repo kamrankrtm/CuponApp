@@ -55,6 +55,12 @@
         <attr name="summary" />
         <attr name="widget" />
         <attr name="icon" />
+        <!-- Shows the icon white on a rounded tile of this colour, like the system Settings app -->
+        <attr name="iconTileColor" format="color|reference" />
+        <!-- The summary is the setting's current value: shown at the end of the row, not below -->
+        <attr name="valueSummary" format="boolean" />
+        <!-- The row opens another screen or a picker -->
+        <attr name="chevron" format="boolean" />
     </declare-styleable>
 
     <declare-styleable name="RadioPreferenceView">
