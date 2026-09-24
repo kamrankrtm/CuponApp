@@ -87,7 +87,7 @@ jobs:
           path: shots/
           retention-days: 7
 
-  # One job per screen, each printing a downscaled JPEG as base64 between markers, so a
+  # One job per screen, each printing a downscaled WebP as base64 between markers, so a
   # screenshot can be read back from that job's log without downloading the artifact.
   publish:
     name: Log ${{ matrix.shot }}
@@ -128,7 +128,7 @@ jobs:
         run: |
           pip install --quiet pillow
           python3 - <<'PY'
-          import base64, io, os
+          import base64, io, os, zlib
           from PIL import Image
           name = "${{ matrix.shot }}"
           path = f"shots/{name}.png"
@@ -136,13 +136,15 @@ jobs:
               print(f"SHOT-MISSING {name}")
               raise SystemExit(0)
           img = Image.open(path).convert("RGB")
-          w = 540
+          w = 400
           img = img.resize((w, round(img.height * w / img.width)), Image.LANCZOS)
           buf = io.BytesIO()
-          img.save(buf, "JPEG", quality=74, optimize=True)
+          img.save(buf, "WEBP", quality=60, method=6)
           data = base64.b64encode(buf.getvalue()).decode()
-          print(f"SHOT-BEGIN {name} {len(data)}")
-          for i in range(0, len(data), 6000):
-              print("B64 " + data[i:i + 6000])
+          # Each chunk carries its index and CRC32 so a transcribed copy can be verified
+          print(f"SHOT-BEGIN {name} {len(data)} {zlib.crc32(data.encode()):08x}")
+          for n, i in enumerate(range(0, len(data), 3000)):
+              chunk = data[i:i + 3000]
+              print(f"B64 {n} {zlib.crc32(chunk.encode()):08x} {chunk}")
           print(f"SHOT-END {name}")
           PY
