@@ -76,8 +76,7 @@ object SmartSmsClassifier {
         // 3. Check for Banking transaction
         if (isBankingMessage(cleanSender, cleanBody)) {
             val bankName = extractBankName(cleanSender, cleanBody)
-            val isDeposit = cleanBody.contains("واریز")
-            val amount = extractBankingAmount(cleanBody)
+            val (amount, isDeposit) = readTransaction(cleanBody)
             return SmsCategory.Banking(bankName, amount, isDeposit)
         }
 
@@ -131,12 +130,8 @@ object SmartSmsClassifier {
 
     /** A message from a sender moved to Banking that reads like no transaction we know. */
     private fun movedToBanking(sender: String, body: String): SmsCategory.Banking {
-        val isDeposit = when {
-            body.contains("واریز") -> true
-            body.contains("برداشت") -> false
-            else -> null
-        }
-        return SmsCategory.Banking(extractBankName(sender, body), extractBankingAmount(body), isDeposit)
+        val (amount, isDeposit) = readTransaction(body)
+        return SmsCategory.Banking(extractBankName(sender, body), amount, isDeposit)
     }
 
     fun normalizeDigits(input: String): String {
@@ -538,6 +533,7 @@ object SmartSmsClassifier {
         "واریز" to "حساب",
         "برداشت" to "حساب",
         "کسر" to "حساب",
+        "پرداخت" to "حساب",
         "خرید با کارت" to "مانده حساب"
     )
 
@@ -635,10 +631,56 @@ object SmartSmsClassifier {
         return if (sender.isNotBlank()) sender else "پیامک بانکی"
     }
 
-    private fun extractBankingAmount(body: String): String? {
-        val normalized = normalizeDigits(body)
-        val pattern = Pattern.compile("([0-9,]{4,})\\s*(?:ریال|تومان)")
-        val matcher = pattern.matcher(normalized)
-        return if (matcher.find()) matcher.group(0) else null
+    /** "+7,000,000" or "400,000-": the sign says which way the money went. */
+    private val SIGNED_CAPTURE = Pattern.compile("([+\\-−])\\s?($GROUPED_AMOUNT)|($GROUPED_AMOUNT)\\s?([+\\-−])")
+
+    /** "مبلغ2,319", "بمبلغ 94,076,000", "برداشت:300,000" — the balance (مانده) is never the amount. */
+    private val LABELLED_AMOUNT = Pattern.compile("(?:مبلغ|برداشت|واریز|انتقال|کارمزد|خرید|پرداخت)\\s*[:：]?\\s*($GROUPED_AMOUNT|\\d{4,})")
+
+    private val AMOUNT_WITH_UNIT = Pattern.compile("($GROUPED_AMOUNT|\\d{4,})\\s*(ریال|تومان)")
+
+    private val UNIT_AFTER = Pattern.compile("^\\s*(ریال|تومان)")
+
+    private val DEPOSIT_WORDS = listOf("واریز", "شارژ شد", "افزایش موجودی", "به حساب شما نشست", "دریافت")
+    private val WITHDRAWAL_WORDS = listOf("برداشت", "کسر", "خرید", "پرداخت", "کارمزد", "از حساب شما پرید", "انتقال از")
+
+    /**
+     * The amount of a transaction ("7,000,000 ریال") and whether money came in. Banks often
+     * write neither unit nor direction ("انتقال:+7,000,000", "مبلغ2,319"), so a signed amount
+     * wins, then one named by its label, then any amount with a unit; statements are in rials.
+     */
+    private fun readTransaction(body: String): Pair<String?, Boolean?> {
+        val text = bankingText(body)
+        var amount: String? = null
+        var end = -1
+        var deposit: Boolean? = null
+
+        val signed = SIGNED_CAPTURE.matcher(text)
+        if (signed.find()) {
+            val sign = signed.group(1) ?: signed.group(4)
+            amount = signed.group(2) ?: signed.group(3)
+            end = signed.end()
+            deposit = sign == "+"
+        } else {
+            val labelled = LABELLED_AMOUNT.matcher(text)
+            val withUnit = AMOUNT_WITH_UNIT.matcher(text)
+            if (labelled.find()) {
+                amount = labelled.group(1)
+                end = labelled.end()
+            } else if (withUnit.find()) {
+                amount = withUnit.group(1)
+                end = withUnit.end(1)
+            }
+        }
+        if (deposit == null) {
+            deposit = when {
+                DEPOSIT_WORDS.any { text.contains(it) } -> true
+                WITHDRAWAL_WORDS.any { text.contains(it) } -> false
+                else -> null
+            }
+        }
+        if (amount == null) return Pair(null, deposit)
+        val unit = UNIT_AFTER.matcher(text.substring(end)).let { if (it.find()) it.group(1) else "ریال" }
+        return Pair("$amount $unit", deposit)
     }
 }

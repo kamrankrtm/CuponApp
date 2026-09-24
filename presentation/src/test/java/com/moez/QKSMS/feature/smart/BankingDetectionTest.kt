@@ -97,4 +97,31 @@ class BankingDetectionTest {
         assertFalse(SmartSmsClassifier.classify("SNAPP",
                 "کاربر عزیز اسنپ‌پرو، هزینه‌ی اشتراک اسنپ‌پرو از شنبه افزایش پیدا می‌کند") is SmsCategory.Banking)
     }
+
+    @Test
+    fun `amounts without a unit are read, and the sign sets the direction`() {
+        val melli = banking("+98700717", "بانك ملي ايران\nانتقال:+7,000,000\nحساب:66005\nمانده:25,817,272\n0701-13:49")
+        assertEquals("7,000,000 ریال", melli?.amount)
+        assertEquals(true, melli?.isDeposit)
+
+        val fee = banking("+98700717", "بانك ملي ايران\nكارمزد:-1,008,000\nحساب:56007\nمانده:14,646,341\n0628-09:29")
+        assertEquals("1,008,000 ریال", fee?.amount)
+        assertEquals(false, fee?.isDeposit)
+
+        val mehr = banking("B.QMEHRIRAN", "300356873684\n1,000,000+\n1405/6/21-17:32\nمانده:4,405,082")
+        assertEquals("1,000,000 ریال", mehr?.amount)
+        assertEquals(true, mehr?.isDeposit)
+
+        val profit = banking("Bank Mellat", "واریز سود کوتاه مدت\nحساب5786970551\nمبلغ2,319\n05/07/01")
+        assertEquals("2,319 ریال", profit?.amount)
+        assertEquals(true, profit?.isDeposit)
+
+        val debt = banking("Bank Mellat", "بانک ملت\nمشتری گرامی، پرداخت بدهی ش.ق 1404785794911 بمبلغ 94,076,000 ریال از محل حساب بشماره 7772286851 انجام شد.")
+        assertEquals("94,076,000 ریال", debt?.amount)
+        assertEquals(false, debt?.isDeposit)
+
+        val wallet = banking("+981000123456", "کیف پول بازارپی شما ۱۰,۰۰۰,۰۰۰ تومان شارژ شد.")
+        assertEquals("10,000,000 تومان", wallet?.amount)
+        assertEquals(true, wallet?.isDeposit)
+    }
 }
