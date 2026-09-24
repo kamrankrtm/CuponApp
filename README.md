@@ -11,10 +11,25 @@
 
 ## 📸 تصاویر محیط برنامه (Screenshots)
 
+> طراحی جدید smsPRO — مینیمال، هماهنگ در حالت روشن و تیره، با فونت دبی. این تصاویر پیش‌نمایش طراحی هستند و پس از انتشار نسخه نهایی با اسکرین‌شات واقعی از برنامه جایگزین می‌شوند.
+
 <p align="center">
-  <img src="assets/tab_discounts.png" width="30%" alt="تب کدهای تخفیف" />
-  <img src="assets/tab_otp.jpg" width="30%" alt="تب کدهای ورود و تایید" />
-  <img src="assets/tab_personal.jpg" width="30%" alt="تب پیام‌های شخصی و تفکیک گفتگوها" />
+  <img src="assets/screenshots/inbox-light.png" width="24%" alt="صندوق پیام‌ها با زبانه‌های هوشمند" />
+  <img src="assets/screenshots/discounts-light.png" width="24%" alt="کدهای تخفیف به شکل کوپن" />
+  <img src="assets/screenshots/otp-light.png" width="24%" alt="کدهای ورود و تایید" />
+  <img src="assets/screenshots/banking-light.png" width="24%" alt="تراکنش‌های بانکی" />
+</p>
+<p align="center">
+  <img src="assets/screenshots/inbox-dark.png" width="24%" alt="صندوق پیام‌ها در حالت تیره" />
+  <img src="assets/screenshots/discounts-dark.png" width="24%" alt="کدهای تخفیف در حالت تیره" />
+  <img src="assets/screenshots/conversation-dark.png" width="24%" alt="صفحه گفتگو در حالت تیره" />
+  <img src="assets/screenshots/settings-dark.png" width="24%" alt="تنظیمات در حالت تیره" />
+</p>
+<p align="center">
+  <img src="assets/screenshots/spam-light.png" width="24%" alt="زبانه اسپم و کشیدن برای «اسپم نیست»" />
+  <img src="assets/screenshots/notifications.png" width="24%" alt="اعلان‌ها" />
+  <img src="assets/screenshots/settings-light.png" width="24%" alt="تنظیمات" />
+  <img src="assets/screenshots/menu-light.png" width="24%" alt="منوی کناری" />
 </p>
 
 ---
@@ -40,6 +55,7 @@
 4. **کدهای ورود (OTP):** دسترسی تجمیعی و سریع به آخرین کدهای تایید هویت.
 5. **تخفیف‌ها (Discounts):** ویترین کدهای تخفیف استخراج‌شده.
 6. **اسپم و تبلیغات (Spam):** پیامک‌های تبلیغاتی انبوه بدون تخفیف که به صورت خودکار بی‌صدا می‌شوند تا مزاحمتی ایجاد نکنند.
+   - **«اسپم نیست»:** اگر پیامکی به اشتباه در اسپم قرار گرفت، کافی است آن را به سمت راست بکشید؛ فرستنده به زبانه شخصی منتقل می‌شود و از این به بعد اعلان پیام‌هایش را دریافت می‌کنید (با امکان بازگرداندن).
 
 ### ۴. 📅 تقویم خورشیدی و ارقام فارسی (Jalali Calendar)
 - تبدیل دقیق ۳۳ ساله میلادی به شمسی بدون نیاز به اینترنت و بدون کتابخانه‌های سنگین خارجی.
