@@ -37,6 +37,8 @@
             android:id="@+id/blockingManager"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+        app:icon="@drawable/ic_lc_shield"
+        app:iconTileColor="@color/tileTeal"
             app:title="@string/blocking_manager_title"
             tools:summary="@string/blocking_manager_qksms_title" />
 
@@ -44,12 +46,16 @@
             android:id="@+id/blockedNumbers"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+        app:icon="@drawable/ic_lc_ban"
+        app:iconTileColor="@color/tileRed"
             app:title="@string/blocked_numbers_title" />
 
         <com.moez.QKSMS.common.widget.PreferenceView
             android:id="@+id/drop"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+        app:icon="@drawable/ic_lc_trash"
+        app:iconTileColor="@color/tileGray"
             app:summary="@string/blocking_drop_summary"
             app:title="@string/blocking_drop_title"
             app:widget="@layout/settings_switch_widget" />
@@ -58,6 +64,8 @@
             android:id="@+id/blockedMessages"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+        app:icon="@drawable/ic_lc_message_x"
+        app:iconTileColor="@color/tileGray"
             app:title="@string/blocked_messages_title" />
 
     </LinearLayout>

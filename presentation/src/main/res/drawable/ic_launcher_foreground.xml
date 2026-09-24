@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher foreground: a white speech bubble notched like a ticket, with a percent sign.
+     Drawn in the concept's 100-unit grid and placed in the central 72dp of the 108dp layer. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.72"
+        android:scaleY="0.72"
+        android:translateX="18"
+        android:translateY="18">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M32,22H68A14,14 0,0 1,82 36V39A6,6 0,0 0,82 51V54A14,14 0,0 1,68 68H40C36,72 31,76 24,77C27,73 28,70 28,67C21,63 18,59 18,54V51A6,6 0,0 0,18 39V36A14,14 0,0 1,32 22Z" />
+        <path
+            android:fillColor="#1270F2"
+            android:pathData="M36.6,37a4.4,4.4 0,1 0,8.8 0a4.4,4.4 0,1 0,-8.8 0Z" />
+        <path
+            android:fillColor="#1270F2"
+            android:pathData="M54.6,53a4.4,4.4 0,1 0,8.8 0a4.4,4.4 0,1 0,-8.8 0Z" />
+        <path
+            android:pathData="M61,33L39,57"
+            android:strokeWidth="5.5"
+            android:strokeColor="#1270F2"
+            android:strokeLineCap="round" />
+    </group>
+</vector>

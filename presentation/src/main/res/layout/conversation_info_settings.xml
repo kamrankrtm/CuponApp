@@ -33,36 +33,41 @@
         android:id="@+id/groupName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        app:icon="@drawable/ic_lc_users"
+        app:iconTileColor="@color/tileBlue"
         android:visibility="gone"
-        app:icon="@drawable/ic_people_black_24dp"
         app:title="@string/info_name" />
 
     <com.moez.QKSMS.common.widget.PreferenceView
         android:id="@+id/notifications"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:icon="@drawable/ic_notifications_black_24dp"
+        app:icon="@drawable/ic_lc_bell"
+        app:iconTileColor="@color/tileRed"
         app:title="@string/info_notifications" />
 
     <com.moez.QKSMS.common.widget.PreferenceView
         android:id="@+id/archive"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:icon="@drawable/ic_archive_white_24dp"
+        app:icon="@drawable/ic_lc_archive"
+        app:iconTileColor="@color/tileGray"
         app:title="@string/info_archive" />
 
     <com.moez.QKSMS.common.widget.PreferenceView
         android:id="@+id/block"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:icon="@drawable/ic_block_white_24dp"
+        app:icon="@drawable/ic_lc_ban"
+        app:iconTileColor="@color/tileRed"
         app:title="@string/info_block" />
 
     <com.moez.QKSMS.common.widget.PreferenceView
         android:id="@+id/delete"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:icon="@drawable/ic_delete_white_24dp"
+        app:icon="@drawable/ic_lc_trash"
+        app:iconTileColor="@color/tileRed"
         app:title="@string/info_delete" />
 
     <View

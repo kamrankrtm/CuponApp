@@ -122,7 +122,8 @@
                 android:id="@+id/backup"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_history_black_24dp"
+        app:icon="@drawable/ic_lc_history"
+        app:iconTileColor="@color/tileGreen"
                 app:title="@string/backup_last"
                 tools:summary="@string/backup_never" />
 
@@ -130,7 +131,8 @@
                 android:id="@+id/restore"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_file_download_black_24dp"
+        app:icon="@drawable/ic_lc_download"
+        app:iconTileColor="@color/tileBlue"
                 app:summary="@string/backup_restore_summary"
                 app:title="@string/backup_restore_title" />
 

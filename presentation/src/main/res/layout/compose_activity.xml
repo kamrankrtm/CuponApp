@@ -308,6 +308,7 @@
         android:padding="8dp"
         android:src="@drawable/ic_whatsapp"
         android:tint="?android:attr/textColorSecondary"
+        android:tintMode="src_in"
         app:layout_constraintBottom_toBottomOf="@id/messageBackground"
         app:layout_constraintEnd_toStartOf="@id/send" />
 

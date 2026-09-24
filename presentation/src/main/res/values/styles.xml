@@ -62,7 +62,7 @@
         <item name="android:gravity">start|center_vertical</item>
         <item name="android:maxLines">1</item>
         <item name="android:textColor">?android:attr/textColorPrimary</item>
-        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">?attr/fontMedium</item>
         <item name="textSize">toolbar</item>
     </style>
 

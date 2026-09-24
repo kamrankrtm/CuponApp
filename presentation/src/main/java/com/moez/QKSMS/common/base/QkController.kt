@@ -18,12 +18,15 @@
  */
 package com.moez.QKSMS.common.base
 
+import android.os.Build
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.annotation.LayoutRes
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
+import com.moez.QKSMS.R
+import com.moez.QKSMS.common.util.extensions.resolveThemeColor
 import com.bluelinelabs.conductor.archlifecycle.LifecycleController
 import kotlinx.android.extensions.LayoutContainer
 import kotlinx.android.synthetic.*
@@ -65,6 +68,19 @@ abstract class QkController<ViewContract : QkViewContract<State>, State, Present
 
     fun showBackButton(show: Boolean) {
         appCompatActivity?.supportActionBar?.setDisplayHomeAsUpEnabled(show)
+    }
+
+    /**
+     * Grouped screens (rounded cards on grey) carry their grey up through the toolbar and status
+     * bar, so the page reads as one surface; plain screens keep the window colour.
+     */
+    fun useGroupedSurface(grouped: Boolean) {
+        val activity = activity ?: return
+        val color = activity.resolveThemeColor(if (grouped) R.attr.groupedBackground else android.R.attr.windowBackground)
+        activity.findViewById<View>(R.id.toolbar)?.setBackgroundColor(color)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            activity.window.statusBarColor = color
+        }
     }
 
     override fun onDestroyView(view: View) {

@@ -121,11 +121,17 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
         about.summary = context.getString(R.string.settings_version, BuildConfig.VERSION_NAME)
     }
 
+    override fun onDetach(view: View) {
+        super.onDetach(view)
+        useGroupedSurface(false)
+    }
+
     override fun onAttach(view: View) {
         super.onAttach(view)
         presenter.bindIntents(this)
         setTitle(R.string.title_settings)
         showBackButton(true)
+        useGroupedSurface(true)
 
         val tabNames = arrayOf("All", "Personal", "Banking", "OTP", "Discounts", "Spam")
         prefDefaultTab?.summary = tabNames.getOrElse(prefs.defaultTab.get()) { "Personal" }
