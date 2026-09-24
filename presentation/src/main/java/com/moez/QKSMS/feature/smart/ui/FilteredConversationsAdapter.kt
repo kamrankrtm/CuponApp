@@ -59,19 +59,30 @@ class FilteredConversationsAdapter(
 
     var frequentContacts: List<Conversation> = emptyList()
         set(value) {
-            field = value
+            field = value.filter { it.isValid }
             notifyDataSetChanged()
         }
 
     private val hasHeader: Boolean
         get() = frequentContacts.isNotEmpty()
 
+    /**
+     * The conversations are live Realm objects, and a sync can delete them while this list still
+     * holds them. RecyclerView asks for ids and view types during layout, outside any try/catch,
+     * so those answers are read once here and never from Realm afterwards.
+     */
     var data: List<Conversation> = emptyList()
         set(value) {
-            field = value
+            val valid = value.filter { it.isValid }
+            field = valid
+            itemIds = LongArray(valid.size) { i -> valid[i].id }
+            unreadFlags = BooleanArray(valid.size) { i -> valid[i].unread }
             notifyDataSetChanged()
-            emptyView?.isVisible = value.isEmpty()
+            emptyView?.isVisible = valid.isEmpty()
         }
+
+    private var itemIds = LongArray(0)
+    private var unreadFlags = BooleanArray(0)
 
     var emptyView: View? = null
         set(value) {
@@ -89,14 +100,22 @@ class FilteredConversationsAdapter(
     override fun getItemId(position: Int): Long {
         if (hasHeader && position == 0) return -999999L
         val actualPos = if (hasHeader) position - 1 else position
-        return data.getOrNull(actualPos)?.id ?: position.toLong()
+        return itemIds.getOrNull(actualPos) ?: -(position + 2L)
     }
 
     override fun getItemViewType(position: Int): Int {
         if (hasHeader && position == 0) return VIEW_TYPE_HEADER
         if (bankingMode) return VIEW_TYPE_BANK
-        val conversation = getItem(position)
-        return if (conversation.unread) VIEW_TYPE_UNREAD else VIEW_TYPE_NORMAL
+        val actualPos = if (hasHeader) position - 1 else position
+        return if (unreadFlags.getOrNull(actualPos) == true) VIEW_TYPE_UNREAD else VIEW_TYPE_NORMAL
+    }
+
+    /** Opens the conversation at [position], if it is still there. */
+    private fun open(position: Int) {
+        if (position == RecyclerView.NO_POSITION || position !in 0 until itemCount) return
+        if (hasHeader && position == 0) return
+        val id = getItemId(position)
+        if (id >= 0) navigator.showConversation(id)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): QkViewHolder {
@@ -110,12 +129,7 @@ class FilteredConversationsAdapter(
         if (viewType == VIEW_TYPE_BANK) {
             val view = layoutInflater.inflate(R.layout.bank_transaction_item, parent, false)
             return BankViewHolder(view).apply {
-                view.setOnClickListener {
-                    val pos = adapterPosition
-                    if (pos != RecyclerView.NO_POSITION && pos in 0 until itemCount) {
-                        navigator.showConversation(getItem(pos).id)
-                    }
-                }
+                view.setOnClickListener { open(adapterPosition) }
             }
         }
 
@@ -133,14 +147,7 @@ class FilteredConversationsAdapter(
         }
 
         return QkViewHolder(view).apply {
-            view.setOnClickListener {
-                val pos = adapterPosition
-                if (pos != RecyclerView.NO_POSITION && pos in 0 until itemCount) {
-                    if (hasHeader && pos == 0) return@setOnClickListener
-                    val conversation = getItem(pos)
-                    navigator.showConversation(conversation.id)
-                }
-            }
+            view.setOnClickListener { open(adapterPosition) }
         }
     }
 
@@ -201,6 +208,7 @@ class FilteredConversationsAdapter(
 
     /** What the bank said in the conversation's latest message, read once per message. */
     private fun bankingOf(conversation: Conversation): SmsCategory.Banking? {
+        if (!conversation.isValid) return null
         val lastMessage = conversation.lastMessage ?: return null
         val cached = bankingCache[conversation.id]
         if (cached != null && cached.first == lastMessage.id) return cached.second
@@ -218,7 +226,9 @@ class FilteredConversationsAdapter(
             container.removeAllViews()
             val inflater = LayoutInflater.from(itemView.context)
             for (conv in contacts) {
+                if (!conv.isValid) continue
                 val recipient = conv.recipients.firstOrNull() ?: continue
+                val conversationId = conv.id
                 val item = inflater.inflate(R.layout.frequent_contact_item, container, false)
                 val avatar = item.findViewById<com.moez.QKSMS.common.widget.AvatarView>(R.id.frequentAvatar)
                 val nameText = item.findViewById<com.moez.QKSMS.common.widget.QkTextView>(R.id.frequentName)
@@ -226,7 +236,7 @@ class FilteredConversationsAdapter(
                 nameText.text = recipient.contact?.name?.split(" ")?.firstOrNull()
                     ?: recipient.getDisplayName()
                 item.setOnClickListener {
-                    navigator.showConversation(conv.id)
+                    navigator.showConversation(conversationId)
                 }
                 container.addView(item)
             }

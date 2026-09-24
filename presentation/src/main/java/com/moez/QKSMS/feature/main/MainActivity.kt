@@ -929,7 +929,7 @@ class MainActivity : QkThemedActivity(), MainView {
                 1 -> {
                     // Personal: Saved contacts or 09... personal numbers
                     val list = if (cachedPersonalIds.isNotEmpty()) {
-                        currentConversationsList.filter { cachedPersonalIds.contains(it.id) }
+                        currentConversationsList.filter { it.isValid && cachedPersonalIds.contains(it.id) }
                     } else {
                         currentConversationsList.filter { conv ->
                             if (!conv.isValid) return@filter false
@@ -952,7 +952,7 @@ class MainActivity : QkThemedActivity(), MainView {
                 2 -> {
                     // Banking messages
                     filteredConversationsAdapter.frequentContacts = emptyList()
-                    val list = currentConversationsList.filter { cachedBankingIds.contains(it.id) }
+                    val list = currentConversationsList.filter { it.isValid && cachedBankingIds.contains(it.id) }
                     filteredConversationsAdapter.data = list
                     if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
                     itemTouchCallback.adapter = filteredConversationsAdapter
@@ -985,7 +985,7 @@ class MainActivity : QkThemedActivity(), MainView {
                 5 -> {
                     // Spam & promotional ads
                     filteredConversationsAdapter.frequentContacts = emptyList()
-                    val list = currentConversationsList.filter { cachedSpamIds.contains(it.id) }
+                    val list = currentConversationsList.filter { it.isValid && cachedSpamIds.contains(it.id) }
                     filteredConversationsAdapter.data = list
                     if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
                     // Swiping right here marks the sender "not spam" instead of the usual action
