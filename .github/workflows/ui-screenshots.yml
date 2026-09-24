@@ -1,0 +1,148 @@
+name: UI Screenshots
+
+# Builds the app, runs it on an emulator with sample SMS, and captures every main screen in
+# light and dark mode. Run on demand from the Actions tab; it does not publish a release.
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: 'What this run is checking'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-screenshots
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+          cache: 'gradle'
+
+      - name: Build debug APK
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleNoAnalyticsDebug --no-daemon
+          cp "$(find presentation/build/outputs/apk -name '*.apk' | head -n 1)" app.apk
+        env:
+          ANDROID_NDK_HOME: ""
+          ANDROID_NDK_ROOT: ""
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: app.apk
+          retention-days: 3
+
+  capture:
+    name: Capture screens
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run emulator and capture
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          ram-size: 3072M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save
+          script: bash .github/scripts/ui-screenshots.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: shots/
+          retention-days: 7
+
+  # One job per screen, each printing a downscaled JPEG as base64 between markers, so a
+  # screenshot can be read back from that job's log without downloading the artifact.
+  publish:
+    name: Log ${{ matrix.shot }}
+    needs: capture
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shot:
+          - 00_notifications
+          - light_01_all
+          - light_02_personal
+          - light_03_banking
+          - light_04_otp
+          - light_05_discounts
+          - light_06_spam
+          - light_07_conversation
+          - light_08_drawer
+          - light_09_settings
+          - light_10_settings_scrolled
+          - dark_01_all
+          - dark_02_personal
+          - dark_03_banking
+          - dark_04_otp
+          - dark_05_discounts
+          - dark_06_spam
+          - dark_07_conversation
+          - dark_08_drawer
+          - dark_09_settings
+          - dark_10_settings_scrolled
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: screenshots
+          path: shots
+
+      - name: Print ${{ matrix.shot }}
+        run: |
+          pip install --quiet pillow
+          python3 - <<'PY'
+          import base64, io, os
+          from PIL import Image
+          name = "${{ matrix.shot }}"
+          path = f"shots/{name}.png"
+          if not os.path.exists(path):
+              print(f"SHOT-MISSING {name}")
+              raise SystemExit(0)
+          img = Image.open(path).convert("RGB")
+          w = 540
+          img = img.resize((w, round(img.height * w / img.width)), Image.LANCZOS)
+          buf = io.BytesIO()
+          img.save(buf, "JPEG", quality=74, optimize=True)
+          data = base64.b64encode(buf.getvalue()).decode()
+          print(f"SHOT-BEGIN {name} {len(data)}")
+          for i in range(0, len(data), 6000):
+              print("B64 " + data[i:i + 6000])
+          print(f"SHOT-END {name}")
+          PY
