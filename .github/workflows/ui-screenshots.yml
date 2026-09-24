@@ -16,10 +16,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ui-screenshots
-  cancel-in-progress: true
-
 jobs:
   build:
     name: Build APK
