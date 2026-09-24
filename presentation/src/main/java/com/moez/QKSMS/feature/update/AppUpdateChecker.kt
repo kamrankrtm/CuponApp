@@ -19,7 +19,12 @@ object AppUpdateChecker {
     private const val GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/kamrankrtm/CuponApp/releases/latest"
     private const val PREFS_NAME = "app_update_prefs"
     private const val KEY_LAST_CHECK = "last_update_check_time"
-    private const val CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L // 6 hours
+    private const val KEY_SNOOZED_TAG = "snoozed_release_tag"
+    private const val KEY_SNOOZED_AT = "snoozed_release_time"
+    // Opening the app looks at most this often, so a new release shows up soon after it is out
+    private const val CHECK_INTERVAL_MS = 15 * 60 * 1000L
+    // "Later" keeps that same release from asking again on its own for this long
+    private const val SNOOZE_MS = 24 * 60 * 60 * 1000L
 
     data class ReleaseInfo(
         val tagName: String,
@@ -75,9 +80,14 @@ object AppUpdateChecker {
 
                     val currentVersion = BuildConfig.VERSION_NAME
                     if (isNewerVersion(tagName, currentVersion)) {
-                        val releaseInfo = ReleaseInfo(tagName, name, body, downloadUrl)
-                        activity.runOnUiThread {
-                            showUpdateDialog(activity, releaseInfo)
+                        val snoozed = !manualCheck &&
+                                prefs.getString(KEY_SNOOZED_TAG, null) == tagName &&
+                                now - prefs.getLong(KEY_SNOOZED_AT, 0L) < SNOOZE_MS
+                        if (!snoozed) {
+                            val releaseInfo = ReleaseInfo(tagName, name, body, downloadUrl)
+                            activity.runOnUiThread {
+                                showUpdateDialog(activity, releaseInfo)
+                            }
                         }
                     } else if (manualCheck) {
                         activity.runOnUiThread {
@@ -111,12 +121,13 @@ object AppUpdateChecker {
         }
     }
 
-    private fun isNewerVersion(remoteTag: String, currentVer: String): Boolean {
-        val cleanRemote = remoteTag.replace("v", "").replace("V", "").trim()
-        val cleanCurrent = currentVer.replace("v", "").replace("V", "").trim()
-
-        val remoteParts = cleanRemote.split(".").mapNotNull { it.toIntOrNull() }
-        val currentParts = cleanCurrent.split(".").mapNotNull { it.toIntOrNull() }
+    /**
+     * Compares the numbers in each version, whatever separates them: release v3.0.5.62 is newer
+     * than build 3.0.5.61 and than a plain 3.0.5, while the old v2.0.2-60 tags come out older.
+     */
+    internal fun isNewerVersion(remoteTag: String, currentVer: String): Boolean {
+        val remoteParts = versionNumbers(remoteTag)
+        val currentParts = versionNumbers(currentVer)
 
         val maxLen = maxOf(remoteParts.size, currentParts.size)
         for (i in 0 until maxLen) {
@@ -127,6 +138,9 @@ object AppUpdateChecker {
         }
         return false
     }
+
+    private fun versionNumbers(version: String): List<Int> =
+            Regex("\\d+").findAll(version).map { it.value.toIntOrNull() ?: 0 }.toList()
 
     private fun showUpdateDialog(activity: Activity, release: ReleaseInfo) {
         if (activity.isFinishing || activity.isDestroyed) return
@@ -144,7 +158,12 @@ object AppUpdateChecker {
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(release.downloadUrl))
                 activity.startActivity(intent)
             }
-            .setNegativeButton("بعداً", null)
+            .setNegativeButton("بعداً") { _, _ ->
+                activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                        .putString(KEY_SNOOZED_TAG, release.tagName)
+                        .putLong(KEY_SNOOZED_AT, System.currentTimeMillis())
+                        .apply()
+            }
             .setCancelable(true)
             .show()
     }

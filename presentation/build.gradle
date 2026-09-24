@@ -27,12 +27,17 @@ android {
     buildToolsVersion "29.0.3"
     flavorDimensions "analytics"
 
+    // CI passes its run number (-PbuildNumber), which is also the last part of the release tag
+    // (v3.0.5.61), so every build knows exactly which release it is.
+    def appVersion = project.property("appVersionName")
+    def buildNumber = project.findProperty("buildNumber")
+
     defaultConfig {
         applicationId "com.moez.QKSMS"
         minSdkVersion 21
         targetSdkVersion 29
         versionCode 30050
-        versionName "3.0.5"
+        versionName buildNumber ? "${appVersion}.${buildNumber}" : appVersion
         setProperty("archivesBaseName", "smsPRO-v${versionName}")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

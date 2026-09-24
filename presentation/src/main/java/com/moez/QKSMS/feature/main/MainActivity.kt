@@ -228,9 +228,6 @@ class MainActivity : QkThemedActivity(), MainView {
         if (Build.VERSION.SDK_INT <= 22) {
             toolbarSearch.setBackgroundTint(resolveThemeColor(R.attr.bubbleColor))
         }
-
-        // Check for updates from GitHub Releases
-        com.moez.QKSMS.feature.update.AppUpdateChecker.checkForUpdate(this)
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -414,6 +411,9 @@ class MainActivity : QkThemedActivity(), MainView {
     override fun onResume() {
         super.onResume()
         activityResumedIntent.onNext(true)
+
+        // Check for updates from GitHub Releases, also when coming back to an open app
+        com.moez.QKSMS.feature.update.AppUpdateChecker.checkForUpdate(this)
     }
 
     override fun onPause() {

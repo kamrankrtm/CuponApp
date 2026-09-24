@@ -38,8 +38,16 @@ jobs:
       - name: Make Gradle script executable
         run: chmod +x ./gradlew
 
+      # gradle.properties holds the app version and the run number makes every build unique
+      # (3.0.5.61). The installed app compares its own version with the latest release tag.
+      - name: Work out the version
+        id: version
+        run: |
+          base=$(sed -n 's/^appVersionName=//p' gradle.properties | tr -d '[:space:]')
+          echo "name=${base}.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
       - name: Build Debug APK (noAnalytics)
-        run: ./gradlew assembleNoAnalyticsDebug --stacktrace --no-daemon
+        run: ./gradlew assembleNoAnalyticsDebug -PbuildNumber=${{ github.run_number }} --stacktrace --no-daemon
         env:
           ANDROID_NDK_HOME: ""
           ANDROID_NDK_ROOT: ""
@@ -47,38 +55,47 @@ jobs:
       - name: Locate and Rename APK
         run: |
           mkdir -p build-output
-          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/smsPRO-2.0.2.apk \;
-          cp build-output/smsPRO-2.0.2.apk build-output/smsPRO-debug.apk
-          cp build-output/smsPRO-2.0.2.apk build-output/CuponApp-debug.apk
+          find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/CuponApp-debug.apk \;
+          cp build-output/CuponApp-debug.apk build-output/smsPRO-debug.apk
+          cp build-output/CuponApp-debug.apk "build-output/smsPRO-${{ steps.version.outputs.name }}.apk"
           ls -la build-output/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: smsPRO-debug-apk
-          path: build-output/smsPRO-2.0.2.apk
+          path: build-output/CuponApp-debug.apk
           retention-days: 30
+
+      # Plain text, because the in-app update dialog shows the notes as they are
+      - name: Write release notes
+        if: github.ref == 'refs/heads/main'
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          {
+            echo "نسخه $VERSION"
+            echo
+            printf '%s\n' "$COMMIT_MSG" \
+              | sed -E '/^(Co-Authored-By|Claude-Session|Signed-off-by):/d; s/ *\[(shots|skip ci)\]//g'
+            echo
+            echo "نصب: فایل CuponApp-debug.apk را دانلود و روی گوشی نصب کنید."
+          } | cat -s > release-notes.txt
+          cat release-notes.txt
 
       - name: Create GitHub Release (on every main push)
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v2.0.2-${{ github.run_number }}
-          name: smsPRO v2.0.2 (build ${{ github.run_number }})
-          body: |
-            ## smsPRO v2.0.2 - Fix SMS Sending Crash & Dual-SIM Support
-
-            ### 🐛 رفع باگ‌های مهم
-            - **رفع کرش ارسال پیامک**: خطای `Realm access from incorrect thread` در هنگام ارسال SMS به طور کامل برطرف شد.
-            - **پشتیبانی دوسیم‌کارت**: ارسال پیامک از طریق سیم‌کارت پیش‌فرض در گوشی‌های دوسیم‌کارت اصلاح شد.
-            - **پاک‌سازی شماره مقصد**: ارقام فارسی/عربی و کاراکترهای غیرمجاز قبل از ارسال پاکسازی می‌شوند.
-            - **ارتقاء SDK به 33**: سازگاری با اندروید ۱۳+ بهبود یافت.
-
-            ### 📱 نصب
-            فایل `smsPRO-2.0.2.apk` را دانلود و روی گوشی نصب کنید.
+          # The app reads this tag from releases/latest and offers the update when it is
+          # higher than its own version name
+          tag_name: v${{ steps.version.outputs.name }}
+          name: smsPRO ${{ steps.version.outputs.name }}
+          body_path: release-notes.txt
           files: |
-            build-output/smsPRO-2.0.2.apk
-            build-output/smsPRO-debug.apk
             build-output/CuponApp-debug.apk
+            build-output/smsPRO-debug.apk
+            build-output/smsPRO-${{ steps.version.outputs.name }}.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
