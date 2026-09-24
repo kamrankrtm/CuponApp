@@ -1,0 +1,2 @@
+Commits that change this file and carry [shots] in their message run the UI screenshot workflow.
+baseline: current app before the redesign
