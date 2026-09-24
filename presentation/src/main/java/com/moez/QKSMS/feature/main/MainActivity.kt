@@ -34,6 +34,7 @@ import android.view.ViewStub
 import android.widget.LinearLayout
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
@@ -72,8 +73,8 @@ import kotlinx.android.synthetic.main.drawer_view.*
 import kotlinx.android.synthetic.main.main_activity.*
 import kotlinx.android.synthetic.main.main_permission_hint.*
 import kotlinx.android.synthetic.main.main_syncing.*
-import com.google.android.material.tabs.TabLayout
 import com.moez.QKSMS.common.util.DateFormatter
+import com.moez.QKSMS.common.widget.CategoryBar
 import com.moez.QKSMS.feature.smart.SmartDataManager
 import com.moez.QKSMS.feature.smart.promo.BrandRegistry
 import com.moez.QKSMS.feature.smart.SmartSmsClassifier
@@ -230,8 +231,6 @@ class MainActivity : QkThemedActivity(), MainView {
                     syncingProgress?.indeterminateTintList = ColorStateList.valueOf(theme.theme)
                     plusIcon.setTint(theme.theme)
                     rateIcon.setTint(theme.theme)
-                    // The compose button and tab capsule follow the active category, not the contact theme
-                    applyTabAccent()
                 }
 
         // These theme attributes don't apply themselves on API 21
@@ -278,8 +277,12 @@ class MainActivity : QkThemedActivity(), MainView {
             else -> 0
         }
 
-        toolbarSearch.setVisible(state.page is Inbox && state.page.selected == 0 || state.page is Searching)
-        toolbarTitle.setVisible(toolbarSearch.visibility != View.VISIBLE)
+        // The large title and categories belong to the plain inbox; selection mode, search and
+        // the archive use the compact toolbar title instead.
+        val plainInbox = state.page is Inbox && state.page.selected == 0
+        toolbarSearch.setVisible(plainInbox || state.page is Searching)
+        toolbarTitle.setVisible(!plainInbox && state.page !is Searching)
+        largeTitle?.setVisible(plainInbox)
 
         toolbar.menu.findItem(R.id.archive)?.isVisible = state.page is Inbox && selectedConversations != 0
         toolbar.menu.findItem(R.id.unarchive)?.isVisible = state.page is Archived && selectedConversations != 0
@@ -304,7 +307,11 @@ class MainActivity : QkThemedActivity(), MainView {
         searchAdapter.emptyView = empty.takeIf { state.page is Searching }
 
         currentState = state
-        smartTabLayout?.setVisible(state.page is Inbox && state.page.selected == 0)
+        categoryBar?.setVisible(plainInbox)
+        if (!plainInbox) {
+            applySurface(grouped = false)
+            recyclerView.setPadding(0, recyclerView.paddingTop, 0, dp(24))
+        }
 
         when (state.page) {
             is Inbox -> {
@@ -340,6 +347,7 @@ class MainActivity : QkThemedActivity(), MainView {
                 searchAdapter.data = state.page.data ?: listOf()
                 useSwipe(null)
                 empty.setText(R.string.inbox_search_empty_text)
+                setEmptyIcon(R.drawable.ic_lc_search)
             }
 
             is Archived -> {
@@ -352,6 +360,7 @@ class MainActivity : QkThemedActivity(), MainView {
                 conversationsAdapter.updateData(state.page.data)
                 useSwipe(null)
                 empty.setText(R.string.archived_empty_text)
+                setEmptyIcon(R.drawable.ic_lc_archive)
             }
         }
 
@@ -424,10 +433,8 @@ class MainActivity : QkThemedActivity(), MainView {
 
     override fun showBackButton(show: Boolean) {
         toggle.onDrawerSlide(drawer, if (show) 1f else 0f)
-        toggle.drawerArrowDrawable.color = when (show) {
-            true -> resolveThemeColor(android.R.attr.textColorSecondary)
-            false -> resolveThemeColor(android.R.attr.textColorPrimary)
-        }
+        // Both states sit on the same round button, so both use the label colour
+        toggle.drawerArrowDrawable.color = resolveThemeColor(android.R.attr.textColorPrimary)
     }
 
     override fun requestDefaultSms() {
@@ -502,51 +509,53 @@ class MainActivity : QkThemedActivity(), MainView {
     }
 
     private fun setupSmartTabs() {
-        val tabs = smartTabLayout ?: return
-        tabs.removeAllTabs()
-        tabs.addTab(tabs.newTab().setText("All"))
-        tabs.addTab(tabs.newTab().setText("Personal"))
-        tabs.addTab(tabs.newTab().setText("Banking"))
-        tabs.addTab(tabs.newTab().setText("OTP"))
-        tabs.addTab(tabs.newTab().setText("Discounts"))
-        tabs.addTab(tabs.newTab().setText("Spam"))
-        tabs.setTabTextColors(resolveThemeColor(android.R.attr.textColorSecondary), android.graphics.Color.WHITE)
+        val bar = categoryBar ?: return
+        fun color(res: Int) = ContextCompat.getColor(this, res)
+        bar.setCategories(listOf(
+                CategoryBar.Category("All", R.drawable.ic_lc_inbox, color(R.color.tabAll)),
+                CategoryBar.Category("Personal", R.drawable.ic_lc_user, color(R.color.tabPersonal)),
+                CategoryBar.Category("Banking", R.drawable.ic_lc_landmark, color(R.color.tabBanking)),
+                CategoryBar.Category("OTP", R.drawable.ic_lc_key, color(R.color.tabOtp)),
+                CategoryBar.Category("Discounts", R.drawable.ic_lc_ticket, color(R.color.tabDiscounts)),
+                CategoryBar.Category("Spam", R.drawable.ic_lc_spam, color(R.color.tabSpam))))
 
         val defaultTab = prefs.defaultTab.get().coerceIn(0, 5)
         currentTabPosition = defaultTab
-        tabs.getTabAt(defaultTab)?.select()
-        applyTabAccent()
+        bar.select(defaultTab)
 
-        tabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
-            override fun onTabSelected(tab: TabLayout.Tab?) {
-                tab?.let {
-                    currentTabPosition = it.position
-                    applyTabAccent()
-                    applyTabFilter()
-                    recyclerView.post { recyclerView.scrollToPosition(0) }
-                }
-            }
-
-            override fun onTabUnselected(tab: TabLayout.Tab?) {}
-
-            override fun onTabReselected(tab: TabLayout.Tab?) {
-                applyTabFilter()
-                recyclerView.post { recyclerView.scrollToPosition(0) }
-            }
-        })
+        bar.onCategorySelected = { position, _ ->
+            currentTabPosition = position
+            applyTabFilter()
+            mainAppBar?.setExpanded(true, false)
+            recyclerView.post { recyclerView.scrollToPosition(0) }
+        }
     }
 
-    /** One accent per tab, in tab order; see the tab* colours for the light and dark values. */
-    private val tabAccentColors by lazy {
-        intArrayOf(R.color.tabAll, R.color.tabPersonal, R.color.tabBanking, R.color.tabOtp, R.color.tabDiscounts, R.color.tabSpam)
-            .map { res -> androidx.core.content.ContextCompat.getColor(this, res) }
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private var surfaceColor = 0
+
+    /**
+     * Card-based categories (codes, discounts, bank transactions) sit on the grey grouped
+     * background; lists of conversations sit on plain white (or black at night).
+     */
+    private fun applySurface(grouped: Boolean) {
+        val color = resolveThemeColor(if (grouped) R.attr.groupedBackground else android.R.attr.windowBackground)
+        if (color == surfaceColor) return
+        surfaceColor = color
+        mainContent?.setBackgroundColor(color)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) window.statusBarColor = color
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) window.navigationBarColor = color
     }
 
-    private fun applyTabAccent() {
-        val accent = tabAccentColors.getOrElse(currentTabPosition) { tabAccentColors[0] }
-        smartTabLayout?.setSelectedTabIndicatorColor(accent)
-        compose.setBackgroundTint(accent)
-        compose.setTint(android.graphics.Color.WHITE)
+    /** The empty state leads with the category's own glyph, drawn large and quiet. */
+    private fun setEmptyIcon(res: Int) {
+        val size = dp(44)
+        val icon = ContextCompat.getDrawable(this, res)?.mutate()?.apply {
+            setBounds(0, 0, size, size)
+            setTint(resolveThemeColor(android.R.attr.textColorTertiary))
+        }
+        empty.setCompoundDrawablesRelative(null, icon, null, null)
     }
 
     private val classificationCache = java.util.concurrent.ConcurrentHashMap<Long, Pair<Long, SmsCategory>>()
@@ -763,29 +772,32 @@ class MainActivity : QkThemedActivity(), MainView {
         }
 
         container.removeAllViews()
-        val accentColor = androidx.core.content.ContextCompat.getColor(this, R.color.tabDiscounts)
+        // A secondary filter, so its selection is neutral: the label colour, not another accent
+        val selectedFill = resolveThemeColor(android.R.attr.textColorPrimary)
+        val selectedText = resolveThemeColor(android.R.attr.windowBackground)
         val bubbleColor = resolveThemeColor(R.attr.bubbleColor)
-        val secondaryText = resolveThemeColor(android.R.attr.textColorSecondary)
+        val idleText = resolveThemeColor(android.R.attr.textColorPrimary)
         val density = resources.displayMetrics.density
+        categoryBar?.setCount(4, if (total > 0) com.moez.QKSMS.feature.smart.promo.PromoValueParser.toPersianDigits(total.toString()) else null)
 
         for ((index, entry) in entries.withIndex()) {
             val (slug, label) = entry
             val count = if (slug == "all") total else (counts[slug] ?: 0)
             val selected = slug == activePromoCategory
 
-            val chip = android.widget.TextView(this).apply {
+            val chip = androidx.appcompat.widget.AppCompatTextView(this).apply {
                 text = if (count > 0) {
-                    "$label (${com.moez.QKSMS.feature.smart.promo.PromoValueParser.toPersianDigits(count.toString())})"
+                    "$label  ${com.moez.QKSMS.feature.smart.promo.PromoValueParser.toPersianDigits(count.toString())}"
                 } else {
                     label
                 }
                 gravity = android.view.Gravity.CENTER
-                textSize = 12f
+                androidx.core.widget.TextViewCompat.setTextAppearance(this, R.style.TextAppearance_App_FilterChip)
+                includeFontPadding = false
                 setPadding((14 * density).toInt(), 0, (14 * density).toInt(), 0)
                 setBackgroundResource(R.drawable.rounded_rectangle_24dp)
-                backgroundTintList = ColorStateList.valueOf(if (selected) accentColor else bubbleColor)
-                setTextColor(if (selected) android.graphics.Color.WHITE else secondaryText)
-                setTypeface(null, if (selected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+                backgroundTintList = ColorStateList.valueOf(if (selected) selectedFill else bubbleColor)
+                setTextColor(if (selected) selectedText else idleText)
                 setOnClickListener {
                     activePromoCategory = slug
                     // filter() reports back through onDataChanged, which rebuilds this bar.
@@ -883,10 +895,27 @@ class MainActivity : QkThemedActivity(), MainView {
             val state = currentState ?: return
             if (state.page !is Inbox || state.page.selected > 0) {
                 discountsFilterBar?.visibility = View.GONE
+                spamInfoBar?.visibility = View.GONE
                 return
             }
 
             discountsFilterBar?.visibility = if (currentTabPosition == 4) View.VISIBLE else View.GONE
+            spamInfoBar?.visibility = if (currentTabPosition == 5) View.VISIBLE else View.GONE
+
+            // Search and compose float at the bottom of the conversation lists only
+            val conversationList = currentTabPosition == 0 || currentTabPosition == 1
+            toolbarSearch.setVisible(conversationList)
+            recyclerView.setPadding(0, recyclerView.paddingTop, 0, dp(if (conversationList) 104 else 24))
+            applySurface(grouped = currentTabPosition in 2..4)
+            filteredConversationsAdapter.bankingMode = currentTabPosition == 2
+            setEmptyIcon(when (currentTabPosition) {
+                1 -> R.drawable.ic_lc_user
+                2 -> R.drawable.ic_lc_landmark
+                3 -> R.drawable.ic_lc_key
+                4 -> R.drawable.ic_lc_ticket
+                5 -> R.drawable.ic_lc_spam
+                else -> R.drawable.ic_lc_inbox
+            })
 
             when (currentTabPosition) {
                 0 -> {

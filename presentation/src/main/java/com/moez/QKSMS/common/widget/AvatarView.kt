@@ -19,20 +19,31 @@
 package com.moez.QKSMS.common.widget
 
 import android.content.Context
+import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import android.view.View
 import android.widget.FrameLayout
+import androidx.core.content.ContextCompat
 import com.moez.QKSMS.R
 import com.moez.QKSMS.common.Navigator
 import com.moez.QKSMS.common.util.Colors
-import com.moez.QKSMS.common.util.extensions.setBackgroundTint
+import com.moez.QKSMS.common.util.ReadableColors
+import com.moez.QKSMS.common.util.extensions.resolveThemeColor
 import com.moez.QKSMS.common.util.extensions.setTint
+import com.moez.QKSMS.feature.smart.SenderIdentity
 import com.moez.QKSMS.injection.appComponent
 import com.moez.QKSMS.model.Recipient
 import com.moez.QKSMS.util.GlideApp
 import kotlinx.android.synthetic.main.avatar_view.view.*
 import javax.inject.Inject
 
+/**
+ * A sender's picture.
+ *
+ * People are circles: their photo, or initials on a soft grey gradient. Businesses are rounded
+ * squares, like app icons: a recognised brand shows its colour and initial, anything else a
+ * quiet grey tile with a building glyph. The shape alone tells a person from a company.
+ */
 class AvatarView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null
 ) : FrameLayout(context, attrs) {
@@ -44,17 +55,15 @@ class AvatarView @JvmOverloads constructor(
     private var fullName: String? = null
     private var photoUri: String? = null
     private var lastUpdated: Long? = null
-    private var theme: Colors.Theme
+    private var address: String? = null
+    private var isPerson = true
 
     init {
         if (!isInEditMode) {
             appComponent.inject(this)
         }
 
-        theme = colors.theme()
-
         View.inflate(context, R.layout.avatar_view, this)
-        setBackgroundResource(R.drawable.circle)
         clipToOutline = true
     }
 
@@ -66,7 +75,8 @@ class AvatarView @JvmOverloads constructor(
         fullName = recipient?.contact?.name
         photoUri = recipient?.contact?.photoUri
         lastUpdated = recipient?.contact?.lastUpdate
-        theme = colors.theme(recipient)
+        address = recipient?.address
+        isPerson = recipient == null || SenderIdentity.isPerson(recipient.address, recipient.contact != null)
         updateView()
     }
 
@@ -78,22 +88,61 @@ class AvatarView @JvmOverloads constructor(
         }
     }
 
-    private fun updateView() {
-        // Apply theme
-        setBackgroundTint(theme.theme)
-        initial.setTextColor(theme.textPrimary)
-        icon.setTint(theme.textPrimary)
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (w != oldw && !isInEditMode) updateView()
+    }
 
-        val initials = fullName
-                ?.substringBefore(',')
-                ?.split(" ").orEmpty()
-                .filter { name -> name.isNotEmpty() }
-                .map { name -> name[0] }
-                .filter { initial -> initial.isLetterOrDigit() }
-                .map { initial -> initial.toString() }
+    private fun updateView() {
+        val white = ContextCompat.getColor(context, R.color.white)
+        val brand = if (isPerson) null else SenderIdentity.brandFor(address)
+        val tile = GradientDrawable()
+        if (isPerson) {
+            tile.setShape(GradientDrawable.OVAL)
+        } else {
+            tile.setShape(GradientDrawable.RECTANGLE)
+            tile.setCornerRadius(width * 0.27f)
+        }
+
+        when {
+            isPerson -> {
+                tile.setOrientation(GradientDrawable.Orientation.TOP_BOTTOM)
+                tile.setColors(intArrayOf(
+                        ContextCompat.getColor(context, R.color.avatarTop),
+                        ContextCompat.getColor(context, R.color.avatarBottom)))
+                initial.setTextColor(white)
+                icon.setImageResource(R.drawable.ic_lc_user)
+                icon.setTint(white)
+            }
+
+            brand != null -> {
+                tile.setColor(ReadableColors.fillForWhiteText(brand.color))
+                initial.setTextColor(white)
+            }
+
+            else -> {
+                tile.setColor(context.resolveThemeColor(R.attr.bubbleColor))
+                icon.setImageResource(R.drawable.ic_lc_building)
+                icon.setTint(context.resolveThemeColor(android.R.attr.textColorSecondary))
+            }
+        }
+        background = tile
+
+        val initials = when {
+            brand != null -> brand.en.take(1).toUpperCase()
+            isPerson -> fullName
+                    ?.substringBefore(',')
+                    ?.split(" ").orEmpty()
+                    .filter { name -> name.isNotEmpty() }
+                    .map { name -> name[0] }
+                    .filter { initial -> initial.isLetterOrDigit() }
+                    .map { initial -> initial.toString() }
+                    .let { list -> if (list.size > 1) list.first() + list.last() else list.firstOrNull().orEmpty() }
+            else -> ""
+        }
 
         if (initials.isNotEmpty()) {
-            initial.text = if (initials.size > 1) initials.first() + initials.last() else initials.first()
+            initial.text = initials
             icon.visibility = GONE
         } else {
             initial.text = null

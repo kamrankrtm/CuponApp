@@ -35,19 +35,19 @@ object BrandRegistry {
 
     /** Display names for the category chips, keyed by slug. */
     val CATEGORY_LABELS: List<Pair<String, String>> = listOf(
-        SLUG_FOOD to "🍔 غذا",
-        SLUG_SUPERMARKET to "🛒 سوپرمارکت",
-        SLUG_ECOMMERCE to "🛍️ فروشگاه",
-        SLUG_TRANSPORT to "🚕 سفر و تاکسی",
-        SLUG_ENTERTAINMENT to "🎬 سرگرمی",
-        SLUG_FINTECH to "💳 پرداخت",
-        SLUG_TELECOM to "📱 اپراتور",
-        SLUG_SERVICES to "🔧 خدمات",
-        SLUG_OTHER to "✨ سایر"
+        SLUG_FOOD to "غذا",
+        SLUG_SUPERMARKET to "سوپرمارکت",
+        SLUG_ECOMMERCE to "فروشگاه",
+        SLUG_TRANSPORT to "سفر و تاکسی",
+        SLUG_ENTERTAINMENT to "سرگرمی",
+        SLUG_FINTECH to "پرداخت",
+        SLUG_TELECOM to "اپراتور",
+        SLUG_SERVICES to "خدمات",
+        SLUG_OTHER to "سایر"
     )
 
     fun categoryLabel(slug: String): String =
-        CATEGORY_LABELS.firstOrNull { it.first == slug }?.second ?: "✨ سایر"
+        CATEGORY_LABELS.firstOrNull { it.first == slug }?.second ?: "سایر"
 
     val UNKNOWN = Brand(
         fa = "سایر فروشگاه‌ها",

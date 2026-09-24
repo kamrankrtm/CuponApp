@@ -97,7 +97,7 @@ class Preferences @Inject constructor(
     val nightStart = rxPrefs.getString("nightStart", "18:00")
     val nightEnd = rxPrefs.getString("nightEnd", "6:00")
     val black = rxPrefs.getBoolean("black", false)
-    val autoColor = rxPrefs.getBoolean("autoColor", true)
+    val autoColor = rxPrefs.getBoolean("autoColor", false)
     val systemFont = rxPrefs.getBoolean("systemFont", false)
     val textSize = rxPrefs.getInteger("textSize", TEXT_SIZE_NORMAL)
     val blockingManager = rxPrefs.getInteger("blockingManager", BLOCKING_MANAGER_QKSMS)
@@ -153,10 +153,10 @@ class Preferences @Inject constructor(
 
     fun theme(
         recipientId: Long = 0,
-        default: Int = rxPrefs.getInteger("theme", 0xFF007AFF.toInt()).get()
+        default: Int = rxPrefs.getInteger("theme", 0xFF0A6CFF.toInt()).get()
     ): Preference<Int> {
         return when (recipientId) {
-            0L -> rxPrefs.getInteger("theme", 0xFF007AFF.toInt())
+            0L -> rxPrefs.getInteger("theme", 0xFF0A6CFF.toInt())
             else -> rxPrefs.getInteger("theme_$recipientId", default)
         }
     }

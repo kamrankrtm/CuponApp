@@ -18,7 +18,6 @@
  */
 package com.moez.QKSMS.common.util
 
-import android.graphics.Typeface
 import android.os.Build
 import android.util.AttributeSet
 import android.widget.EditText
@@ -84,9 +83,9 @@ class TextViewStyler @Inject constructor(
                 })
 
                 textSize = when (textSizeAttr) {
-                    SIZE_PRIMARY -> 16f
-                    SIZE_SECONDARY -> 14f
-                    SIZE_TERTIARY -> 12f
+                    SIZE_PRIMARY -> 17f
+                    SIZE_SECONDARY -> 15f
+                    SIZE_TERTIARY -> 13f
                     SIZE_TOOLBAR -> 20f
                     SIZE_DIALOG -> 18f
                     SIZE_EMOJI -> 32f
@@ -100,11 +99,9 @@ class TextViewStyler @Inject constructor(
         var colorAttr = 0
         var textSizeAttr = 0
 
-        if (!prefs.systemFont.get()) {
-            fontProvider.getAppFont { appFont ->
-                textView.setTypeface(appFont, textView.typeface?.style ?: Typeface.NORMAL)
-            }
-        }
+        // The typeface comes from the theme (AppFontOverlay), so a view that asks for a
+        // specific weight with android:fontFamily="?attr/fontMedium" keeps it. Forcing the
+        // family here used to flatten every weight back to regular or bold.
 
         when (textView) {
             is QkTextView -> textView.context.obtainStyledAttributes(attrs, R.styleable.QkTextView).run {
@@ -148,28 +145,29 @@ class TextViewStyler @Inject constructor(
     fun setTextSize(textView: TextView, textSizeAttr: Int) {
         val textSizePref = prefs.textSize.get()
         when (textSizeAttr) {
+            // One step larger than stock: Dubai's Latin letters are small for their size
             SIZE_PRIMARY -> textView.textSize = when (textSizePref) {
-                Preferences.TEXT_SIZE_SMALL -> 14f
-                Preferences.TEXT_SIZE_NORMAL -> 16f
-                Preferences.TEXT_SIZE_LARGE -> 18f
-                Preferences.TEXT_SIZE_LARGER -> 20f
-                else -> 16f
+                Preferences.TEXT_SIZE_SMALL -> 15f
+                Preferences.TEXT_SIZE_NORMAL -> 17f
+                Preferences.TEXT_SIZE_LARGE -> 19f
+                Preferences.TEXT_SIZE_LARGER -> 21f
+                else -> 17f
             }
 
             SIZE_SECONDARY -> textView.textSize = when (textSizePref) {
-                Preferences.TEXT_SIZE_SMALL -> 12f
-                Preferences.TEXT_SIZE_NORMAL -> 14f
-                Preferences.TEXT_SIZE_LARGE -> 16f
-                Preferences.TEXT_SIZE_LARGER -> 18f
-                else -> 14f
+                Preferences.TEXT_SIZE_SMALL -> 13f
+                Preferences.TEXT_SIZE_NORMAL -> 15f
+                Preferences.TEXT_SIZE_LARGE -> 17f
+                Preferences.TEXT_SIZE_LARGER -> 19f
+                else -> 15f
             }
 
             SIZE_TERTIARY -> textView.textSize = when (textSizePref) {
-                Preferences.TEXT_SIZE_SMALL -> 10f
-                Preferences.TEXT_SIZE_NORMAL -> 12f
-                Preferences.TEXT_SIZE_LARGE -> 14f
-                Preferences.TEXT_SIZE_LARGER -> 16f
-                else -> 12f
+                Preferences.TEXT_SIZE_SMALL -> 11f
+                Preferences.TEXT_SIZE_NORMAL -> 13f
+                Preferences.TEXT_SIZE_LARGE -> 15f
+                Preferences.TEXT_SIZE_LARGER -> 17f
+                else -> 13f
             }
 
             SIZE_TOOLBAR -> textView.textSize = when (textSizePref) {

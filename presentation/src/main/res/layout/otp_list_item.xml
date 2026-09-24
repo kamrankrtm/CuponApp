@@ -1,120 +1,133 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A verification code as a single card: who sent it, when, and the code itself set large on an
-     inset panel with one capsule action. Expired codes are dimmed by the adapter. -->
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- The newest verification code: who sent it and when, the code set large, and one capsule
+     action to copy it again. Older codes use otp_row_item. -->
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginStart="16dp"
-    android:layout_marginTop="6dp"
     android:layout_marginEnd="16dp"
     android:layout_marginBottom="6dp"
-    android:background="@drawable/rounded_rectangle_16dp"
-    android:backgroundTint="?attr/bubbleColor"
-    android:padding="16dp">
+    app:cardBackgroundColor="?attr/cardColor"
+    app:cardCornerRadius="20dp"
+    app:cardElevation="0dp"
+    app:strokeWidth="0dp">
 
-    <ImageView
-        android:id="@+id/otpIcon"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:background="@drawable/rounded_rectangle_12dp"
-        android:backgroundTint="@color/tabOtp"
-        android:importantForAccessibility="no"
-        android:padding="8dp"
-        android:src="@drawable/ic_key_black_24dp"
-        android:tint="@color/white"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <com.moez.QKSMS.common.widget.QkTextView
-        android:id="@+id/otpService"
-        style="@style/TextPrimary"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="8dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toStartOf="@id/otpDate"
-        app:layout_constraintStart_toEndOf="@id/otpIcon"
-        app:layout_constraintTop_toTopOf="@id/otpIcon"
-        tools:text="Bank Mellat" />
-
-    <com.moez.QKSMS.common.widget.QkTextView
-        android:id="@+id/otpDate"
-        style="@style/TextTertiary"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_constraintBaseline_toBaselineOf="@id/otpService"
-        app:layout_constraintEnd_toEndOf="parent"
-        tools:text="10:24" />
-
-    <com.moez.QKSMS.common.widget.QkTextView
-        android:id="@+id/otpSender"
-        style="@style/TextTertiary"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="8dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@id/otpIcon"
-        app:layout_constraintTop_toBottomOf="@id/otpService"
-        tools:text="200033" />
-
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/codeCard"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
-        android:background="@drawable/rounded_rectangle_12dp"
-        android:backgroundTint="?android:attr/windowBackground"
-        android:paddingStart="16dp"
-        android:paddingTop="10dp"
-        android:paddingEnd="10dp"
-        android:paddingBottom="10dp"
-        app:layout_constraintTop_toBottomOf="@id/otpSender">
+        android:orientation="vertical"
+        android:paddingStart="18dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="18dp">
 
-        <com.moez.QKSMS.common.widget.QkTextView
-            android:id="@+id/otpCode"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/otpIcon"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/rounded_rectangle_12dp"
+                android:backgroundTint="@color/tabOtp"
+                android:importantForAccessibility="no"
+                android:padding="10dp"
+                android:src="@drawable/ic_lc_key"
+                android:tint="@color/white" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/otpService"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="?attr/fontMedium"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:textAlignment="viewStart"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="17sp"
+                    tools:text="دیجی‌کالا" />
+
+                <TextView
+                    android:id="@+id/otpSender"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:textAlignment="viewStart"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="13sp"
+                    tools:text="300040" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/otpDate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="15sp"
+                tools:text="10:24" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/otpCode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
             android:ellipsize="end"
-            android:letterSpacing="0.08"
+            android:includeFontPadding="false"
+            android:letterSpacing="0.12"
             android:maxLines="1"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="26sp"
+            android:textSize="42sp"
             android:textStyle="bold"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/btnCopyOtp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:text="8 4 9 2 0 1" />
+            tools:text="482 913" />
+
+        <TextView
+            android:id="@+id/otpStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:drawablePadding="6dp"
+            android:fontFamily="?attr/fontMedium"
+            android:gravity="center_vertical"
+            android:includeFontPadding="false"
+            android:textColor="@color/success"
+            android:textSize="14sp"
+            tools:text="فعال · امروز ۱۰:۲۴" />
 
         <Button
             android:id="@+id/btnCopyOtp"
             style="@style/Widget.AppCompat.Button.Borderless"
-            android:layout_width="wrap_content"
-            android:layout_height="34dp"
+            android:layout_width="match_parent"
+            android:layout_height="46dp"
+            android:layout_marginTop="16dp"
             android:background="@drawable/rounded_rectangle_24dp"
             android:backgroundTint="@color/tabOtp"
-            android:minWidth="72dp"
+            android:drawablePadding="8dp"
+            android:fontFamily="?attr/fontMedium"
+            android:gravity="center"
             android:minHeight="0dp"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp"
             android:textAllCaps="false"
             android:textColor="@color/white"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:text="Copy" />
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+            android:textSize="16sp"
+            tools:text="کپی کد" />
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

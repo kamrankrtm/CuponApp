@@ -6,24 +6,28 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.moez.QKSMS.R
 import com.moez.QKSMS.common.util.ContrastUtils
 import com.moez.QKSMS.common.util.JalaliCalendar
+import com.moez.QKSMS.common.util.ReadableColors
 import com.moez.QKSMS.common.util.extensions.resolveThemeColor
 import com.moez.QKSMS.feature.smart.ClipboardHelper
 import com.moez.QKSMS.feature.smart.SmartDataManager
 import com.moez.QKSMS.feature.smart.model.PromoItem
 import com.moez.QKSMS.feature.smart.promo.BrandRegistry
 import com.moez.QKSMS.feature.smart.promo.PromoRanker
+import com.moez.QKSMS.feature.smart.promo.PromoSection
 import com.moez.QKSMS.feature.smart.promo.PromoRow
 import com.moez.QKSMS.feature.smart.promo.PromoValueParser
 
@@ -47,8 +51,24 @@ class PromoCodesAdapter(
         /** Below this confidence the card is flagged so the user knows to double-check it. */
         const val UNCERTAIN_THRESHOLD = 60
 
-        /** Warning colour for a code about to expire. */
-        val URGENT_COLOR = Color.parseColor("#FF3B30")
+    }
+
+    private val density = context.resources.displayMetrics.density
+    private val primaryTextColor: Int by lazy { context.resolveThemeColor(android.R.attr.textColorPrimary, Color.BLACK) }
+    private val urgentColor: Int by lazy { ContextCompat.getColor(context, R.color.danger) }
+    private val pinnedColor: Int by lazy { ContextCompat.getColor(context, R.color.tintDiscounts) }
+
+    /** A line-art glyph at [sizeDp], tinted, ready to sit beside a label. */
+    private fun glyph(res: Int, color: Int, sizeDp: Int = 16): Drawable? =
+        ContextCompat.getDrawable(context, res)?.mutate()?.apply {
+            val px = (sizeDp * density).toInt()
+            setBounds(0, 0, px, px)
+            setTint(color)
+        }
+
+    private fun capsule(color: Int): GradientDrawable = GradientDrawable().apply {
+        cornerRadius = 100 * density
+        setColor(color)
     }
 
     /**
@@ -168,16 +188,18 @@ class PromoCodesAdapter(
     inner class HeaderViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val title: TextView = itemView.findViewById(R.id.sectionTitle)
         private val count: TextView = itemView.findViewById(R.id.sectionCount)
+        private val dot: View = itemView.findViewById(R.id.sectionDot)
 
         fun bind(header: PromoRow.Header) {
             title.text = header.section.title
+            dot.visibility = if (header.section == PromoSection.EXPIRING_TODAY) View.VISIBLE else View.GONE
             count.text = PromoValueParser.toPersianDigits(header.count.toString())
         }
     }
 
     inner class PromoViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val brandInitial: TextView = itemView.findViewById(R.id.brandInitial)
-        private val brandIcon: ImageView = itemView.findViewById(R.id.brandIcon)
+        private val promoHeader: View = itemView.findViewById(R.id.promoHeader)
+        private val promoCategory: TextView = itemView.findViewById(R.id.promoCategory)
         private val promoBrand: TextView = itemView.findViewById(R.id.promoBrand)
         private val promoDiscountAmount: TextView = itemView.findViewById(R.id.promoDiscountAmount)
         private val promoDescription: TextView = itemView.findViewById(R.id.promoDescription)
@@ -193,23 +215,30 @@ class PromoCodesAdapter(
 
         fun bind(item: PromoItem) {
             promoBrand.text = item.brand
+            promoCategory.text = item.category
             promoDiscountAmount.text = item.discountAmount
             promoDescription.text = item.description
+            promoDescription.visibility = if (item.description.isBlank()) View.GONE else View.VISIBLE
             promoCode.text = item.code
 
-            bindBrandAvatar(item)
+            bindBrandColour(item)
             bindExpiry(item)
 
             promoUncertain.visibility = if (item.confidence < UNCERTAIN_THRESHOLD) View.VISIBLE else View.GONE
 
             if (!item.minOrder.isNullOrBlank()) {
                 promoMinOrder.visibility = View.VISIBLE
-                promoMinOrder.text = "🛒 ${item.minOrder}"
+                promoMinOrder.text = item.minOrder
+                promoMinOrder.setCompoundDrawablesRelative(glyph(R.drawable.ic_lc_bag, 0xE0FFFFFF.toInt(), 15), null, null, null)
             } else {
                 promoMinOrder.visibility = View.GONE
             }
 
-            btnPinPromo.alpha = if (item.isPinned) 1.0f else 0.35f
+            val secondary = secondaryTextColor
+            btnPinPromo.setCompoundDrawablesRelative(
+                glyph(R.drawable.ic_lc_pin, if (item.isPinned) pinnedColor else secondary, 18), null, null, null)
+            btnMarkUsed.setCompoundDrawablesRelative(glyph(R.drawable.ic_lc_circle_check, secondary), null, null, null)
+            btnViewOriginal.setCompoundDrawablesRelative(glyph(R.drawable.ic_lc_message_text, secondary), null, null, null)
             btnPinPromo.setOnClickListener {
                 SmartDataManager.setPinned(item, !item.isPinned)
                 applyFilter()
@@ -222,32 +251,18 @@ class PromoCodesAdapter(
         }
 
         /**
-         * Draws the brand avatar.
-         *
-         * The old adapter looked this view up and then never touched it, so every card showed
-         * the same generic tag in the same accent colour.
+         * Paints the coupon's face in the brand's colour, darkened only as far as white text on
+         * it needs to stay readable; the copy button takes the same colour.
          */
-        private fun bindBrandAvatar(item: PromoItem) {
+        private fun bindBrandColour(item: PromoItem) {
             val color = if (item.brandColor != 0) {
                 item.brandColor
             } else {
                 BrandRegistry.fallbackColor(item.brand)
             }
-            val tint = ColorStateList.valueOf(color)
-
-            val initial = item.brand.trim().take(2)
-            if (initial.isNotBlank()) {
-                brandInitial.visibility = View.VISIBLE
-                brandIcon.visibility = View.GONE
-                brandInitial.text = initial
-                brandInitial.backgroundTintList = tint
-            } else {
-                brandInitial.visibility = View.GONE
-                brandIcon.visibility = View.VISIBLE
-                brandIcon.backgroundTintList = tint
-            }
-
-            promoDiscountAmount.backgroundTintList = tint
+            val fill = ReadableColors.fillForWhiteText(color)
+            promoHeader.setBackgroundColor(fill)
+            btnCopyPromo.backgroundTintList = ColorStateList.valueOf(fill)
         }
 
         /** Shows a live countdown instead of a bare Shamsi date, in red when time is short. */
@@ -255,24 +270,30 @@ class PromoCodesAdapter(
             val label = item.remainingLabel()
             val suffix = if (!item.expiryIsExplicit) " (تخمینی)" else ""
 
-            promoExpiry.text = when {
-                item.isUrgent() -> "⏰ $label$suffix"
-                item.expiresAt == null -> "♾ $label"
-                else -> "🗓 $label$suffix"
-            }
-            promoExpiry.setTextColor(
-                if (item.isUrgent()) URGENT_COLOR
-                else secondaryTextColor
-            )
+            promoExpiry.text = if (item.expiresAt == null) label else "$label$suffix"
+            // On the brand colour: a translucent white capsule, or solid white with red text
+            // when the code runs out within the day
+            val urgent = item.isUrgent()
+            val textColor = if (urgent) urgentColor else Color.WHITE
+            promoExpiry.background = capsule(if (urgent) Color.WHITE else 0x33FFFFFF)
+            promoExpiry.setTextColor(textColor)
+            promoExpiry.setCompoundDrawablesRelative(glyph(R.drawable.ic_lc_clock, textColor, 15), null, null, null)
         }
 
         private fun bindCopy(item: PromoItem) {
+            val copyGlyph = glyph(R.drawable.ic_lc_copy, Color.WHITE, 17)
+            val doneGlyph = glyph(R.drawable.ic_lc_circle_check, Color.WHITE, 17)
             btnCopyPromo.text = "کپی کد"
+            btnCopyPromo.setCompoundDrawablesRelative(copyGlyph, null, null, null)
             btnCopyPromo.setOnClickListener {
                 ClipboardHelper.copyToClipboard(context, item.code, "PROMO", showToast = false)
-                btnCopyPromo.text = "کپی شد ✓"
+                btnCopyPromo.text = "کپی شد"
+                btnCopyPromo.setCompoundDrawablesRelative(doneGlyph, null, null, null)
                 Toast.makeText(context, "کد تخفیف ${item.code} کپی شد", Toast.LENGTH_SHORT).show()
-                btnCopyPromo.postDelayed({ btnCopyPromo.text = "کپی کد" }, 2000)
+                btnCopyPromo.postDelayed({
+                    btnCopyPromo.text = "کپی کد"
+                    btnCopyPromo.setCompoundDrawablesRelative(copyGlyph, null, null, null)
+                }, 2000)
             }
         }
 
@@ -290,6 +311,7 @@ class PromoCodesAdapter(
             }
 
             btnOpenApp.visibility = View.VISIBLE
+            btnOpenApp.setCompoundDrawablesRelative(glyph(R.drawable.ic_lc_external, primaryTextColor), null, null, null)
             btnOpenApp.setOnClickListener {
                 ClipboardHelper.copyToClipboard(context, item.code, "PROMO", showToast = false)
                 Toast.makeText(context, "کد ${item.code} کپی شد و ${item.brand} باز می‌شود", Toast.LENGTH_SHORT).show()
@@ -356,7 +378,7 @@ class PromoCodesAdapter(
                 item.body.replace("�", " ").trim()
 
             val btnCopy = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.dialogBtnCopy)
-            btnCopy.text = "📋 کپی کد (${item.code})"
+            btnCopy.text = "کپی کد ${item.code}"
             btnCopy.setOnClickListener {
                 ClipboardHelper.copyToClipboard(context, item.code, "PROMO")
                 dialog.dismiss()

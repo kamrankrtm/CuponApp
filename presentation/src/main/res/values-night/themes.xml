@@ -33,6 +33,10 @@
         <item name="android:windowContentTransitions">true</item>
         <item name="actionBarPopupTheme">@style/PopupTheme</item>
         <item name="bubbleColor">@color/bubbleDark</item>
+        <item name="incomingBubbleColor">@color/incomingDark</item>
+        <item name="fontMedium">sans-serif-medium</item>
+        <item name="toolbarNavigationButtonStyle">@style/Widget.App.Toolbar.Navigation</item>
+        <item name="actionOverflowButtonStyle">@style/Widget.App.OverflowButton</item>
         <item name="groupedBackground">@color/groupedDark</item>
         <item name="cardColor">@color/cardDark</item>
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.App.Small</item>
@@ -65,6 +69,8 @@
         <item name="android:windowBackground">@color/backgroundDark</item>
         <item name="actionBarPopupTheme">@style/PopupTheme</item>
         <item name="bubbleColor">@color/bubbleDark</item>
+        <item name="incomingBubbleColor">@color/incomingDark</item>
+        <item name="fontMedium">sans-serif-medium</item>
         <item name="groupedBackground">@color/groupedDark</item>
         <item name="cardColor">@color/cardDark</item>
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.App.Small</item>
@@ -97,6 +103,7 @@
         <item name="android:statusBarColor">@color/black</item>
         <item name="android:windowBackground">@color/black</item>
         <item name="bubbleColor">@color/bubbleBlack</item>
+        <item name="incomingBubbleColor">@color/cardDark</item>
         <item name="groupedBackground">@color/black</item>
         <item name="cardColor">@color/bubbleBlack</item>
         <item name="colorPrimary">@color/black</item>

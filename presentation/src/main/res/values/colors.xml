@@ -21,17 +21,19 @@
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
 
-    <!-- Design tokens: a quiet, Apple-like palette. Content sits on plain white (or near-black);
-         grouped surfaces and cards use a faint grey so hierarchy comes from space, not shadows. -->
+    <!-- Design tokens. Content sits on plain white (true black at night); grouped screens
+         and cards use a faint grey, so hierarchy comes from space rather than shadows.
+         Every text/background pair here clears WCAG AA (4.5:1). Night values live in
+         values-night/colors.xml. -->
     <color name="rippleLight">#14000000</color>
     <color name="rippleDark">#1FFFFFFF</color>
 
     <color name="toolbarLight">#FFFFFF</color>
-    <color name="toolbarDark">#0C0C0E</color>
+    <color name="toolbarDark">#000000</color>
     <color name="toolbarTranslucent">#88000000</color>
 
     <color name="backgroundLight">#FFFFFF</color>
-    <color name="backgroundDark">#0C0C0E</color>
+    <color name="backgroundDark">#000000</color>
 
     <!-- Grouped backgrounds, and the cards that sit on them -->
     <color name="groupedLight">#F2F2F7</color>
@@ -41,51 +43,88 @@
 
     <color name="textPrimary">#1C1C1E</color>
     <color name="textPrimaryDisabled">#4D1C1C1E</color>
-    <color name="textSecondary">#6E6E73</color>
-    <color name="textSecondaryDisabled">#4D6E6E73</color>
-    <color name="textTertiary">#AEAEB2</color>
+    <color name="textSecondary">#6C6C70</color>
+    <color name="textSecondaryDisabled">#4D6C6C70</color>
+    <color name="textTertiary">#8E8E93</color>
 
     <color name="textPrimaryDark">#FFFFFFFF</color>
     <color name="textPrimaryDisabledDark">#61FFFFFF</color>
-    <color name="textSecondaryDark">#B3EBEBF5</color>
-    <color name="textSecondaryDisabledDark">#4DEBEBF5</color>
-    <color name="textTertiaryDark">#73EBEBF5</color>
+    <color name="textSecondaryDark">#AEAEB2</color>
+    <color name="textSecondaryDisabledDark">#61AEAEB2</color>
+    <color name="textTertiaryDark">#8E8E93</color>
 
-    <!-- Fills: search fields, incoming bubbles, chips -->
-    <color name="bubbleLight">#EDEDF0</color>
-    <color name="bubbleDark">#1C1C1E</color>
+    <!-- Fills: search fields, chips, buttons; and the incoming message bubble -->
+    <color name="bubbleLight">#EEEEF1</color>
+    <color name="bubbleDark">#1F1F22</color>
     <color name="bubbleBlack">#161618</color>
+    <color name="incomingLight">#E9E9EB</color>
+    <color name="incomingDark">#262629</color>
 
-    <color name="separatorLight">#1F3C3C43</color>
-    <color name="separatorDark">#2EFFFFFF</color>
+    <color name="separatorLight">#E3E3E8</color>
+    <color name="separatorDark">#2C2C2E</color>
 
+    <!-- Disclosure chevrons and other quiet glyphs; decorative, so not held to text contrast -->
+    <color name="chevron">#C4C4C7</color>
+
+    <!-- Monogram avatars: a soft grey gradient, like the system contact photo placeholder -->
+    <color name="avatarTop">#A9AEBA</color>
+    <color name="avatarBottom">#858A96</color>
+
+    <!-- The floating search / compose bar at the bottom of the inbox -->
+    <color name="floatingSurface">#F7FFFFFF</color>
+    <color name="floatingBorder">#1A3C3C43</color>
+
+    <!-- Switches: a white knob on a grey track, green when on -->
     <color name="switchThumbEnabledLight">#FFFFFF</color>
     <color name="switchThumbEnabledDark">#FFFFFF</color>
 
-    <color name="switchTrackEnabledLight">#E3E3E8</color>
+    <color name="switchTrackEnabledLight">#E9E9EB</color>
     <color name="switchTrackEnabledDark">#39393D</color>
 
-    <color name="switchThumbDisabledLight">#F2F2F7</color>
-    <color name="switchThumbDisabledDark">#5A5A5E</color>
+    <color name="switchThumbDisabledLight">#F7F7F8</color>
+    <color name="switchThumbDisabledDark">#AEAEB2</color>
 
-    <color name="switchTrackDisabledLight">#EDEDF0</color>
+    <color name="switchTrackDisabledLight">#F2F2F7</color>
     <color name="switchTrackDisabledDark">#2C2C2E</color>
 
-    <!-- This colour should only ever be used for attrs with the tools tag -->
-    <color name="tools_theme">#007AFF</color>
+    <color name="switchOn">#34C759</color>
 
-    <!-- App accent color for tabs, FAB etc -->
-    <color name="blue_500">#007AFF</color>
+    <!-- This colour should only ever be used for attrs with the tools tag -->
+    <color name="tools_theme">#0A6CFF</color>
+
+    <!-- The accent: actions, links, the send and compose buttons -->
+    <color name="blue_500">#0A6CFF</color>
     <color name="red_500">#FF3B30</color>
 
-    <!-- One accent per inbox tab, so the category you are in is recognisable at a glance.
-         Dark-mode variants live in values-night/colors.xml. -->
-    <color name="tabAll">#5856D6</color>
-    <color name="tabPersonal">#AF52DE</color>
-    <color name="tabBanking">#2FB14E</color>
-    <color name="tabOtp">#007AFF</color>
-    <color name="tabDiscounts">#F28A00</color>
-    <color name="tabSpam">#8E8E93</color>
+    <color name="success">#1F7A35</color>
+    <color name="danger">#D70015</color>
+
+    <!-- One colour per inbox category. The fill carries white text (4.5:1 or better in both
+         modes); the tint is for glyphs and text on the neutral background. -->
+    <color name="tabAll">#0A6CFF</color>
+    <color name="tabPersonal">#208338</color>
+    <color name="tabBanking">#0071A4</color>
+    <color name="tabOtp">#5856D6</color>
+    <color name="tabDiscounts">#C44D00</color>
+    <color name="tabSpam">#636366</color>
+
+    <color name="tintAll">#0A6CFF</color>
+    <color name="tintPersonal">#1F7A35</color>
+    <color name="tintBanking">#0071A4</color>
+    <color name="tintOtp">#5856D6</color>
+    <color name="tintDiscounts">#C44D00</color>
+    <color name="tintSpam">#6C6C70</color>
+
+    <!-- Settings and menu icon tiles: a white glyph on each -->
+    <color name="tileBlue">#0A6CFF</color>
+    <color name="tileIndigo">#5856D6</color>
+    <color name="tilePurple">#9A45C9</color>
+    <color name="tilePink">#E0245E</color>
+    <color name="tileRed">#E5352B</color>
+    <color name="tileOrange">#D96200</color>
+    <color name="tileGreen">#208338</color>
+    <color name="tileTeal">#0077B6</color>
+    <color name="tileGray">#7C7C80</color>
 
     <!-- Band revealed while swiping a spam conversation to mark it "not spam" (white text 4.8:1) -->
     <color name="notSpam">#208338</color>

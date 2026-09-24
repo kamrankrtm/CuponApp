@@ -27,6 +27,11 @@
     <!-- Background behind grouped content (settings, cards), and the cards themselves -->
     <attr name="groupedBackground" format="reference|color" />
     <attr name="cardColor" format="reference|color" />
+    <!-- Fill of incoming message bubbles -->
+    <attr name="incomingBubbleColor" format="reference|color" />
+    <!-- The medium weight of the app typeface: Dubai Medium, or the system's when the user
+         prefers the system font. Use as android:fontFamily="?attr/fontMedium". -->
+    <attr name="fontMedium" format="reference|string" />
 
     <style name="AppLaunchTheme" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
         <item name="android:navigationBarColor">@color/backgroundDark</item>
@@ -59,6 +64,10 @@
         <item name="android:windowContentTransitions">true</item>
         <item name="actionBarPopupTheme">@style/PopupTheme</item>
         <item name="bubbleColor">@color/bubbleLight</item>
+        <item name="incomingBubbleColor">@color/incomingLight</item>
+        <item name="fontMedium">sans-serif-medium</item>
+        <item name="toolbarNavigationButtonStyle">@style/Widget.App.Toolbar.Navigation</item>
+        <item name="actionOverflowButtonStyle">@style/Widget.App.OverflowButton</item>
         <item name="groupedBackground">@color/groupedLight</item>
         <item name="cardColor">@color/cardLight</item>
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.App.Small</item>
@@ -91,6 +100,8 @@
         <item name="android:windowBackground">@color/backgroundLight</item>
         <item name="actionBarPopupTheme">@style/PopupTheme</item>
         <item name="bubbleColor">@color/bubbleLight</item>
+        <item name="incomingBubbleColor">@color/incomingLight</item>
+        <item name="fontMedium">sans-serif-medium</item>
         <item name="groupedBackground">@color/groupedLight</item>
         <item name="cardColor">@color/cardLight</item>
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.App.Small</item>
@@ -117,6 +128,24 @@
     <style name="AppFontOverlay">
         <item name="android:fontFamily">@font/app_font</item>
         <item name="fontFamily">@font/app_font</item>
+        <item name="fontMedium">@font/dubai_medium</item>
+    </style>
+
+    <!-- Toolbar back / drawer button and overflow button: a glyph on a soft filled circle -->
+    <style name="Widget.App.Toolbar.Navigation" parent="Widget.AppCompat.Toolbar.Button.Navigation">
+        <item name="android:background">@drawable/toolbar_circle_button</item>
+        <item name="android:minWidth">56dp</item>
+        <item name="android:scaleType">center</item>
+    </style>
+
+    <style name="Widget.App.OverflowButton" parent="Widget.AppCompat.ActionButton.Overflow">
+        <item name="android:src">@drawable/ic_lc_more</item>
+        <item name="android:background">@drawable/toolbar_circle_button</item>
+        <item name="android:minWidth">56dp</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:scaleType">center</item>
     </style>
 
     <style name="ShapeAppearance.App.Small" parent="ShapeAppearance.MaterialComponents.SmallComponent">
@@ -145,6 +174,7 @@
         <item name="android:statusBarColor">@color/black</item>
         <item name="android:windowBackground">@color/black</item>
         <item name="bubbleColor">@color/bubbleBlack</item>
+        <item name="incomingBubbleColor">@color/cardDark</item>
         <item name="groupedBackground">@color/black</item>
         <item name="cardColor">@color/bubbleBlack</item>
         <item name="colorPrimary">@color/black</item>

@@ -159,6 +159,28 @@
         <item name="android:background">?android:attr/divider</item>
     </style>
 
+    <!-- Category capsules on the inbox (CategoryBar) -->
+    <style name="TextAppearance.App.CategoryLabel" parent="TextAppearance.AppCompat">
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">?attr/fontMedium</item>
+        <item name="fontFamily">?attr/fontMedium</item>
+        <item name="android:textColor">@color/white</item>
+    </style>
+
+    <!-- Secondary filters, e.g. the discount categories -->
+    <style name="TextAppearance.App.FilterChip" parent="TextAppearance.AppCompat">
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">?attr/fontMedium</item>
+        <item name="fontFamily">?attr/fontMedium</item>
+    </style>
+
+    <style name="TextAppearance.App.CategoryCount" parent="TextAppearance.AppCompat">
+        <item name="android:textSize">13sp</item>
+        <item name="android:fontFamily">?attr/fontMedium</item>
+        <item name="fontFamily">?attr/fontMedium</item>
+        <item name="android:textColor">@color/white</item>
+    </style>
+
     <style name="SmartTabTextAppearance" parent="TextAppearance.Design.Tab">
         <item name="android:textSize">14sp</item>
         <item name="android:textStyle">bold</item>

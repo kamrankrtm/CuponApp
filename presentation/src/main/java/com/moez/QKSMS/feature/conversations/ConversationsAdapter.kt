@@ -19,9 +19,9 @@
 package com.moez.QKSMS.feature.conversations
 
 import android.content.Context
-import android.graphics.Typeface
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.core.text.bold
 import androidx.core.text.buildSpannedString
 import androidx.core.text.color
@@ -36,6 +36,7 @@ import com.moez.QKSMS.common.util.DateFormatter
 import com.moez.QKSMS.common.util.ContrastUtils
 import com.moez.QKSMS.common.util.extensions.resolveThemeColor
 import com.moez.QKSMS.common.util.extensions.setTint
+import com.moez.QKSMS.feature.smart.SenderIdentity
 import com.moez.QKSMS.model.Conversation
 import com.moez.QKSMS.util.PhoneNumberUtils
 import kotlinx.android.synthetic.main.conversation_list_item.*
@@ -67,16 +68,9 @@ class ConversationsAdapter @Inject constructor(
                 parent.context.resolveThemeColor(android.R.attr.windowBackground)
             )
 
-            view.title.setTypeface(view.title.typeface, Typeface.BOLD)
-
-            view.snippet.setTypeface(view.snippet.typeface, Typeface.BOLD)
+            // Unread shows as the accent dot and a darker preview; the layout never changes weight
             view.snippet.setTextColor(textColorPrimary)
-            view.snippet.maxLines = 3
-
             view.unread.isVisible = true
-
-            view.date.setTypeface(view.date.typeface, Typeface.BOLD)
-            view.date.setTextColor(textColorPrimary)
         }
 
         return QkViewHolder(view).apply {
@@ -113,8 +107,12 @@ class ConversationsAdapter @Inject constructor(
 
         holder.avatars.recipients = conversation.recipients
         holder.title.collapseEnabled = conversation.recipients.size > 1
+        // A business sender we recognise is shown by its brand name rather than a short code
+        val brand = conversation.recipients.singleOrNull()
+                ?.takeIf { it.contact == null }
+                ?.let { SenderIdentity.brandFor(it.address) }
         holder.title.text = buildSpannedString {
-            append(conversation.getTitle())
+            append(brand?.en ?: conversation.getTitle())
             if (conversation.draft.isNotEmpty()) {
                 color(theme) { append(" " + context.getString(R.string.main_draft)) }
             }
@@ -146,26 +144,11 @@ class ConversationsAdapter @Inject constructor(
             themed.resolveThemeColor(android.R.attr.textColorPrimary), bg)
         val textColorSecondary = ContrastUtils.ensureReadable(
             themed.resolveThemeColor(android.R.attr.textColorSecondary), bg)
-        val textColorTertiary = ContrastUtils.ensureReadable(
-            themed.resolveThemeColor(android.R.attr.textColorTertiary), bg)
 
-        if (isUnread) {
-            holder.title.setTypeface(holder.title.typeface, Typeface.BOLD)
-            holder.snippet.setTypeface(holder.snippet.typeface, Typeface.BOLD)
-            holder.snippet.setTextColor(textColorPrimary)
-            holder.snippet.maxLines = 3
-            holder.date.setTypeface(holder.date.typeface, Typeface.BOLD)
-            holder.date.setTextColor(textColorPrimary)
-            holder.unread.setTint(theme)
-        } else {
-            holder.title.setTypeface(Typeface.create(holder.title.typeface, Typeface.NORMAL), Typeface.NORMAL)
-            holder.title.setTextColor(textColorPrimary)
-            holder.snippet.setTypeface(Typeface.create(holder.snippet.typeface, Typeface.NORMAL), Typeface.NORMAL)
-            holder.snippet.setTextColor(textColorSecondary)
-            holder.snippet.maxLines = 2
-            holder.date.setTypeface(Typeface.create(holder.date.typeface, Typeface.NORMAL), Typeface.NORMAL)
-            holder.date.setTextColor(textColorTertiary)
-        }
+        holder.title.setTextColor(textColorPrimary)
+        holder.date.setTextColor(textColorSecondary)
+        holder.snippet.setTextColor(if (isUnread) textColorPrimary else textColorSecondary)
+        if (isUnread) holder.unread.setTint(ContextCompat.getColor(themed, R.color.blue_500))
     }
 
     override fun getItemId(position: Int): Long {

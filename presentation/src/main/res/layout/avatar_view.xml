@@ -30,17 +30,19 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:gravity="center"
-        android:padding="6dp"
+        android:fontFamily="?attr/fontMedium"
+        android:includeFontPadding="false"
+        android:padding="8dp"
         android:textAllCaps="true"
-        app:autoSizeMaxTextSize="22sp"
+        app:autoSizeMaxTextSize="20sp"
         app:autoSizeTextType="uniform" />
 
     <ImageView
         android:id="@+id/icon"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
         android:layout_gravity="center"
-        android:src="@drawable/ic_person_black_24dp"
+        android:src="@drawable/ic_lc_user"
         android:tint="@color/white" />
 
     <ImageView

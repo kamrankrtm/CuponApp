@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A banking conversation read as a transaction: the bank, what happened and when, and the
+     amount on the trailing edge (green with a plus for money in). Rows form a grouped card;
+     the adapter picks the top / middle / bottom background. -->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="16dp"
+    android:layout_marginEnd="16dp"
+    android:background="@drawable/group_middle"
+    android:foreground="?attr/selectableItemBackground"
+    android:minHeight="68dp"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp">
+
+    <ImageView
+        android:id="@+id/bankTile"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:background="@drawable/rounded_rectangle_12dp"
+        android:backgroundTint="@color/tabBanking"
+        android:importantForAccessibility="no"
+        android:padding="10dp"
+        android:src="@drawable/ic_lc_landmark"
+        android:tint="@color/white"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/bankName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="12dp"
+        android:ellipsize="end"
+        android:fontFamily="?attr/fontMedium"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:textAlignment="viewStart"
+        android:textColor="?android:attr/textColorPrimary"
+        android:textSize="17sp"
+        app:layout_constraintBottom_toTopOf="@id/bankMeta"
+        app:layout_constraintEnd_toStartOf="@id/bankRight"
+        app:layout_constraintStart_toEndOf="@id/bankTile"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_chainStyle="packed"
+        tools:text="بانک ملت" />
+
+    <TextView
+        android:id="@+id/bankMeta"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:layout_marginBottom="12dp"
+        android:ellipsize="end"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:textAlignment="viewStart"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="13sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="@id/bankName"
+        app:layout_constraintStart_toStartOf="@id/bankName"
+        app:layout_constraintTop_toBottomOf="@id/bankName"
+        tools:text="واریز وجه · 10:24" />
+
+    <TextView
+        android:id="@+id/bankAmount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="?attr/fontMedium"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:textColor="?android:attr/textColorPrimary"
+        android:textDirection="ltr"
+        android:textSize="17sp"
+        app:layout_constraintBottom_toTopOf="@id/bankUnit"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_chainStyle="packed"
+        tools:text="+2,500,000" />
+
+    <TextView
+        android:id="@+id/bankUnit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:includeFontPadding="false"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="12sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/bankAmount"
+        tools:text="ریال" />
+
+    <ImageView
+        android:id="@+id/bankChevron"
+        android:layout_width="18dp"
+        android:layout_height="18dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/ic_lc_chevron_right"
+        android:tint="@color/chevron"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <androidx.constraintlayout.widget.Barrier
+        android:id="@+id/bankRight"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:barrierDirection="start"
+        app:constraint_referenced_ids="bankAmount,bankUnit,bankChevron" />
+
+    <View
+        android:id="@+id/bankSeparator"
+        android:layout_width="0dp"
+        android:layout_height="1px"
+        android:background="?android:attr/divider"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="@id/bankName" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

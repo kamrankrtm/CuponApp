@@ -1,15 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Brighter accents for dark backgrounds, matching the system dark palette -->
-    <color name="blue_500">#0A84FF</color>
+    <!-- Night values of the tokens in values/colors.xml -->
+    <color name="blue_500">#409CFF</color>
     <color name="red_500">#FF453A</color>
+    <color name="success">#30D158</color>
+    <color name="danger">#FF6961</color>
 
-    <color name="tabAll">#5E5CE6</color>
-    <color name="tabPersonal">#BF5AF2</color>
-    <color name="tabBanking">#30D158</color>
-    <color name="tabOtp">#0A84FF</color>
-    <color name="tabDiscounts">#FF9F0A</color>
-    <color name="tabSpam">#98989D</color>
+    <color name="chevron">#5A5A5E</color>
+    <color name="avatarTop">#6F7480</color>
+    <color name="avatarBottom">#4F535D</color>
+    <color name="floatingSurface">#F71C1C1E</color>
+    <color name="floatingBorder">#14FFFFFF</color>
+
+    <color name="tabOtp">#5E5CE6</color>
+    <color name="switchOn">#30D158</color>
+
+    <color name="tintAll">#409CFF</color>
+    <color name="tintPersonal">#30D158</color>
+    <color name="tintBanking">#40C8E0</color>
+    <color name="tintOtp">#7D7AFF</color>
+    <color name="tintDiscounts">#FF9F0A</color>
+    <color name="tintSpam">#AEAEB2</color>
 
     <color name="ticketStroke">#48484A</color>
 </resources>

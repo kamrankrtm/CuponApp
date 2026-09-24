@@ -4,11 +4,11 @@ import com.moez.QKSMS.feature.smart.model.PromoItem
 
 /** The time buckets the discount list is broken into. */
 enum class PromoSection(val title: String) {
-    PINNED("📌 کدهای نشان‌شده"),
-    EXPIRING_TODAY("⏰ امروز تمام می‌شود"),
-    THIS_WEEK("📅 تا آخر هفته"),
-    LATER("🗓 مهلت‌دار"),
-    NO_DEADLINE("♾ بدون مهلت مشخص")
+    PINNED("نشان‌شده"),
+    EXPIRING_TODAY("امروز تمام می‌شود"),
+    THIS_WEEK("تا آخر هفته"),
+    LATER("مهلت‌دار"),
+    NO_DEADLINE("بدون مهلت مشخص")
 }
 
 /** One row of the discount list: either a section title or a code. */

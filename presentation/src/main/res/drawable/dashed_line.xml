@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The tear line between a coupon's face and its stub. Needs a software layer to draw dashes. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="line">
+    <stroke
+        android:width="2dp"
+        android:color="@color/ticketStroke"
+        android:dashGap="5dp"
+        android:dashWidth="7dp" />
+</shape>

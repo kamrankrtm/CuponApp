@@ -136,9 +136,10 @@ abstract class QkThemedActivity : QkActivity() {
     override fun onPostCreate(savedInstanceState: Bundle?) {
         super.onPostCreate(savedInstanceState)
 
-        // Set the color for the overflow and navigation icon
+        // The overflow glyph sits on a round button, like the navigation icon: label colour
         val textSecondary = resolveThemeColor(android.R.attr.textColorSecondary)
-        toolbar?.overflowIcon = toolbar?.overflowIcon?.apply { setTint(textSecondary) }
+        val textPrimary = resolveThemeColor(android.R.attr.textColorPrimary)
+        toolbar?.overflowIcon = toolbar?.overflowIcon?.apply { setTint(textPrimary) }
 
         // Update the colours of the menu items
         Observables.combineLatest(menu, theme) { menu, theme ->

@@ -21,6 +21,7 @@
     <string name="app_name" translatable="false">smsPRO</string>
     <string name="brand_name" translatable="false">SmsPro</string>
     <string name="spam_not_spam">Not spam</string>
+    <string name="spam_info">Ads without a code arrive silently. Swipe right on a sender to move it to Personal.</string>
     <string name="spam_moved_to_personal">Moved to Personal. You\'ll get notifications from %s</string>
 
     <string name="shortcut_compose_long_label">New conversation</string>
