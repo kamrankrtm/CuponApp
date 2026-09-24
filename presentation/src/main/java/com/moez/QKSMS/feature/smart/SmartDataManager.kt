@@ -40,6 +40,7 @@ object SmartDataManager {
      */
     fun init(context: Context) {
         PromoStore.init(context)
+        TrustedSenders.init(context)
         if (loadedFromDisk) return
         synchronized(this) {
             if (loadedFromDisk) return

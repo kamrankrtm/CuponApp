@@ -77,10 +77,12 @@ import com.moez.QKSMS.common.util.DateFormatter
 import com.moez.QKSMS.feature.smart.SmartDataManager
 import com.moez.QKSMS.feature.smart.promo.BrandRegistry
 import com.moez.QKSMS.feature.smart.SmartSmsClassifier
+import com.moez.QKSMS.feature.smart.TrustedSenders
 import com.moez.QKSMS.feature.smart.model.SmsCategory
 import com.moez.QKSMS.feature.smart.ui.FilteredConversationsAdapter
 import com.moez.QKSMS.feature.smart.ui.OtpCodesAdapter
 import com.moez.QKSMS.feature.smart.ui.PromoCodesAdapter
+import com.moez.QKSMS.feature.smart.ui.SpamSwipeCallback
 import com.moez.QKSMS.model.Conversation
 import javax.inject.Inject
 
@@ -157,6 +159,8 @@ class MainActivity : QkThemedActivity(), MainView {
     private val viewModel by lazy { ViewModelProviders.of(this, viewModelFactory)[MainViewModel::class.java] }
     private val toggle by lazy { ActionBarDrawerToggle(this, drawerLayout, toolbar, R.string.main_drawer_open_cd, 0) }
     private val itemTouchHelper by lazy { ItemTouchHelper(itemTouchCallback) }
+    private val spamSwipeCallback by lazy { SpamSwipeCallback(this) { id -> markNotSpam(id) } }
+    private val spamSwipeHelper by lazy { ItemTouchHelper(spamSwipeCallback) }
     private val progressAnimator by lazy { ObjectAnimator.ofInt(syncingProgress, "progress", 0, 0) }
     private val changelogDialog by lazy { ChangelogDialog(this) }
     private val snackbar by lazy { findViewById<View>(R.id.snackbar) }
@@ -309,7 +313,7 @@ class MainActivity : QkThemedActivity(), MainView {
                 if (state.page.selected > 0) {
                     if (recyclerView.adapter !== conversationsAdapter) recyclerView.adapter = conversationsAdapter
                     conversationsAdapter.updateData(state.page.data)
-                    itemTouchHelper.attachToRecyclerView(recyclerView)
+                    useSwipe(itemTouchHelper)
                     empty.setText(R.string.inbox_empty_text)
                 } else {
                     val rawData = state.page.data
@@ -334,7 +338,7 @@ class MainActivity : QkThemedActivity(), MainView {
                 showBackButton(true)
                 if (recyclerView.adapter !== searchAdapter) recyclerView.adapter = searchAdapter
                 searchAdapter.data = state.page.data ?: listOf()
-                itemTouchHelper.attachToRecyclerView(null)
+                useSwipe(null)
                 empty.setText(R.string.inbox_search_empty_text)
             }
 
@@ -346,7 +350,7 @@ class MainActivity : QkThemedActivity(), MainView {
                 }
                 if (recyclerView.adapter !== conversationsAdapter) recyclerView.adapter = conversationsAdapter
                 conversationsAdapter.updateData(state.page.data)
-                itemTouchHelper.attachToRecyclerView(null)
+                useSwipe(null)
                 empty.setText(R.string.archived_empty_text)
             }
         }
@@ -573,7 +577,7 @@ class MainActivity : QkThemedActivity(), MainView {
 
             val hasSavedContact = conv.recipients.any { it.contact != null }
             val sender = conv.recipients.firstOrNull()?.address ?: ""
-            if (hasSavedContact || SmartSmsClassifier.isPersonalNumber(sender)) {
+            if (hasSavedContact || SmartSmsClassifier.isPersonalNumber(sender) || TrustedSenders.isTrusted(sender)) {
                 personal.add(id)
             }
         }
@@ -633,7 +637,8 @@ class MainActivity : QkThemedActivity(), MainView {
                         val body = lastMsg?.body ?: ""
                         val msgDate = lastMsg?.date ?: System.currentTimeMillis()
 
-                        val computedCat = if (hasSavedContact) {
+                        // A sender the user marked "not spam" belongs with their contacts
+                        val computedCat = if (hasSavedContact || TrustedSenders.isTrusted(sender)) {
                             SmsCategory.Personal
                         } else {
                             SmartSmsClassifier.classify(sender, body, msgDate, id)
@@ -887,7 +892,7 @@ class MainActivity : QkThemedActivity(), MainView {
                 0 -> {
                     // All messages
                     if (recyclerView.adapter !== conversationsAdapter) recyclerView.adapter = conversationsAdapter
-                    itemTouchHelper.attachToRecyclerView(recyclerView)
+                    useSwipe(itemTouchHelper)
                     compose.setVisible(true)
                     empty.setText(R.string.inbox_empty_text)
                     empty.setVisible(currentConversationsList.isEmpty())
@@ -901,6 +906,7 @@ class MainActivity : QkThemedActivity(), MainView {
                             if (!conv.isValid) return@filter false
                             if (conv.recipients.any { it.contact != null }) return@filter true
                             val sender = conv.recipients.firstOrNull()?.address ?: ""
+                            if (TrustedSenders.isTrusted(sender)) return@filter true
                             val body = conv.lastMessage?.body ?: ""
                             SmartSmsClassifier.classify(sender, body) is SmsCategory.Personal
                         }
@@ -909,7 +915,7 @@ class MainActivity : QkThemedActivity(), MainView {
                     filteredConversationsAdapter.data = list
                     if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
                     itemTouchCallback.adapter = filteredConversationsAdapter
-                    itemTouchHelper.attachToRecyclerView(recyclerView)
+                    useSwipe(itemTouchHelper)
                     compose.setVisible(true)
                     empty.text = "No personal messages"
                     empty.setVisible(list.isEmpty())
@@ -921,7 +927,7 @@ class MainActivity : QkThemedActivity(), MainView {
                     filteredConversationsAdapter.data = list
                     if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
                     itemTouchCallback.adapter = filteredConversationsAdapter
-                    itemTouchHelper.attachToRecyclerView(recyclerView)
+                    useSwipe(itemTouchHelper)
                     compose.setVisible(false)
                     empty.text = "No banking messages"
                     empty.setVisible(list.isEmpty() && isClassificationReady)
@@ -931,7 +937,7 @@ class MainActivity : QkThemedActivity(), MainView {
                     val otps = SmartDataManager.getOtps()
                     otpCodesAdapter.updateData(otps)
                     if (recyclerView.adapter !== otpCodesAdapter) recyclerView.adapter = otpCodesAdapter
-                    itemTouchHelper.attachToRecyclerView(null)
+                    useSwipe(null)
                     compose.setVisible(false)
                     empty.text = "No OTP or verification codes"
                     empty.setVisible(otps.isEmpty())
@@ -942,7 +948,7 @@ class MainActivity : QkThemedActivity(), MainView {
                     promoCodesAdapter.updateData(promos)
                     promoCodesAdapter.filter(query = etPromoSearch?.text?.toString() ?: "", category = activePromoCategory)
                     if (recyclerView.adapter !== promoCodesAdapter) recyclerView.adapter = promoCodesAdapter
-                    itemTouchHelper.attachToRecyclerView(null)
+                    useSwipe(null)
                     compose.setVisible(false)
                     empty.text = "No active discount codes found"
                     empty.setVisible(promos.isEmpty())
@@ -953,8 +959,9 @@ class MainActivity : QkThemedActivity(), MainView {
                     val list = currentConversationsList.filter { cachedSpamIds.contains(it.id) }
                     filteredConversationsAdapter.data = list
                     if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
-                    itemTouchCallback.adapter = filteredConversationsAdapter
-                    itemTouchHelper.attachToRecyclerView(recyclerView)
+                    // Swiping right here marks the sender "not spam" instead of the usual action
+                    spamSwipeCallback.adapter = filteredConversationsAdapter
+                    useSwipe(spamSwipeHelper)
                     compose.setVisible(false)
                     empty.text = "Spam inbox is empty"
                     empty.setVisible(list.isEmpty() && isClassificationReady)
@@ -963,6 +970,48 @@ class MainActivity : QkThemedActivity(), MainView {
         } catch (t: Throwable) {
             android.util.Log.e("MainActivity", "Error applying tab filter", t)
         }
+    }
+
+    /** Attaches at most one swipe handler: the Spam tab has its own, other lists use the settings' actions. */
+    private fun useSwipe(helper: ItemTouchHelper?) {
+        if (helper !== itemTouchHelper) itemTouchHelper.attachToRecyclerView(null)
+        if (helper !== spamSwipeHelper) spamSwipeHelper.attachToRecyclerView(null)
+        helper?.attachToRecyclerView(recyclerView)
+    }
+
+    /**
+     * Moves a conversation out of Spam. Its senders become trusted, so from now on it is listed
+     * under Personal and its messages notify normally; the snackbar offers to undo that.
+     */
+    private fun markNotSpam(conversationId: Long) {
+        val conversation = currentConversationsList.firstOrNull { it.isValid && it.id == conversationId } ?: return
+        val addresses = conversation.recipients.map { it.address }.filter { it.isNotBlank() }
+        if (addresses.isEmpty()) return
+        val title = conversation.getTitle()
+
+        TrustedSenders.trust(addresses)
+        reclassify(conversationId, toPersonal = true)
+
+        Snackbar.make(drawerLayout, getString(R.string.spam_moved_to_personal, title), Snackbar.LENGTH_LONG)
+                .setAction(R.string.button_undo) {
+                    TrustedSenders.untrust(addresses)
+                    reclassify(conversationId, toPersonal = false)
+                }
+                .setActionTextColor(colors.theme().theme)
+                .show()
+    }
+
+    private fun reclassify(conversationId: Long, toPersonal: Boolean) {
+        classificationCache.remove(conversationId)
+        if (toPersonal) {
+            cachedSpamIds = HashSet(cachedSpamIds).apply { remove(conversationId) }
+            cachedPersonalIds = HashSet(cachedPersonalIds).apply { add(conversationId) }
+        } else {
+            cachedPersonalIds = HashSet(cachedPersonalIds).apply { remove(conversationId) }
+        }
+        applyTabFilter()
+        // The background pass settles the exact category, e.g. banking or spam again after an undo
+        preClassifyConversations()
     }
 
     private fun getFrequentContacts(personalList: List<Conversation>): List<Conversation> {

@@ -87,6 +87,9 @@
     <color name="tabDiscounts">#F28A00</color>
     <color name="tabSpam">#8E8E93</color>
 
+    <!-- Band revealed while swiping a spam conversation to mark it "not spam" (white text 4.8:1) -->
+    <color name="notSpam">#208338</color>
+
     <!-- Dashed edge of the coupon panel on discount cards -->
     <color name="ticketStroke">#C7C7CC</color>
 

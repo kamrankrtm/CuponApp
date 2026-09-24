@@ -81,8 +81,8 @@ object SmartSmsClassifier {
             return SmsCategory.Banking(bankName, amount, isDeposit)
         }
 
-        // 4. Check for Personal Contact / 09...
-        if (isPersonalNumber(cleanSender)) {
+        // 4. Check for Personal Contact / 09..., or a sender the user marked "not spam"
+        if (isPersonalNumber(cleanSender) || TrustedSenders.isTrusted(cleanSender)) {
             return SmsCategory.Personal
         }
 
