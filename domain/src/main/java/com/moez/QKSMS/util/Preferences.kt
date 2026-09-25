@@ -232,4 +232,17 @@ class Preferences @Inject constructor(
     val aiApiKey = rxPrefs.getString("aiApiKey", "")
     val aiBaseUrl = rxPrefs.getString("aiBaseUrl", "https://api.avalai.ir/v1")
     val aiModel = rxPrefs.getString("aiModel", "gemini-2.5-flash-lite")
+
+    // AlarmGuard (دزدگیر) Settings
+    val alarmGuardEnabled = rxPrefs.getBoolean("alarmGuardEnabled", true)
+    val alarmPhoneNumber = rxPrefs.getString("alarmPhoneNumber", "+989032227190")
+    val alarmArmCode = rxPrefs.getString("alarmArmCode", "*000000*11#")
+    val alarmDisarmCode = rxPrefs.getString("alarmDisarmCode", "*000000*10#")
+    val alarmArmKeywords = rxPrefs.getString("alarmArmKeywords", "فعال شد,فعال گردید,روشن شد")
+    val alarmDisarmKeywords = rxPrefs.getString("alarmDisarmKeywords", "غیر فعال شد,غیرفعال شد,غیر فعال گردید,غیرفعال گردید,خاموش شد")
+    val alarmLastStatus = rxPrefs.getString("alarmLastStatus", "UNKNOWN")
+    val alarmLastStatusTime = rxPrefs.getString("alarmLastStatusTime", "0")
+    val alarmLastStatusDetail = rxPrefs.getString("alarmLastStatusDetail", "")
+    val alarmLastWarning = rxPrefs.getString("alarmLastWarning", "")
+    val alarmLastCredit = rxPrefs.getString("alarmLastCredit", "")
 }

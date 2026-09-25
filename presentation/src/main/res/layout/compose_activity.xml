@@ -27,6 +27,144 @@
     android:orientation="vertical"
     tools:context="com.moez.QKSMS.feature.compose.ComposeActivity">
 
+    <!-- AlarmGuard In-Conversation Widget Banner -->
+    <LinearLayout
+        android:id="@+id/alarmGuardBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="10dp"
+        android:layout_marginBottom="4dp"
+        android:background="@drawable/alarm_inapp_card_bg"
+        android:elevation="2dp"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/sendAsGroupBackground"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/alarmBannerIcon"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:contentDescription="@string/alarm_guard_title"
+                android:src="@drawable/ic_lc_shield" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <com.moez.QKSMS.common.widget.QkTextView
+                    android:id="@+id/alarmBannerTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/alarm_guard_banner_title"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textStyle="bold"
+                    app:textSize="primary" />
+
+                <com.moez.QKSMS.common.widget.QkTextView
+                    android:id="@+id/alarmBannerSubtitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text="@string/alarm_guard_subtitle"
+                    android:textColor="?android:attr/textColorSecondary"
+                    app:textSize="tertiary" />
+            </LinearLayout>
+
+            <com.moez.QKSMS.common.widget.QkTextView
+                android:id="@+id/alarmBannerStatusBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/alarm_status_badge_armed"
+                android:gravity="center"
+                android:paddingStart="10dp"
+                android:paddingTop="4dp"
+                android:paddingEnd="10dp"
+                android:paddingBottom="4dp"
+                android:text="@string/alarm_guard_status_armed"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                app:textSize="tertiary" />
+        </LinearLayout>
+
+        <com.moez.QKSMS.common.widget.QkTextView
+            android:id="@+id/alarmBannerWarning"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/alarm_warning_bg"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:padding="6dp"
+            android:textColor="#FDE68A"
+            android:visibility="gone"
+            app:textSize="tertiary" />
+
+        <com.moez.QKSMS.common.widget.QkTextView
+            android:id="@+id/alarmBannerCredit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="#6EE7B7"
+            android:visibility="gone"
+            app:textSize="tertiary" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/btnBannerArm"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:background="@drawable/alarm_btn_arm_bg"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:text="@string/alarm_guard_btn_arm"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="8dp"
+                android:layout_height="match_parent" />
+
+            <TextView
+                android:id="@+id/btnBannerDisarm"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:background="@drawable/alarm_btn_disarm_bg"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:text="@string/alarm_guard_btn_disarm"
+                android:textColor="#E2E8F0"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/messageList"
         android:layout_width="0dp"
@@ -40,7 +178,7 @@
         app:layout_constraintBottom_toTopOf="@id/messageBackground"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/sendAsGroupBackground"
+        app:layout_constraintTop_toBottomOf="@id/alarmGuardBanner"
         app:stackFromEnd="true"
         tools:listitem="@layout/message_list_item_in" />
 
@@ -55,7 +193,7 @@
         android:text="@string/compose_messages_empty"
         android:textColor="?android:attr/textColorTertiary"
         android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/sendAsGroupBackground"
+        app:layout_constraintTop_toBottomOf="@id/alarmGuardBanner"
         app:textSize="secondary" />
 
     <ProgressBar

@@ -384,6 +384,100 @@
 
         <TextView
             style="@style/SettingsGroupHeader"
+            android:text="@string/alarm_guard_settings_group" />
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/SettingsGroupCard"
+            android:layout_marginTop="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:divider="@drawable/settings_row_divider"
+                android:orientation="vertical"
+                android:showDividers="middle">
+
+                <com.moez.QKSMS.common.widget.PreferenceView
+                    android:id="@+id/prefAlarmGuardEnabled"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:icon="@drawable/ic_lc_shield"
+                    app:iconTileColor="@color/tileGreen"
+                    app:title="@string/alarm_guard_pref_enable_title"
+                    app:summary="@string/alarm_guard_pref_enable_summary"
+                    app:widget="@layout/settings_switch_widget" />
+
+                <com.moez.QKSMS.common.widget.PreferenceView
+                    android:id="@+id/prefAlarmPhoneNumber"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:icon="@drawable/ic_lc_phone"
+                    app:iconTileColor="@color/tileBlue"
+                    app:chevron="true"
+                    app:valueSummary="true"
+                    app:title="@string/alarm_guard_pref_phone_title"
+                    app:summary="+989032227190" />
+
+                <com.moez.QKSMS.common.widget.PreferenceView
+                    android:id="@+id/prefAlarmArmCode"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:icon="@drawable/ic_lc_zap"
+                    app:iconTileColor="@color/tileGreen"
+                    app:chevron="true"
+                    app:valueSummary="true"
+                    app:title="@string/alarm_guard_pref_arm_code_title"
+                    app:summary="*000000*11#" />
+
+                <com.moez.QKSMS.common.widget.PreferenceView
+                    android:id="@+id/prefAlarmDisarmCode"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:icon="@drawable/ic_lc_ban"
+                    app:iconTileColor="@color/tileRed"
+                    app:chevron="true"
+                    app:valueSummary="true"
+                    app:title="@string/alarm_guard_pref_disarm_code_title"
+                    app:summary="*000000*10#" />
+
+                <com.moez.QKSMS.common.widget.PreferenceView
+                    android:id="@+id/prefAlarmArmKeywords"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:icon="@drawable/ic_lc_circle_check"
+                    app:iconTileColor="@color/tileTeal"
+                    app:chevron="true"
+                    app:valueSummary="true"
+                    app:title="@string/alarm_guard_pref_arm_kw_title"
+                    app:summary="فعال شد,فعال گردید,روشن شد" />
+
+                <com.moez.QKSMS.common.widget.PreferenceView
+                    android:id="@+id/prefAlarmDisarmKeywords"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:icon="@drawable/ic_lc_message_x"
+                    app:iconTileColor="@color/tileOrange"
+                    app:chevron="true"
+                    app:valueSummary="true"
+                    app:title="@string/alarm_guard_pref_disarm_kw_title"
+                    app:summary="غیر فعال شد,غیرفعال شد,غیر فعال گردید" />
+
+                <com.moez.QKSMS.common.widget.PreferenceView
+                    android:id="@+id/prefAlarmStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:icon="@drawable/ic_lc_activity"
+                    app:iconTileColor="@color/tilePurple"
+                    app:chevron="true"
+                    app:valueSummary="true"
+                    app:title="@string/alarm_guard_pref_status_title"
+                    app:summary="@string/alarm_guard_status_unknown" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            style="@style/SettingsGroupHeader"
             android:text="Cloud Media Sharing (MMS Alternative)" />
 
         <com.google.android.material.card.MaterialCardView
@@ -526,6 +620,93 @@
 
             </LinearLayout>
 
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- AlarmGuard (دزدگیر) Settings Card -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/SettingsGroupCard"
+            android:layout_marginTop="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:divider="@drawable/settings_row_divider"
+                android:orientation="vertical"
+                android:showDividers="middle">
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAlarmGuardEnabled"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_shield"
+                app:iconTileColor="@color/tileGreen"
+                app:title="دزدگیر اماکن (AlarmGuard)"
+                app:summary="فعال‌سازی ویجت و مدیریت هوشمند دزدگیر از پیامک‌ها"
+                app:widget="@layout/settings_switch_widget" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAlarmPhoneNumber"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_phone"
+                app:iconTileColor="@color/tileBlue"
+                app:chevron="true"
+                app:valueSummary="true"
+                app:title="شماره سیمکارت دزدگیر"
+                app:summary="+989032227190" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAlarmArmCode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_zap"
+                app:iconTileColor="@color/tileGreen"
+                app:chevron="true"
+                app:valueSummary="true"
+                app:title="کد فعال‌سازی (روشن)"
+                app:summary="*000000*11#" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAlarmDisarmCode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_moon"
+                app:iconTileColor="@color/tileRed"
+                app:chevron="true"
+                app:valueSummary="true"
+                app:title="کد غیرفعال‌سازی (خاموش)"
+                app:summary="*000000*10#" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAlarmArmKeywords"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_check_check"
+                app:iconTileColor="@color/tileGreen"
+                app:chevron="true"
+                app:title="کلمات کلیدی فعال (روشن)"
+                app:summary="فعال شد,فعال گردید,روشن شد" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAlarmDisarmKeywords"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_message_x"
+                app:iconTileColor="@color/tileRed"
+                app:chevron="true"
+                app:title="کلمات کلیدی غیرفعال (خاموش)"
+                app:summary="غیر فعال شد,غیرفعال شد,خاموش شد" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAlarmResetStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_sync"
+                app:iconTileColor="@color/tileGray"
+                app:title="بروزرسانی وضعیت دزدگیر"
+                app:summary="بررسی آخرین پیامک‌ها و به‌روزرسانی ویجت" />
+
+            </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView

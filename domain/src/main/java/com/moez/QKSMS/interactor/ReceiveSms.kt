@@ -64,6 +64,13 @@ class ReceiveSms @Inject constructor(
                             .joinToString(separator = "")
                     val safeAddress = address ?: return@mapNotNull null
 
+                    // Process message for AlarmGuard
+                    try {
+                        com.moez.QKSMS.util.AlarmGuardParser.processMessage(prefs, safeAddress, body, time)
+                    } catch (t: Throwable) {
+                        Timber.e(t, "AlarmGuard parsing error")
+                    }
+
                     // Add the message to the db
                     val message = messageRepo.insertReceivedSms(it.subId, safeAddress, body, time)
 

@@ -124,4 +124,11 @@ abstract class BroadcastReceiverBuilderModule {
     @ContributesAndroidInjector()
     abstract fun bindTestSmsReceiver(): com.moez.QKSMS.receiver.TestSmsReceiver
 
-}
+    @ActivityScope
+    @ContributesAndroidInjector()
+    abstract fun bindAlarmGuardWidgetProvider(): com.moez.QKSMS.feature.alarmguard.AlarmGuardWidgetProvider
+
+    @ActivityScope
+    @ContributesAndroidInjector()
+    abstract fun bindAlarmActionReceiver(): com.moez.QKSMS.receiver.AlarmActionReceiver
+}

@@ -502,4 +502,48 @@
         <item>That\'s okay</item>
     </string-array>
 
+
+    <!-- AlarmGuard (دزدگیر) strings -->
+    <string name="alarm_guard_title">دزدگیر (AlarmGuard)</string>
+    <string name="alarm_guard_desc">کنترل و نمایش هوشمند وضعیت دزدگیر از پیامک‌ها</string>
+    <string name="alarm_guard_enable_title">فعال‌سازی دزدگیر اماکن (AlarmGuard)</string>
+    <string name="alarm_guard_enable_summary">نمایش وضعیت و ویجت اختصاصی دزدگیر برای این شماره و پیامک‌ها</string>
+    <string name="alarm_guard_phone_title">شماره سیمکارت دزدگیر</string>
+    <string name="alarm_guard_phone_hint">شماره تلفن دزدگیر (مثلاً 09032227190)</string>
+    <string name="alarm_guard_arm_code_title">کد پیامکی فعال‌سازی (روشن)</string>
+    <string name="alarm_guard_arm_code_hint">مثلاً *000000*11#</string>
+    <string name="alarm_guard_disarm_code_title">کد پیامکی غیرفعال‌سازی (خاموش)</string>
+    <string name="alarm_guard_disarm_code_hint">مثلاً *000000*10#</string>
+    <string name="alarm_guard_arm_keywords_title">کلمات کلیدی وضعیت فعال (روشن)</string>
+    <string name="alarm_guard_arm_keywords_hint">فعال شد,فعال گردید,روشن شد</string>
+    <string name="alarm_guard_disarm_keywords_title">کلمات کلیدی وضعیت غیرفعال (خاموش)</string>
+    <string name="alarm_guard_disarm_keywords_hint">غیر فعال شد,غیرفعال شد,خاموش شد</string>
+    <string name="alarm_guard_not_configured">شماره یا کد دزدگیر در تنظیمات مشخص نشده است</string>
+    <string name="alarm_guard_arm_sent">دستور فعال‌سازی دزدگیر ارسال شد (%1$s)</string>
+    <string name="alarm_guard_disarm_sent">دستور غیرفعال‌سازی دزدگیر ارسال شد (%1$s)</string>
+    <string name="alarm_guard_send_failed">خطا در ارسال پیامک: %1$s</string>
+    <string name="alarm_guard_status_armed">فعال (روشن)</string>
+    <string name="alarm_guard_status_disarmed">غیرفعال (خاموش)</string>
+    <string name="alarm_guard_status_pending">در حال ارسال فرمان...</string>
+    <string name="alarm_guard_status_pending_arm">در حال فعال‌سازی...</string>
+    <string name="alarm_guard_status_pending_disarm">در حال غیرفعال‌سازی...</string>
+    <string name="alarm_guard_status_unknown">وضعیت نامشخص</string>
+    <string name="alarm_guard_btn_arm">🔒 فعال کن (روشن)</string>
+    <string name="alarm_guard_btn_disarm">🔓 غیرفعال کن (خاموش)</string>
+    <string name="alarm_guard_banner_title">سیستم هوشمند دزدگیر</string>
+    <string name="alarm_guard_banner_title_armed">دزدگیر: فعال (روشن)</string>
+    <string name="alarm_guard_banner_title_disarmed">دزدگیر: غیرفعال (خاموش)</string>
+    <string name="alarm_guard_banner_title_pending">دزدگیر: در حال ارسال دستور...</string>
+    <string name="alarm_guard_subtitle">وضعیت سیستم امنیتی</string>
+    <string name="alarm_guard_last_trigger">آخرین وضعیت: %1$s</string>
+    <string name="alarm_guard_credit_label">اعتبار سیم‌کارت: %1$s</string>
+    <string name="alarm_guard_settings_group">دزدگیر و سیستم امنیتی (AlarmGuard)</string>
+    <string name="alarm_guard_pref_enable_title">فعال‌سازی هوشمند دزدگیر</string>
+    <string name="alarm_guard_pref_enable_summary">تشخیص خودکار وضعیت از روی پیامک‌ها، ویجت صفحه اصلی و بنر گفتگو</string>
+    <string name="alarm_guard_pref_phone_title">شماره تلفن دزدگیر</string>
+    <string name="alarm_guard_pref_arm_code_title">کد پیامکی فعال‌سازی (روشن)</string>
+    <string name="alarm_guard_pref_disarm_code_title">کد پیامکی غیرفعال‌سازی (خاموش)</string>
+    <string name="alarm_guard_pref_arm_kw_title">کلمات کلیدی تشخیص فعال</string>
+    <string name="alarm_guard_pref_disarm_kw_title">کلمات کلیدی تشخیص غیرفعال</string>
+    <string name="alarm_guard_pref_status_title">وضعیت فعلی سیستم دزدگیر</string>
 </resources>

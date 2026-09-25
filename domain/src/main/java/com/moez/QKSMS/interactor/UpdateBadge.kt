@@ -32,6 +32,7 @@ class UpdateBadge @Inject constructor(
         return Flowable.just(params)
                 .doOnNext { shortcutManager.updateBadge() }
                 .doOnNext { widgetManager.updateUnreadCount() }
+                .doOnNext { widgetManager.updateAlarmWidget() }
     }
 
 }

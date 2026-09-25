@@ -40,4 +40,9 @@ class WidgetManagerImpl @Inject constructor(private val context: Context) : Widg
         BroadcastUtils.sendExplicitBroadcast(context, intent, AppWidgetManager.ACTION_APPWIDGET_UPDATE)
     }
 
+    override fun updateAlarmWidget() {
+        val intent = Intent(WidgetManager.ACTION_UPDATE_ALARM_WIDGET)
+        BroadcastUtils.sendExplicitBroadcast(context, intent, WidgetManager.ACTION_UPDATE_ALARM_WIDGET)
+    }
+
 }

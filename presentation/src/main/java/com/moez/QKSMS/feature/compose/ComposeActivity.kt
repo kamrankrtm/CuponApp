@@ -44,6 +44,9 @@ import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
 import androidx.core.view.isVisible
 import com.moez.QKSMS.feature.cloud.CloudUploadManager
+import com.moez.QKSMS.feature.alarmguard.AlarmGuardManager
+import com.moez.QKSMS.feature.alarmguard.AlarmGuardWidgetProvider
+import com.moez.QKSMS.util.AlarmGuardParser
 import com.moez.QKSMS.util.Preferences
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProviders
@@ -234,6 +237,15 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
             showScheduleOptionsDialog()
             true
         }
+
+        btnBannerArm?.setOnClickListener {
+            AlarmGuardManager.sendArm(this, prefs)
+            updateAlarmBannerUI()
+        }
+        btnBannerDisarm?.setOnClickListener {
+            AlarmGuardManager.sendDisarm(this, prefs)
+            updateAlarmBannerUI()
+        }
     }
 
     override fun onStart() {
@@ -320,6 +332,97 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
 
         sendWhatsApp.isEnabled = canSend
         sendWhatsApp.imageAlpha = if (canSend) 255 else 128
+
+        // AlarmGuard in-conversation banner
+        val conv = state.messages?.first
+        val isAlarm = AlarmGuardManager.isAlarmConversation(conv, prefs)
+        if (isAlarm && prefs.alarmGuardEnabled.get()) {
+            alarmGuardBanner?.visibility = View.VISIBLE
+            val msgs = state.messages?.second?.toList()
+            val detected = AlarmGuardManager.detectStatusFromMessages(prefs, msgs)
+            if (detected) {
+                AlarmGuardWidgetProvider.updateAllWidgets(this)
+            }
+            updateAlarmBannerUI()
+        } else {
+            alarmGuardBanner?.visibility = View.GONE
+        }
+    }
+
+    private fun updateAlarmBannerUI() {
+        val statusStr = prefs.alarmLastStatus.get()
+        val status = try {
+            AlarmGuardParser.Status.valueOf(statusStr)
+        } catch (_: Throwable) {
+            AlarmGuardParser.Status.UNKNOWN
+        }
+
+        when (status) {
+            AlarmGuardParser.Status.ARMED -> {
+                alarmBannerStatusBadge?.text = getString(R.string.alarm_guard_status_armed)
+                alarmBannerStatusBadge?.setBackgroundResource(R.drawable.alarm_status_badge_armed)
+                alarmBannerStatusBadge?.setTextColor(0xFFFFFFFF.toInt())
+                alarmBannerIcon?.setImageResource(R.drawable.ic_lc_shield)
+                alarmBannerIcon?.setColorFilter(0xFF22C55E.toInt())
+                alarmBannerTitle?.text = getString(R.string.alarm_guard_banner_title_armed)
+            }
+            AlarmGuardParser.Status.DISARMED -> {
+                alarmBannerStatusBadge?.text = getString(R.string.alarm_guard_status_disarmed)
+                alarmBannerStatusBadge?.setBackgroundResource(R.drawable.alarm_status_badge_disarmed)
+                alarmBannerStatusBadge?.setTextColor(0xFFCBD5E1.toInt())
+                alarmBannerIcon?.setImageResource(R.drawable.ic_lc_shield)
+                alarmBannerIcon?.setColorFilter(0xFF94A3B8.toInt())
+                alarmBannerTitle?.text = getString(R.string.alarm_guard_banner_title_disarmed)
+            }
+            AlarmGuardParser.Status.PENDING_ARM -> {
+                alarmBannerStatusBadge?.text = getString(R.string.alarm_guard_status_pending_arm)
+                alarmBannerStatusBadge?.setBackgroundResource(R.drawable.alarm_status_badge_pending)
+                alarmBannerStatusBadge?.setTextColor(0xFFFFFFFF.toInt())
+                alarmBannerIcon?.setImageResource(R.drawable.ic_lc_shield)
+                alarmBannerIcon?.setColorFilter(0xFFF59E0B.toInt())
+                alarmBannerTitle?.text = getString(R.string.alarm_guard_banner_title_pending)
+            }
+            AlarmGuardParser.Status.PENDING_DISARM -> {
+                alarmBannerStatusBadge?.text = getString(R.string.alarm_guard_status_pending_disarm)
+                alarmBannerStatusBadge?.setBackgroundResource(R.drawable.alarm_status_badge_pending)
+                alarmBannerStatusBadge?.setTextColor(0xFFFFFFFF.toInt())
+                alarmBannerIcon?.setImageResource(R.drawable.ic_lc_shield)
+                alarmBannerIcon?.setColorFilter(0xFFF59E0B.toInt())
+                alarmBannerTitle?.text = getString(R.string.alarm_guard_banner_title_pending)
+            }
+            AlarmGuardParser.Status.UNKNOWN -> {
+                alarmBannerStatusBadge?.text = getString(R.string.alarm_guard_status_unknown)
+                alarmBannerStatusBadge?.setBackgroundResource(R.drawable.alarm_status_badge_disarmed)
+                alarmBannerStatusBadge?.setTextColor(0xFF94A3B8.toInt())
+                alarmBannerIcon?.setImageResource(R.drawable.ic_lc_shield)
+                alarmBannerIcon?.setColorFilter(0xFF94A3B8.toInt())
+                alarmBannerTitle?.text = getString(R.string.alarm_guard_banner_title)
+            }
+        }
+
+        val detail = prefs.alarmLastStatusDetail.get()
+        val phone = prefs.alarmPhoneNumber.get()
+        alarmBannerSubtitle?.text = when {
+            detail.isNotBlank() -> getString(R.string.alarm_guard_last_trigger, detail)
+            phone.isNotBlank() -> phone
+            else -> getString(R.string.alarm_guard_subtitle)
+        }
+
+        val warning = prefs.alarmLastWarning.get()
+        if (warning.isNotBlank()) {
+            alarmBannerWarning?.visibility = View.VISIBLE
+            alarmBannerWarning?.text = "⚠️ $warning"
+        } else {
+            alarmBannerWarning?.visibility = View.GONE
+        }
+
+        val credit = prefs.alarmLastCredit.get()
+        if (credit.isNotBlank()) {
+            alarmBannerCredit?.visibility = View.VISIBLE
+            alarmBannerCredit?.text = getString(R.string.alarm_guard_credit_label, credit)
+        } else {
+            alarmBannerCredit?.visibility = View.GONE
+        }
     }
 
     /**
