@@ -105,7 +105,7 @@ object AlarmGuardParser {
 
         // 3. Extract trigger method: e.g. "از طریق (ریموت۱)" or "از طریق (پیامک:رئیس)"
         var detail: String? = null
-        val triggerRegex = Regex("از\s+طریق\s*\(?([^\)\n\.]+)\)?")
+        val triggerRegex = Regex("""از\s+طریق\s*\(?([^)\n.]+)\)?""")
         val triggerMatch = triggerRegex.find(norm)
         if (triggerMatch != null) {
             detail = triggerMatch.groupValues[1].trim()
@@ -124,7 +124,7 @@ object AlarmGuardParser {
 
         // 5. Extract SIM credit / Etebar
         var credit: String? = null
-        val creditRegex = Regex("(?:Etebar|اعتبار)\s*:\s*([0-9,]+)", RegexOption.IGNORE_CASE)
+        val creditRegex = Regex("""(?:Etebar|اعتبار)\s*:\s*([0-9,]+)""", RegexOption.IGNORE_CASE)
         val creditMatch = creditRegex.find(body)
         if (creditMatch != null) {
             credit = creditMatch.groupValues[1].trim() + " ریال"
