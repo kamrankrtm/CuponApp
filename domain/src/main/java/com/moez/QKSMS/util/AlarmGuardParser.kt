@@ -35,10 +35,10 @@ object AlarmGuardParser {
             .replace("ي", "ی")
             .replace("ك", "ک")
             .replace("ة", "ه")
-            .replace("٠", "0").replace("١", "1").replace("٢", "2").replace("٣", "3").replace("٤", "4")
-            .replace("٥", "5").replace("٦", "6").replace("٧", "7").replace("٨", "8").replace("٩", "9")
-            .replace("۰", "0").replace("۱", "1").replace("۲", "2").replace("۳", "3").replace("۴", "4")
-            .replace("۵", "5").replace("۶", "6").replace("۷", "7").replace("۸", "8").replace("۹", "9")
+            .replace('٠', '0').replace('١', '1').replace('٢', '2').replace('٣', '3').replace('٤', '4')
+            .replace('٥', '5').replace('٦', '6').replace('٧', '7').replace('٨', '8').replace('٩', '9')
+            .replace('۰', '0').replace('۱', '1').replace('۲', '2').replace('۳', '3').replace('۴', '4')
+            .replace('۵', '5').replace('۶', '6').replace('۷', '7').replace('۸', '8').replace('۹', '9')
     }
 
     fun normalizePhoneNumber(number: String?): String {
@@ -87,7 +87,6 @@ object AlarmGuardParser {
         if (detectedStatus == Status.UNKNOWN) {
             for (kw in armKeywords) {
                 if (norm.contains(kw, ignoreCase = true)) {
-                    // Double check it doesn't have "غیر" immediately before
                     detectedStatus = Status.ARMED
                     break
                 }
@@ -153,7 +152,6 @@ object AlarmGuardParser {
         val configuredNumber = prefs.alarmPhoneNumber.get()
         val isNumberMatch = isMatchingPhoneNumber(address, configuredNumber)
 
-        // Also check if text itself strongly indicates it is from an alarm system
         val norm = normalizePersianText(body)
         val hasAlarmSignature = norm.contains("کل بخش ها") ||
                 norm.contains("باتری سنسور") ||
