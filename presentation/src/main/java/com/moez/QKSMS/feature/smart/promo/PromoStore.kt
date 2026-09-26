@@ -18,6 +18,21 @@ object PromoStore {
     private const val KEY_LAST_SCANNED_ID = "last_scanned_message_id"
     private const val KEY_AI_SCANNED_IDS = "ai_scanned_message_ids"
     private const val KEY_AI_CONSENT = "ai_consent_granted"
+    private const val KEY_MEMORY = "ai_memory_json"
+    private const val KEY_ENGINE_VERSION = "engine_version"
+    private const val KEY_USAGE_DAY = "ai_usage_day"
+    private const val KEY_USAGE_DAY_MESSAGES = "ai_usage_day_messages"
+    private const val KEY_USAGE_MONTH = "ai_usage_month"
+    private const val KEY_USAGE_MONTH_MESSAGES = "ai_usage_month_messages"
+    private const val KEY_USAGE_MONTH_PROMPT = "ai_usage_month_prompt_tokens"
+    private const val KEY_USAGE_MONTH_COMPLETION = "ai_usage_month_completion_tokens"
+
+    /**
+     * Version of the parsing rules. Raising it makes the next startup re-read the inbox, so
+     * codes already on the list are re-filed by the new rules — "اسنپ" codes that were really
+     * for اسنپ‌فود move to the right brand. User marks survive, keyed by message and code.
+     */
+    const val ENGINE_VERSION = 3
 
     /** Upper bound on stored codes, so the preference blob cannot grow without limit. */
     private const val MAX_STORED = 400
@@ -33,8 +48,19 @@ object PromoStore {
         if (prefs == null) {
             synchronized(this) {
                 if (prefs == null) {
-                    prefs = context.applicationContext
+                    val store = context.applicationContext
                         .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    prefs = store
+
+                    // What the AI has already answered, so nothing is paid for twice
+                    PromoMemory.import(store.getString(KEY_MEMORY, null))
+
+                    if (store.getInt(KEY_ENGINE_VERSION, 0) < ENGINE_VERSION) {
+                        store.edit()
+                            .putLong(KEY_LAST_SCANNED_ID, 0L)
+                            .putInt(KEY_ENGINE_VERSION, ENGINE_VERSION)
+                            .apply()
+                    }
                 }
             }
         }
@@ -128,5 +154,58 @@ object PromoStore {
     fun setAiConsent(granted: Boolean) {
         val store = requirePrefs() ?: return
         store.edit().putBoolean(KEY_AI_CONSENT, granted).apply()
+    }
+
+    /** Writes [PromoMemory] to disk; called once per AI batch rather than per message. */
+    fun saveMemory() {
+        val store = requirePrefs() ?: return
+        store.edit().putString(KEY_MEMORY, PromoMemory.export()).apply()
+    }
+
+    // ---------------------------------------------------------------- AI usage
+
+    /** What the AI tier has cost: messages sent today, and messages and tokens this month. */
+    data class AiUsage(
+        val messagesToday: Int,
+        val messagesThisMonth: Int,
+        val promptTokensThisMonth: Long,
+        val completionTokensThisMonth: Long
+    )
+
+    private fun dayStamp(now: Long): String {
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = now }
+        return "${cal.get(java.util.Calendar.YEAR)}-${cal.get(java.util.Calendar.DAY_OF_YEAR)}"
+    }
+
+    private fun monthStamp(now: Long): String {
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = now }
+        return "${cal.get(java.util.Calendar.YEAR)}-${cal.get(java.util.Calendar.MONTH)}"
+    }
+
+    fun getAiUsage(now: Long = System.currentTimeMillis()): AiUsage {
+        val store = requirePrefs() ?: return AiUsage(0, 0, 0L, 0L)
+        val today = store.getString(KEY_USAGE_DAY, null) == dayStamp(now)
+        val month = store.getString(KEY_USAGE_MONTH, null) == monthStamp(now)
+        return AiUsage(
+            messagesToday = if (today) store.getInt(KEY_USAGE_DAY_MESSAGES, 0) else 0,
+            messagesThisMonth = if (month) store.getInt(KEY_USAGE_MONTH_MESSAGES, 0) else 0,
+            promptTokensThisMonth = if (month) store.getLong(KEY_USAGE_MONTH_PROMPT, 0L) else 0L,
+            completionTokensThisMonth = if (month) store.getLong(KEY_USAGE_MONTH_COMPLETION, 0L) else 0L
+        )
+    }
+
+    /** Adds one request's cost to today's and this month's totals. */
+    @Synchronized
+    fun recordAiUsage(messages: Int, promptTokens: Int, completionTokens: Int, now: Long = System.currentTimeMillis()) {
+        val store = requirePrefs() ?: return
+        val usage = getAiUsage(now)
+        store.edit()
+            .putString(KEY_USAGE_DAY, dayStamp(now))
+            .putInt(KEY_USAGE_DAY_MESSAGES, usage.messagesToday + messages)
+            .putString(KEY_USAGE_MONTH, monthStamp(now))
+            .putInt(KEY_USAGE_MONTH_MESSAGES, usage.messagesThisMonth + messages)
+            .putLong(KEY_USAGE_MONTH_PROMPT, usage.promptTokensThisMonth + promptTokens)
+            .putLong(KEY_USAGE_MONTH_COMPLETION, usage.completionTokensThisMonth + completionTokens)
+            .apply()
     }
 }

@@ -138,6 +138,9 @@ class PromoCodesAdapter(
                 promo.description.toLowerCase().contains(query) ||
                 promo.discountAmount.toLowerCase().contains(query) ||
                 promo.category.toLowerCase().contains(query) ||
+                (promo.issuer?.toLowerCase()?.contains(query) ?: false) ||
+                (promo.payWith?.toLowerCase()?.contains(query) ?: false) ||
+                promo.usableAt.any { it.toLowerCase().contains(query) } ||
                 promo.sender.toLowerCase().contains(query) ||
                 (promo.minOrder?.toLowerCase()?.contains(query) ?: false) ||
                 promo.body.toLowerCase().contains(query)
@@ -215,7 +218,8 @@ class PromoCodesAdapter(
 
         fun bind(item: PromoItem) {
             promoBrand.text = item.brand
-            promoCategory.text = item.category
+            // "سرگرمی · از طرف دیجی‌پی · پرداخت با دیجی‌پی": who sponsors the code and how to pay
+            promoCategory.text = item.subtitle()
             promoDiscountAmount.text = item.discountAmount
             promoDescription.text = item.description
             promoDescription.visibility = if (item.description.isBlank()) View.GONE else View.VISIBLE
@@ -365,10 +369,18 @@ class PromoCodesAdapter(
             dialogView.findViewById<TextView>(R.id.dialogPromoSender).text = "فرستنده: ${item.sender}"
             dialogView.findViewById<TextView>(R.id.dialogPromoDate).text = "دریافت: $received"
 
+            // Every condition the message set: basket, cap, payment method, sponsor, shops
+            val conditions = listOfNotNull(
+                item.minOrder?.takeIf { it.isNotBlank() },
+                item.maxDiscount?.takeIf { it.isNotBlank() },
+                item.payWith?.takeIf { it.isNotBlank() }?.let { "پرداخت با $it" },
+                item.issuer?.takeIf { it.isNotBlank() && it != item.brand }?.let { "از طرف $it" },
+                item.usableAt.takeIf { it.isNotEmpty() }?.let { "قابل استفاده در ${it.joinToString("، ")}" }
+            )
             val condition = dialogView.findViewById<TextView>(R.id.dialogPromoCondition)
-            if (!item.minOrder.isNullOrBlank()) {
+            if (conditions.isNotEmpty()) {
                 condition.visibility = View.VISIBLE
-                condition.text = item.minOrder
+                condition.text = conditions.joinToString("\n")
             } else {
                 condition.visibility = View.GONE
             }

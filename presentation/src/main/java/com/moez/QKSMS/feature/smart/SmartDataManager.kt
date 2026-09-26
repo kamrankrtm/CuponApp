@@ -84,18 +84,75 @@ object SmartDataManager {
      * way to remember that the user was done with it.
      */
     fun addPromo(promo: PromoItem) {
-        if (promo.isExpired()) return
+        if (addWithoutSaving(promo)) persist()
+    }
 
-        val key = promo.dedupeKey
-        val existing = promoList.firstOrNull { it.dedupeKey == key }
+    /** Adds every card of one message, saving once. */
+    fun addPromos(promos: List<PromoItem>) {
+        var changed = false
+        for (promo in promos) changed = addWithoutSaving(promo) || changed
+        if (changed) persist()
+    }
+
+    @Synchronized
+    private fun addWithoutSaving(promo: PromoItem): Boolean {
+        if (promo.isExpired()) return false
+
+        val existing = promoList.firstOrNull { sameOffer(it, promo) }
         if (existing != null) {
-            if (existing.isUsed || existing.isInvalid) return
+            if (existing.isUsed || existing.isInvalid) return false
             // Carry the user's own flags onto the newer copy of the same offer.
             promo.isPinned = existing.isPinned
             promoList.remove(existing)
         }
         promoList.add(0, promo)
-        persist()
+        return true
+    }
+
+    /**
+     * Swaps every card read from one message for a better reading of it — the AI's, or the
+     * rules engine's once it has learned from the AI — keeping what the user marked.
+     */
+    @Synchronized
+    fun replaceForMessage(sourceKey: String, promos: List<PromoItem>, save: Boolean = true) {
+        if (sourceKey.isEmpty()) {
+            for (promo in promos) addWithoutSaving(promo)
+            if (save) persist()
+            return
+        }
+        val previous = promoList.filter { it.sourceKey == sourceKey }
+        for (promo in promos) {
+            val before = previous.firstOrNull { it.code.equals(promo.code, ignoreCase = true) } ?: continue
+            promo.isPinned = before.isPinned
+            promo.isUsed = before.isUsed
+            promo.isInvalid = before.isInvalid
+        }
+        promoList.removeAll(previous)
+        for (promo in promos) {
+            promoList.removeAll { it !== promo && sameOffer(it, promo) && !it.isUsed && !it.isInvalid }
+            if (promo.isUsed || promo.isInvalid || !promo.isExpired()) promoList.add(0, promo)
+        }
+        if (save) persist()
+    }
+
+    /** Writes the list to disk after a run of [replaceForMessage] calls made with `save = false`. */
+    fun save() = persist()
+
+    /** Two cards are one offer when they share a brand and code, or come from one message. */
+    private fun sameOffer(a: PromoItem, b: PromoItem): Boolean =
+        a.dedupeKey == b.dedupeKey || flagKeys(a).any { it in flagKeys(b) }
+
+    /**
+     * The ways a stored card is recognised again after a re-scan. A better reading may rename
+     * the brand ("اسنپ" → "اسنپ‌فود"), so the message and code identify it as well; cards saved
+     * before messages were tracked fall back to sender, time and code.
+     */
+    private fun flagKeys(promo: PromoItem): List<String> {
+        val code = promo.code.trim().toUpperCase()
+        return listOfNotNull(
+            promo.messageCodeKey.takeIf { it.isNotEmpty() }?.let { "m:$it" },
+            "l:${promo.sender.trim()}|${promo.receivedAt}|$code"
+        )
     }
 
     /** Bulk replace after a full inbox scan, preserving everything the user marked. */
@@ -104,18 +161,18 @@ object SmartDataManager {
         for (promo in promoList) {
             if (promo.isUsed || promo.isInvalid || promo.isPinned) {
                 userFlags[promo.dedupeKey] = promo
+                flagKeys(promo).forEach { userFlags[it] = promo }
             }
         }
 
         val merged = ArrayList<PromoItem>()
         val seen = HashSet<String>()
-        val addedKeys = HashSet<String>()
 
         // Incoming promos are newest-first, so the first sighting of a key is the freshest.
         for (promo in promos) {
             val key = promo.dedupeKey
             if (!seen.add(key)) continue
-            val flagged = userFlags[key]
+            val flagged = userFlags[key] ?: flagKeys(promo).mapNotNull { userFlags[it] }.firstOrNull()
             if (flagged != null) {
                 // Re-added below as the user's own record, not as a live code.
                 if (flagged.isUsed || flagged.isInvalid) continue
@@ -123,15 +180,22 @@ object SmartDataManager {
             }
             if (promo.isExpired()) continue
             merged.add(promo)
-            addedKeys.add(key)
         }
 
         // Keep used/broken records so the next scan does not bring them back.
-        for (flagged in userFlags.values) {
+        for (flagged in userFlags.values.toSet()) {
             if (!flagged.isUsed && !flagged.isInvalid) continue
-            if (addedKeys.add(flagged.dedupeKey)) {
+            if (merged.none { it.dedupeKey == flagged.dedupeKey }) {
                 merged.add(flagged)
             }
+        }
+
+        // Codes the AI read for a message the rules still cannot: paid for once, never re-sent,
+        // so a re-scan must not throw them away
+        for (promo in promoList) {
+            val fromAi = promo.source == PromoItem.SOURCE_AI || promo.id.startsWith("ai-")
+            if (!fromAi || promo.isUsed || promo.isInvalid || promo.isExpired()) continue
+            if (merged.none { sameOffer(it, promo) }) merged.add(promo)
         }
 
         promoList.clear()

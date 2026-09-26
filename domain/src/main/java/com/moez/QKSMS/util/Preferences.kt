@@ -233,6 +233,15 @@ class Preferences @Inject constructor(
     val aiBaseUrl = rxPrefs.getString("aiBaseUrl", "https://api.avalai.ir/v1")
     val aiModel = rxPrefs.getString("aiModel", "gemini-2.5-flash-lite")
 
+    /**
+     * Let discount codes the local engine is unsure of be checked by the AI in the background.
+     * Nothing is sent without an API key and the user's consent, and never past [aiDailyLimit].
+     */
+    val aiAutoRefine = rxPrefs.getBoolean("aiAutoRefine", true)
+
+    /** Most messages a day the automatic AI pass may send. */
+    val aiDailyLimit = rxPrefs.getInteger("aiDailyLimit", 30)
+
     // AlarmGuard (دزدگیر) Settings
     val alarmGuardEnabled = rxPrefs.getBoolean("alarmGuardEnabled", true)
     val alarmPhoneNumber = rxPrefs.getString("alarmPhoneNumber", "+989032227190")

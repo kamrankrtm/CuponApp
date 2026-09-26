@@ -618,6 +618,26 @@
                 app:summary="Extract active discount codes from promotional SMS" />
 
             <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAiAutoRefine"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_sparkles"
+                app:iconTileColor="@color/tileIndigo"
+                app:title="Auto-check uncertain codes"
+                app:summary="Only codes the app could not read with confidence are sent"
+                app:widget="@layout/settings_switch_widget" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAiDailyLimit"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_activity"
+                app:iconTileColor="@color/tileGray"
+                app:chevron="true"
+                app:title="Daily AI limit"
+                app:summary="30 messages a day" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
                 android:id="@+id/prefAiAutoSendReply"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

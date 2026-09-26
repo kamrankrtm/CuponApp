@@ -44,6 +44,21 @@ data class PromoItem(
     /** Package of the brand's app, so the card can jump straight into it. */
     val appPackage: String? = null,
     val website: String? = null,
+    /** Who sent or sponsors the code when that is not [brand]: a wallet, bank or operator. */
+    val issuer: String? = null,
+    /** The payment method the offer requires, when it names one. */
+    val payWith: String? = null,
+    /** Shops a sponsor lists for this one code; [brand] is then the sponsor itself. */
+    val usableAt: List<String> = emptyList(),
+    /** Most a percentage code takes off, in Tomans; 0 when the message states no cap. */
+    val maxDiscountValue: Long = 0L,
+    val maxDiscount: String? = null,
+    /** Money paid back after the purchase rather than taken off the price. */
+    val isCashback: Boolean = false,
+    /** How the card was read: [SOURCE_LOCAL], [SOURCE_LEARNED] or [SOURCE_AI]. */
+    val source: String = SOURCE_LOCAL,
+    /** The message this code came from, so a later, better reading can replace this one. */
+    val sourceKey: String = "",
 
     var isUsed: Boolean = false,
     var isInvalid: Boolean = false,
@@ -53,6 +68,29 @@ data class PromoItem(
     /** Stable identity of an offer: the same code from the same brand is the same offer. */
     val dedupeKey: String
         get() = "${brand.trim().toLowerCase()}|${code.trim().toUpperCase()}"
+
+    /**
+     * The same code read out of the same message. Survives a change of brand, so the user's
+     * "used" and "pinned" marks stay put when a better reading renames the shop.
+     */
+    val messageCodeKey: String
+        get() = if (sourceKey.isEmpty()) "" else "$sourceKey|${code.trim().toUpperCase()}"
+
+    /**
+     * The line under the brand: the category, then who sponsors the code and how to pay when
+     * that is not the shop itself — "سرگرمی · از طرف دیجی‌پی · پرداخت با دیجی‌پی".
+     */
+    fun subtitle(): String {
+        val parts = ArrayList<String>()
+        if (category.isNotBlank()) parts.add(category)
+        if (usableAt.isNotEmpty()) {
+            val shops = usableAt.take(3).joinToString("، ")
+            parts.add(if (usableAt.size > 3) "قابل استفاده در $shops و …" else "قابل استفاده در $shops")
+        }
+        issuer?.takeIf { it.isNotBlank() && it != brand }?.let { parts.add("از طرف $it") }
+        payWith?.takeIf { it.isNotBlank() && it != brand }?.let { parts.add("پرداخت با $it") }
+        return parts.joinToString(" · ")
+    }
 
     /**
      * Whether the code can no longer be used.
@@ -107,5 +145,14 @@ data class PromoItem(
     companion object {
         /** Under 24 hours left counts as urgent. */
         const val URGENT_WINDOW_MS = 24L * 60 * 60 * 1000L
+
+        /** Read on the device by the rules engine. */
+        const val SOURCE_LOCAL = "local"
+
+        /** Read on the device, with the brand learned from an earlier AI answer. */
+        const val SOURCE_LEARNED = "learned"
+
+        /** Read by the AI tier and checked against the message. */
+        const val SOURCE_AI = "ai"
     }
 }

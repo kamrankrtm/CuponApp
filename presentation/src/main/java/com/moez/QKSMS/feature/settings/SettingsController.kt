@@ -378,7 +378,8 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
         prefAiModel?.summary = prefs.aiModel.get().ifBlank { "gemini-2.5-flash-lite" }
         prefAiModel?.setOnClickListener {
             activity?.let { act ->
-                val models = arrayOf("gemini-2.5-flash-lite", "gpt-4o-mini", "gpt-3.5-turbo", "claude-3-haiku")
+                // Cheapest first: reading a trimmed promo SMS needs no large model
+                val models = arrayOf("gemini-2.5-flash-lite", "gpt-4.1-nano", "gpt-4o-mini", "gpt-3.5-turbo", "claude-3-haiku")
                 val current = prefs.aiModel.get()
                 val selectedIndex = models.indexOf(current).takeIf { it >= 0 } ?: 0
                 AlertDialog.Builder(act)
@@ -428,9 +429,12 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
                         activity?.let { currentAct ->
                             if (!currentAct.isFinishing && !currentAct.isDestroyed) {
                                 val detail = report?.let {
-                                    "\n\nتحلیل‌شده: ${it.analysed}" +
+                                    "\n\nارسال‌شده به هوش مصنوعی: ${it.analysed}" +
+                                        "\nپاسخ‌داده از همان درخواست (پیامک‌های مشابه): ${it.reusedTemplates}" +
+                                        "\nخوانده‌شده توسط موتور داخلی (بدون هزینه): ${it.skippedAlreadyParsed}" +
+                                        "\nبدون کد، ارسال نشد: ${it.skippedNoCode}" +
                                         "\nرد شده به دلیل حریم خصوصی: ${it.skippedSensitive}" +
-                                        "\nقبلاً توسط موتور داخلی خوانده شده: ${it.skippedAlreadyParsed}"
+                                        "\nتوکن مصرفی: ${it.promptTokens + it.completionTokens}"
                                 } ?: ""
                                 AlertDialog.Builder(currentAct)
                                     .setTitle(if (success) "AI Scan Completed" else "AI Scan Failed")
@@ -444,6 +448,31 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
             }
         }
 
+        prefAiAutoRefine?.checkbox?.isChecked = prefs.aiAutoRefine.get()
+        prefAiAutoRefine?.setOnClickListener {
+            val next = !prefs.aiAutoRefine.get()
+            prefs.aiAutoRefine.set(next)
+            prefAiAutoRefine?.checkbox?.isChecked = next
+        }
+
+        prefAiDailyLimit?.summary = aiUsageSummary()
+        prefAiDailyLimit?.setOnClickListener {
+            activity?.let { act ->
+                val limits = intArrayOf(10, 30, 60, 100)
+                val labels = limits.map { "$it messages a day" }.toTypedArray()
+                val selectedIndex = limits.indexOf(prefs.aiDailyLimit.get()).takeIf { it >= 0 } ?: 1
+                AlertDialog.Builder(act)
+                    .setTitle("Daily AI limit")
+                    .setSingleChoiceItems(labels, selectedIndex) { dialog, which ->
+                        prefs.aiDailyLimit.set(limits[which])
+                        prefAiDailyLimit.summary = aiUsageSummary()
+                        dialog.dismiss()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        }
+
         prefAiAutoSendReply?.checkbox?.isChecked = prefs.aiAutoSendReply.get()
         prefAiAutoSendReply?.setOnClickListener {
             val next = !prefs.aiAutoSendReply.get()
@@ -451,6 +480,15 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
             prefAiAutoSendReply?.checkbox?.isChecked = next
         }
 
+    }
+
+    /** "12 of 30 today · 45 this month, 23.4K tokens": the limit, and what the AI has cost so far. */
+    private fun aiUsageSummary(): String {
+        val usage = com.moez.QKSMS.feature.smart.promo.PromoStore.getAiUsage()
+        val tokens = usage.promptTokensThisMonth + usage.completionTokensThisMonth
+        val tokenText = if (tokens >= 1000) String.format(java.util.Locale.US, "%.1fK", tokens / 1000.0) else tokens.toString()
+        return "${usage.messagesToday} of ${prefs.aiDailyLimit.get()} today · " +
+            "${usage.messagesThisMonth} this month, $tokenText tokens"
     }
 
     override fun preferenceClicks(): Observable<PreferenceView> = preferences.findPreferenceViews()

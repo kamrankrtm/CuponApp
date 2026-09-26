@@ -70,6 +70,22 @@ class AiPrivacyFilterTest {
     }
 
     @Test
+    fun `short sensitive words still block when they stand alone`() {
+        assertEquals(Verdict.BLOCKED_SENSITIVE, AiPrivacyFilter.judge("BANK", "انتقال پایا به حساب شما با تخفیف کارمزد انجام شد"))
+        assertEquals(Verdict.BLOCKED_SENSITIVE, AiPrivacyFilter.judge("BANK", "درخواست وام شما با ۲۰٪ تخفیف تایید شد"))
+        assertEquals(Verdict.BLOCKED_SENSITIVE, AiPrivacyFilter.judge("BANK", "تخفیف ویژه برای وامتان را از دست ندهید"))
+        assertEquals(Verdict.BLOCKED_SENSITIVE, AiPrivacyFilter.judge("ADLIRAN", "پیامک ثنا: تخفیف ویژه"))
+    }
+
+    @Test
+    fun `short sensitive words inside everyday words do not block an offer`() {
+        // "پایان" holds "پایا", "استثنایی" holds "ثنا" and "بادوام" holds "وام"; none is a bank word.
+        assertTrue(AiPrivacyFilter.isAllowed("OKALA", "اکالا: ۲۰٪ تخفیف تا پایان هفته با کد OK20"))
+        assertTrue(AiPrivacyFilter.isAllowed("SHOP", "تخفیف استثنایی ۵۰٪ با کد EX50"))
+        assertTrue(AiPrivacyFilter.isAllowed("SHOES", "کفش‌های بادوام با ۳۰٪ تخفیف، کد تخفیف SHOE30"))
+    }
+
+    @Test
     fun `court and health notices are withheld`() {
         assertFalse(AiPrivacyFilter.isAllowed("ADLIRAN", "ابلاغیه الکترونیک در سامانه ثنا ثبت شد"))
         assertFalse(AiPrivacyFilter.isAllowed("LAB", "نتیجه تست آزمایش شما آماده است"))
