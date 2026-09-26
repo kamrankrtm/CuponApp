@@ -109,7 +109,8 @@ object BrandResolver {
             val fromSender = senderBrand?.takeIf {
                 it != named && !it.isFamilyRoot && BrandRegistry.sameFamily(it, named)
             }
-            val cue = BrandRegistry.bestFamilyMember(named.family ?: "", cueText)
+            val code = if (codeStart in 0 until codeEnd && codeEnd <= body.length) body.substring(codeStart, codeEnd) else ""
+            val cue = BrandRegistry.bestFamilyMember(named.family ?: "", cueText, code)
             when {
                 fromSender != null -> {
                     merchant = fromSender
@@ -128,6 +129,10 @@ object BrandResolver {
                 else -> {
                     confidence = minOf(confidence, named.rootConfidence)
                     basis += "+bare-root"
+                    // Nothing says which service: name the group, not a guess at one of its apps
+                    named.familyLabel?.let { label ->
+                        merchant = named.copy(category = label, categorySlug = BrandRegistry.SLUG_OTHER)
+                    }
                 }
             }
         }

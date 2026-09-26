@@ -45,7 +45,18 @@ data class Brand(
      */
     val weakKeywords: List<String> = emptyList(),
     /** How sure a bare family name makes us when no cue says which service is meant. */
-    val rootConfidence: Int = 80
+    val rootConfidence: Int = 80,
+    /**
+     * Fragments of a coupon code that point to this service within its family: "TPSBOXH24"
+     * is a courier code, "SFOOD30" a food one. Weaker than a word in the text, but often the
+     * only hint a terse message gives.
+     */
+    val codeHints: List<String> = emptyList(),
+    /**
+     * What to call a family's bare name when nothing says which service is meant: "سرویس‌های
+     * اسنپ" rather than guessing "تاکسی اینترنتی" for a code that may be for the shop or the food app.
+     */
+    val familyLabel: String? = null
 )
 
 /** One place a brand is named in a message. */
@@ -104,7 +115,9 @@ object BrandRegistry {
         "سفر", "سفرهای", "مقصد", "مبدا", "راننده", "تاکسی", "سواری", "درخواست خودرو", "موتور",
         "بایک", "کرایه", "مسافر", "ride", "cab"
     )
-    private val PARCEL_CUES = listOf("ارسال بسته", "بسته", "مرسوله", "پیک موتوری", "باربری", "ارسال مرسوله")
+    private val PARCEL_CUES = listOf(
+        "ارسال بسته", "بسته", "مرسوله", "پیک موتوری", "موتوپیک", "موتو پیک", "باربری", "ارسال مرسوله"
+    )
     private val GADGET_CUES = listOf(
         "گوشی", "موبایل", "لپ تاپ", "لپتاپ", "لوازم خانگی", "کالای دیجیتال", "هدفون", "تلویزیون",
         "خرید اینترنتی", "فروشگاه اینترنتی"
@@ -119,11 +132,11 @@ object BrandRegistry {
             listOf("اسنپ فود", "snappfood", "snapp food", "snpf", "زودفود", "zoodfood"),
             listOf("snappfood", "+983000445", "10000445"),
             "com.zoodfood.android", "https://snappfood.ir",
-            family = SNAPP, cues = FOOD_CUES),
+            family = SNAPP, cues = FOOD_CUES, codeHints = listOf("food")),
         Brand("تپسی‌فود", "TapsiFood", "غذا و رستوران", SLUG_FOOD, 0xFFFF5722.toInt(),
             listOf("تپسی فود", "tapsifood", "tapsi food", "tapsi.food"),
             emptyList(), "food.tapsi.ir", "https://tapsi.food",
-            family = TAPSI, cues = FOOD_CUES),
+            family = TAPSI, cues = FOOD_CUES, codeHints = listOf("food")),
         Brand("چیلیوری", "Chilivery", "غذا و رستوران", SLUG_FOOD, 0xFF00A99D.toInt(),
             listOf("چیلیوری", "chilivery"), emptyList(), "com.chilivery", "https://chilivery.com"),
         Brand("ریحون", "Reyhoon", "غذا و رستوران", SLUG_FOOD, 0xFF8BC34A.toInt(),
@@ -137,7 +150,7 @@ object BrandRegistry {
         Brand("اسنپ‌مارکت", "SnappMarket", "سوپرمارکت", SLUG_SUPERMARKET, 0xFF00B074.toInt(),
             listOf("اسنپ مارکت", "snappmarket", "snapp market"),
             emptyList(), "ir.snapp.market", "https://snapp.market",
-            family = SNAPP, cues = GROCERY_CUES),
+            family = SNAPP, cues = GROCERY_CUES, codeHints = listOf("market", "mart")),
         Brand("اسنپ‌اکسپرس", "SnappExpress", "سوپرمارکت", SLUG_SUPERMARKET, 0xFF00A86B.toInt(),
             listOf("اسنپ اکسپرس", "snappexpress", "snapp express"), family = SNAPP),
         Brand("اکالا", "Okala", "سوپرمارکت", SLUG_SUPERMARKET, 0xFFE91E63.toInt(),
@@ -148,7 +161,7 @@ object BrandRegistry {
         Brand("دیجی‌کالا جت", "DigikalaJet", "سوپرمارکت", SLUG_SUPERMARKET, 0xFF4CAF50.toInt(),
             listOf("دیجی کالا جت", "دیجیکالا جت", "دیجی کالاجت", "digikalajet", "digikala jet",
                 "دیجی کالا فرش", "دیجیکالا فرش", "دیجی فرش", "digifresh"),
-            family = DIGIKALA, cues = GROCERY_CUES + listOf("jet")),
+            family = DIGIKALA, cues = GROCERY_CUES + listOf("jet"), codeHints = listOf("jet")),
         Brand("هایپراستار", "Hyperstar", "سوپرمارکت", SLUG_SUPERMARKET, 0xFF0D47A1.toInt(),
             listOf("هایپراستار", "هایپر استار", "hyperstar")),
         Brand("هایپرمی", "Hyperme", "سوپرمارکت", SLUG_SUPERMARKET, 0xFFE53935.toInt(),
@@ -164,11 +177,14 @@ object BrandRegistry {
         Brand("دیجی‌استایل", "DigiStyle", "مد و پوشاک", SLUG_ECOMMERCE, 0xFF6A1B9A.toInt(),
             listOf("دیجی استایل", "digistyle"),
             emptyList(), "com.digistyle", "https://digistyle.com",
-            family = DIGIKALA, cues = listOf("پوشاک", "لباس", "کفش", "اکسسوری", "مد و", "فشن")),
+            family = DIGIKALA, cues = listOf("پوشاک", "لباس", "کفش", "اکسسوری", "مد و", "فشن"),
+            codeHints = listOf("style")),
         Brand("اسنپ‌شاپ", "SnappShop", "فروشگاه اینترنتی", SLUG_ECOMMERCE, 0xFF1FAA59.toInt(),
-            listOf("اسنپ شاپ", "snappshop", "snapp shop"),
+            // "فروشگاه اسنپ" is what Snapp itself calls the shop in its texts
+            listOf("اسنپ شاپ", "snappshop", "snapp shop", "فروشگاه اسنپ", "اسنپ فروشگاه"),
             emptyList(), null, "https://snappshop.ir",
-            family = SNAPP, cues = GADGET_CUES + listOf("مارکت پلیس", "shop")),
+            family = SNAPP, cues = GADGET_CUES + listOf("مارکت پلیس", "shop"),
+            codeHints = listOf("shop")),
         Brand("باسلام", "Basalam", "فروشگاه آنلاین", SLUG_ECOMMERCE, 0xFF00897B.toInt(),
             listOf("basalam"), emptyList(), "com.basalam.app", "https://basalam.com",
             weakKeywords = listOf("باسلام")),
@@ -224,15 +240,19 @@ object BrandRegistry {
         // ---------- Transport & travel ----------
         Brand("اسنپ", "Snapp", "تاکسی اینترنتی", SLUG_TRANSPORT, 0xFF04B159.toInt(),
             listOf("اسنپ", "snapp"), listOf("snapp"), "cab.snapp.passenger", "https://snapp.ir",
-            family = SNAPP, isFamilyRoot = true, cues = RIDE_CUES, rootConfidence = 60),
+            family = SNAPP, isFamilyRoot = true, cues = RIDE_CUES, rootConfidence = 60,
+            codeHints = listOf("ride", "taxi"), familyLabel = "سرویس‌های اسنپ"),
         Brand("تپسی", "Tapsi", "تاکسی اینترنتی", SLUG_TRANSPORT, 0xFFFF5F00.toInt(),
             listOf("تپسی", "tapsi", "tap30"), listOf("tapsi", "tap30"), "taxi.tap30.passenger", "https://tapsi.ir",
-            family = TAPSI, isFamilyRoot = true, cues = RIDE_CUES, rootConfidence = 65),
-        Brand("تپسی‌پک", "TapsiPack", "ارسال بسته و پیک", SLUG_TRANSPORT, 0xFFFF8A50.toInt(),
-            listOf("تپسی پک", "tapsipack"), family = TAPSI, cues = PARCEL_CUES),
+            family = TAPSI, isFamilyRoot = true, cues = RIDE_CUES, rootConfidence = 65,
+            codeHints = listOf("ride", "taxi"), familyLabel = "سرویس‌های تپسی"),
+        // Named after what Tapsi's own texts call the service: "تخفیف موتوپیک"
+        Brand("تپسی موتوپیک", "TapsiPeyk", "ارسال بسته و پیک", SLUG_TRANSPORT, 0xFFFF8A50.toInt(),
+            listOf("تپسی موتوپیک", "موتوپیک تپسی", "تپسی پیک", "تپسی پک", "tapsipack"),
+            family = TAPSI, cues = PARCEL_CUES, codeHints = listOf("box", "pack", "peyk")),
         Brand("اسنپ‌باکس", "SnappBox", "ارسال بسته و پیک", SLUG_TRANSPORT, 0xFF00C853.toInt(),
             listOf("اسنپ باکس", "snappbox", "snapp box"), emptyList(), null, "https://snapp-box.com",
-            family = SNAPP, cues = PARCEL_CUES),
+            family = SNAPP, cues = PARCEL_CUES, codeHints = listOf("box", "peyk")),
         Brand("ماکسیم", "Maxim", "تاکسی اینترنتی", SLUG_TRANSPORT, 0xFFFFC107.toInt(),
             listOf("ماکسیم", "maxim")),
         Brand("الوپیک", "Alopeyk", "ارسال بسته و پیک", SLUG_TRANSPORT, 0xFF00BCD4.toInt(),
@@ -247,7 +267,7 @@ object BrandRegistry {
             family = SNAPP, cues = listOf(
                 "هتل", "بلیط", "بلیت", "پرواز", "اقامت", "اقامتگاه", "تور", "ویلا", "رزرو", "قطار",
                 "اتوبوس", "trip"
-            )),
+            ), codeHints = listOf("trip", "hotel")),
         Brand("فلای‌تودی", "Flytoday", "گردشگری و سفر", SLUG_TRANSPORT, 0xFF1E88E5.toInt(),
             listOf("فلای تودی", "flytoday")),
         Brand("مستر بلیط", "MrBilit", "گردشگری و سفر", SLUG_TRANSPORT, 0xFF283593.toInt(),
@@ -285,11 +305,11 @@ object BrandRegistry {
         // ---------- Payment, instalments & insurance ----------
         Brand("اسنپ‌پی", "SnappPay", "پرداخت اقساطی", SLUG_FINTECH, 0xFF00A651.toInt(),
             listOf("اسنپ پی", "snapppay", "snapp pay"), emptyList(), null, "https://snapppay.ir",
-            role = BrandRole.PAYMENT, family = SNAPP, cues = INSTALMENT_CUES),
+            role = BrandRole.PAYMENT, family = SNAPP, cues = INSTALMENT_CUES, codeHints = listOf("pay")),
         Brand("دیجی‌پی", "Digipay", "پرداخت اقساطی", SLUG_FINTECH, 0xFFE53935.toInt(),
             listOf("دیجی پی", "digipay", "dgpay", "digi pay", "mydigipay"),
             emptyList(), "com.mydigipay.app.android", "https://www.mydigipay.com",
-            role = BrandRole.PAYMENT, family = DIGIKALA, cues = INSTALMENT_CUES),
+            role = BrandRole.PAYMENT, family = DIGIKALA, cues = INSTALMENT_CUES, codeHints = listOf("pay")),
         Brand("تارا", "Tara", "پرداخت اعتباری", SLUG_FINTECH, 0xFF00695C.toInt(),
             listOf("تاراکارت", "تارا کارت", "اعتبار تارا", "tara360"),
             role = BrandRole.PAYMENT, weakKeywords = listOf("تارا")),
@@ -367,7 +387,8 @@ object BrandRegistry {
             listOf("اکتیوکلینرز", "اکتیو کلینرز", "activecleaners")),
         Brand("اسنپ‌دکتر", "SnappDoctor", "سلامت", SLUG_SERVICES, 0xFF00ACC1.toInt(),
             listOf("اسنپ دکتر", "snappdoctor", "snapp.doctor"), emptyList(), null, "https://snapp.doctor",
-            family = SNAPP, cues = listOf("پزشک", "دکتر", "ویزیت", "مشاوره پزشکی", "درمان", "doctor")),
+            family = SNAPP, cues = listOf("پزشک", "دکتر", "ویزیت", "مشاوره پزشکی", "درمان", "doctor"),
+            codeHints = listOf("doc")),
         Brand("دکترتو", "Doctoreto", "سلامت", SLUG_SERVICES, 0xFF3949AB.toInt(),
             listOf("دکترتو", "doctoreto")),
         Brand("اسنپ‌کارفیکس", "SnappCarFix", "خدمات خودرو", SLUG_SERVICES, 0xFF43A047.toInt(),
@@ -376,7 +397,7 @@ object BrandRegistry {
             family = SNAPP, cues = listOf(
                 "خودرو", "تعویض روغن", "روغن موتور", "لوازم یدکی", "کارواش", "سرویس خودرو",
                 "باتری ماشین", "ماشین", "carfix"
-            )),
+            ), codeHints = listOf("carfix", "car")),
         Brand("کارنامه", "Karnameh", "خدمات خودرو", SLUG_SERVICES, 0xFF00796B.toInt(),
             listOf("karnameh"), weakKeywords = listOf("کارنامه")),
         Brand("همیار", "Hamyar", "خدمات منزل", SLUG_SERVICES, 0xFF7CB342.toInt(),
@@ -582,9 +603,10 @@ object BrandRegistry {
      * Which service of [family] the words in [text] point to, and how strongly.
      *
      * "اسنپ" alone could be the taxi, the food app or the hotel site; "غذا" or "هتل" in the
-     * same message settles it. Returns null when no cue is present or two services tie.
+     * same message settles it. A fragment of the [code] ("BOX" in "TPSBOXH24") counts as one
+     * more hint. Returns null when nothing points anywhere or two services tie.
      */
-    fun bestFamilyMember(family: String, text: String): Pair<Brand, Int>? {
+    fun bestFamilyMember(family: String, text: String, code: String = ""): Pair<Brand, Int>? {
         val index = CUE_INDEX[family] ?: return null
         val consumed = BooleanArray(text.length)
         val scores = LinkedHashMap<Brand, Int>()
@@ -605,6 +627,14 @@ object BrandRegistry {
                     scores[brand] = (scores[brand] ?: 0) + 1
                 }
                 idx = text.indexOf(cue, idx + 1)
+            }
+        }
+        val lowerCode = code.toLowerCase()
+        if (lowerCode.isNotEmpty()) {
+            for (brand in BRANDS) {
+                if (brand.family == family && brand.codeHints.any { lowerCode.contains(it) }) {
+                    scores[brand] = (scores[brand] ?: 0) + 1
+                }
             }
         }
         if (scores.isEmpty()) return null

@@ -76,19 +76,24 @@ data class PromoItem(
     val messageCodeKey: String
         get() = if (sourceKey.isEmpty()) "" else "$sourceKey|${code.trim().toUpperCase()}"
 
+    /** The line under the brand: the category, plus [sponsorLine] when there is one. */
+    fun subtitle(): String = listOf(category, sponsorLine()).filter { it.isNotBlank() }.joinToString(" · ")
+
     /**
-     * The line under the brand: the category, then who sponsors the code and how to pay when
-     * that is not the shop itself — "سرگرمی · از طرف دیجی‌پی · پرداخت با دیجی‌پی".
+     * Who sponsors the code and how to pay, when that is not the shop itself —
+     * "از طرف دیجی‌پی · پرداخت با دیجی‌پی" — or the shops a sponsor's code works at.
+     * A name is shown only when it has letters in it, so a line never ends in a bare "پرداخت با".
      */
-    fun subtitle(): String {
+    fun sponsorLine(): String {
+        fun readable(name: String?): String? = name?.trim()?.takeIf { it.any { c -> c.isLetter() } && it != brand }
         val parts = ArrayList<String>()
-        if (category.isNotBlank()) parts.add(category)
-        if (usableAt.isNotEmpty()) {
-            val shops = usableAt.take(3).joinToString("، ")
-            parts.add(if (usableAt.size > 3) "قابل استفاده در $shops و …" else "قابل استفاده در $shops")
+        val shops = usableAt.mapNotNull { readable(it) }
+        if (shops.isNotEmpty()) {
+            val names = shops.take(3).joinToString("، ")
+            parts.add(if (shops.size > 3) "قابل استفاده در $names و …" else "قابل استفاده در $names")
         }
-        issuer?.takeIf { it.isNotBlank() && it != brand }?.let { parts.add("از طرف $it") }
-        payWith?.takeIf { it.isNotBlank() && it != brand }?.let { parts.add("پرداخت با $it") }
+        readable(issuer)?.let { parts.add("از طرف $it") }
+        readable(payWith)?.let { parts.add("پرداخت با $it") }
         return parts.joinToString(" · ")
     }
 

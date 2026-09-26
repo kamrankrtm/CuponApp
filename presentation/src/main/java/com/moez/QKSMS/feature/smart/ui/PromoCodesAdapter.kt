@@ -203,6 +203,7 @@ class PromoCodesAdapter(
     inner class PromoViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val promoHeader: View = itemView.findViewById(R.id.promoHeader)
         private val promoCategory: TextView = itemView.findViewById(R.id.promoCategory)
+        private val promoSponsor: TextView = itemView.findViewById(R.id.promoSponsor)
         private val promoBrand: TextView = itemView.findViewById(R.id.promoBrand)
         private val promoDiscountAmount: TextView = itemView.findViewById(R.id.promoDiscountAmount)
         private val promoDescription: TextView = itemView.findViewById(R.id.promoDescription)
@@ -218,8 +219,11 @@ class PromoCodesAdapter(
 
         fun bind(item: PromoItem) {
             promoBrand.text = item.brand
-            // "سرگرمی · از طرف دیجی‌پی · پرداخت با دیجی‌پی": who sponsors the code and how to pay
-            promoCategory.text = item.subtitle()
+            promoCategory.text = item.category
+            // "از طرف دیجی‌پی · پرداخت با دیجی‌پی": who sponsors the code and how to pay
+            val sponsor = item.sponsorLine()
+            promoSponsor.text = sponsor
+            promoSponsor.visibility = if (sponsor.isEmpty()) View.GONE else View.VISIBLE
             promoDiscountAmount.text = item.discountAmount
             promoDescription.text = item.description
             promoDescription.visibility = if (item.description.isBlank()) View.GONE else View.VISIBLE
@@ -390,6 +394,8 @@ class PromoCodesAdapter(
                 item.body.replace("�", " ").trim()
 
             val btnCopy = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.dialogBtnCopy)
+            // Codes can be case-sensitive: show "laps130" as sent, not the button's default capitals
+            btnCopy.isAllCaps = false
             btnCopy.text = "کپی کد ${item.code}"
             btnCopy.setOnClickListener {
                 ClipboardHelper.copyToClipboard(context, item.code, "PROMO")

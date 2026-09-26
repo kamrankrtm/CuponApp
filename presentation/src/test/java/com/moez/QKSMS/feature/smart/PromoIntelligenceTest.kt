@@ -84,6 +84,60 @@ class PromoIntelligenceTest {
     }
 
     @Test
+    fun `a tapsi motopeyk code is a courier code, not a taxi one`() {
+        // From a user's screenshot: filed as "تاکسی اینترنتی"
+        val p = promo("+985000301630", "تپسی: تا ۹۰ هزار تومان تخفیف موتوپیک🛵\nکد:TPSBOXH24\nتا ۱۰ مهر\nلغو۱۱")
+        assertEquals("تپسی موتوپیک", p.brand)
+        assertEquals("ارسال بسته و پیک", p.category)
+        assertEquals("TPSBOXH24", p.code)
+        assertEquals(90_000L, p.discountValue)
+        assertTrue(p.expiryIsExplicit)
+    }
+
+    @Test
+    fun `snapp's store is snappshop`() {
+        // From a user's screenshot: filed as "تاکسی اینترنتی"
+        val p = promo(
+            "Snapp",
+            "۱۳۰ هزار تومن تخفیف بیشتر فروشگاه اسنپ!\nکد تخفیف: laps130\nاعتبار تا ۷ روز\n" +
+                "خیلی وقته به فروشگاه اسنپ سر نزدی، الان می‌تونی با تخفیف ۱۳۰ هزار تومنی خرید کنی.\n" +
+                "برای خرید روی لینک بزن:\nhttps://l.snpp.link/t9kqo\n\n\nلغو 11l.eu/r"
+        )
+        assertEquals("اسنپ‌شاپ", p.brand)
+        assertEquals(BrandRegistry.SLUG_ECOMMERCE, p.categorySlug)
+        assertEquals("laps130", p.code)
+        assertEquals(130_000L, p.discountValue)
+        assertTrue(p.expiryIsExplicit)
+    }
+
+    @Test
+    fun `a bare snapp message is not claimed for the taxi`() {
+        val body = "کد تخفیف ABC123 برای شما، ۲۰٪ تخفیف"
+        val p = promo("SNAPP", body)
+        assertEquals("اسنپ", p.brand)
+        assertEquals("سرویس‌های اسنپ", p.category)
+        assertEquals(BrandRegistry.SLUG_OTHER, p.categorySlug)
+        // Still worth an AI request, which can tell the service apart
+        assertEquals(AiEscalation.Verdict.SEND_UNSURE_BRAND, AiEscalation.judge("SNAPP", body, now))
+    }
+
+    @Test
+    fun `the code itself can name the service`() {
+        assertEquals("اسنپ‌فود", promo("SNAPP", "اسنپ: کد تخفیف SFOOD30 برای ۳۰٪ تخفیف").brand)
+        assertEquals("اسنپ‌باکس", promo("SNAPP", "اسنپ: کد تخفیف BOX20 برای ۲۰٪ تخفیف").brand)
+    }
+
+    @Test
+    fun `the sponsor line never ends without a name`() {
+        val item = PromoItem(
+            id = "x", brand = "تپسی", code = "X1", discountAmount = "", description = "",
+            category = "تاکسی اینترنتی", payWith = "\u200c", issuer = " "
+        )
+        assertEquals("", item.sponsorLine())
+        assertEquals("تاکسی اینترنتی", item.subtitle())
+    }
+
+    @Test
     fun `a snappfood sender with a bare snapp body stays snappfood`() {
         assertEquals("اسنپ‌فود", promo("SnappFood", "اسنپ: کد تخفیف SF25 برای ۲۵٪ تخفیف").brand)
     }

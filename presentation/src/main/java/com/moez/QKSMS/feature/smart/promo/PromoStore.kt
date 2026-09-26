@@ -32,7 +32,7 @@ object PromoStore {
      * codes already on the list are re-filed by the new rules — "اسنپ" codes that were really
      * for اسنپ‌فود move to the right brand. User marks survive, keyed by message and code.
      */
-    const val ENGINE_VERSION = 3
+    const val ENGINE_VERSION = 4
 
     /** Upper bound on stored codes, so the preference blob cannot grow without limit. */
     private const val MAX_STORED = 400
