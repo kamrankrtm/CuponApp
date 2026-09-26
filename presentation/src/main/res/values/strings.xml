@@ -546,4 +546,7 @@
     <string name="alarm_guard_pref_arm_kw_title">کلمات کلیدی تشخیص فعال</string>
     <string name="alarm_guard_pref_disarm_kw_title">کلمات کلیدی تشخیص غیرفعال</string>
     <string name="alarm_guard_pref_status_title">وضعیت فعلی سیستم دزدگیر</string>
+    <string name="alarm_guard_pref_refresh_title">بروزرسانی وضعیت دزدگیر</string>
+    <string name="alarm_guard_pref_refresh_summary">بررسی آخرین پیامک‌ها و به‌روزرسانی ویجت</string>
+    <string name="alarm_guard_pref_refresh_dialog_title">وضعیت فعلی AlarmGuard</string>
 </resources>
