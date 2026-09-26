@@ -190,6 +190,7 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
             val newVal = !prefs.alarmGuardEnabled.get()
             prefs.alarmGuardEnabled.set(newVal)
             prefAlarmGuardEnabled.checkbox.isChecked = newVal
+            com.moez.QKSMS.feature.alarmguard.AlarmGuardWidgetProvider.updateAllWidgets(context)
         }
 
         prefAlarmPhoneNumber?.summary = prefs.alarmPhoneNumber.get().ifBlank { "+989032227190" }
@@ -199,6 +200,7 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
                     val num = text.trim().ifBlank { "+989032227190" }
                     prefs.alarmPhoneNumber.set(num)
                     prefAlarmPhoneNumber.summary = num
+                    com.moez.QKSMS.feature.alarmguard.AlarmGuardWidgetProvider.updateAllWidgets(context)
                 }.setText(prefs.alarmPhoneNumber.get()).show()
             }
         }
@@ -274,6 +276,22 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
                         com.moez.QKSMS.feature.alarmguard.AlarmGuardWidgetProvider.updateAllWidgets(act)
                         dialog.dismiss()
                     }
+                    .show()
+            }
+        }
+
+        prefAlarmResetStatus?.setOnClickListener {
+            activity?.let { act ->
+                com.moez.QKSMS.feature.alarmguard.AlarmGuardWidgetProvider.updateAllWidgets(context)
+                val status = prefs.alarmLastStatus.get()
+                val statusDetail = prefs.alarmLastStatusDetail.get()
+                val warning = prefs.alarmLastWarning.get()
+                val credit = prefs.alarmLastCredit.get()
+                val msg = "وضعیت: $status\nجزئیات: $statusDetail\nهشدار: $warning\nشارژ: $credit"
+                AlertDialog.Builder(act)
+                    .setTitle(R.string.alarm_guard_pref_refresh_dialog_title)
+                    .setMessage(msg)
+                    .setPositiveButton("تایید", null)
                     .show()
             }
         }
@@ -433,86 +451,6 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
             prefAiAutoSendReply?.checkbox?.isChecked = next
         }
 
-        // AlarmGuard (دزدگیر) settings
-        prefAlarmGuardEnabled?.checkbox?.isChecked = prefs.alarmGuardEnabled.get()
-        prefAlarmGuardEnabled?.setOnClickListener {
-            val newVal = !prefs.alarmGuardEnabled.get()
-            prefs.alarmGuardEnabled.set(newVal)
-            prefAlarmGuardEnabled.checkbox.isChecked = newVal
-            com.moez.QKSMS.feature.alarmguard.AlarmGuardWidgetProvider.updateAllWidgets(context)
-        }
-
-        prefAlarmPhoneNumber?.summary = prefs.alarmPhoneNumber.get().ifBlank { "تنظیم نشده" }
-        prefAlarmPhoneNumber?.setOnClickListener {
-            activity?.let { act ->
-                TextInputDialog(act, "شماره سیمکارت دزدگیر") { text ->
-                    val clean = text.trim()
-                    prefs.alarmPhoneNumber.set(clean)
-                    prefAlarmPhoneNumber?.summary = clean.ifBlank { "تنظیم نشده" }
-                    com.moez.QKSMS.feature.alarmguard.AlarmGuardWidgetProvider.updateAllWidgets(context)
-                }.setText(prefs.alarmPhoneNumber.get()).show()
-            }
-        }
-
-        prefAlarmArmCode?.summary = prefs.alarmArmCode.get().ifBlank { "*000000*11#" }
-        prefAlarmArmCode?.setOnClickListener {
-            activity?.let { act ->
-                TextInputDialog(act, "کد فعال‌سازی (روشن)") { text ->
-                    val clean = text.trim()
-                    prefs.alarmArmCode.set(clean)
-                    prefAlarmArmCode?.summary = clean.ifBlank { "*000000*11#" }
-                }.setText(prefs.alarmArmCode.get()).show()
-            }
-        }
-
-        prefAlarmDisarmCode?.summary = prefs.alarmDisarmCode.get().ifBlank { "*000000*10#" }
-        prefAlarmDisarmCode?.setOnClickListener {
-            activity?.let { act ->
-                TextInputDialog(act, "کد غیرفعال‌سازی (خاموش)") { text ->
-                    val clean = text.trim()
-                    prefs.alarmDisarmCode.set(clean)
-                    prefAlarmDisarmCode?.summary = clean.ifBlank { "*000000*10#" }
-                }.setText(prefs.alarmDisarmCode.get()).show()
-            }
-        }
-
-        prefAlarmArmKeywords?.summary = prefs.alarmArmKeywords.get().ifBlank { "فعال شد,فعال گردید,روشن شد" }
-        prefAlarmArmKeywords?.setOnClickListener {
-            activity?.let { act ->
-                TextInputDialog(act, "کلمات کلیدی فعال (با کاما جدا کنید)") { text ->
-                    val clean = text.trim()
-                    prefs.alarmArmKeywords.set(clean)
-                    prefAlarmArmKeywords?.summary = clean.ifBlank { "فعال شد,فعال گردید,روشن شد" }
-                }.setText(prefs.alarmArmKeywords.get()).show()
-            }
-        }
-
-        prefAlarmDisarmKeywords?.summary = prefs.alarmDisarmKeywords.get().ifBlank { "غیر فعال شد,غیرفعال شد,خاموش شد" }
-        prefAlarmDisarmKeywords?.setOnClickListener {
-            activity?.let { act ->
-                TextInputDialog(act, "کلمات کلیدی غیرفعال (با کاما جدا کنید)") { text ->
-                    val clean = text.trim()
-                    prefs.alarmDisarmKeywords.set(clean)
-                    prefAlarmDisarmKeywords?.summary = clean.ifBlank { "غیر فعال شد,غیرفعال شد,خاموش شد" }
-                }.setText(prefs.alarmDisarmKeywords.get()).show()
-            }
-        }
-
-        prefAlarmResetStatus?.setOnClickListener {
-            activity?.let { act ->
-                com.moez.QKSMS.feature.alarmguard.AlarmGuardWidgetProvider.updateAllWidgets(context)
-                val status = prefs.alarmLastStatus.get()
-                val detail = prefs.alarmLastStatusDetail.get()
-                val warning = prefs.alarmLastWarning.get()
-                val credit = prefs.alarmLastCredit.get()
-                val msg = "وضعیت: $status\nجزئیات: $detail\nهشدار: $warning\nشارژ: $credit"
-                AlertDialog.Builder(act)
-                    .setTitle("وضعیت فعلی AlarmGuard")
-                    .setMessage(msg)
-                    .setPositiveButton("تایید", null)
-                    .show()
-            }
-        }
     }
 
     override fun preferenceClicks(): Observable<PreferenceView> = preferences.findPreferenceViews()
