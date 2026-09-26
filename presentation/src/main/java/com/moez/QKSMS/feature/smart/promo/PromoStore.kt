@@ -20,6 +20,7 @@ object PromoStore {
     private const val KEY_AI_CONSENT = "ai_consent_granted"
     private const val KEY_MEMORY = "ai_memory_json"
     private const val KEY_ENGINE_VERSION = "engine_version"
+    private const val KEY_REFILED_FOR = "refiled_for_version"
     private const val KEY_USAGE_DAY = "ai_usage_day"
     private const val KEY_USAGE_DAY_MESSAGES = "ai_usage_day_messages"
     private const val KEY_USAGE_MONTH = "ai_usage_month"
@@ -32,7 +33,7 @@ object PromoStore {
      * codes already on the list are re-filed by the new rules — "اسنپ" codes that were really
      * for اسنپ‌فود move to the right brand. User marks survive, keyed by message and code.
      */
-    const val ENGINE_VERSION = 4
+    const val ENGINE_VERSION = 5
 
     /** Upper bound on stored codes, so the preference blob cannot grow without limit. */
     private const val MAX_STORED = 400
@@ -115,6 +116,19 @@ object PromoStore {
     fun setLastScannedMessageId(id: Long) {
         val store = requirePrefs() ?: return
         store.edit().putLong(KEY_LAST_SCANNED_ID, id).apply()
+    }
+
+    /**
+     * Whether the saved cards were read by an older build than [appVersion], and should be read
+     * again from the messages they were saved with. Every update counts, not only a raised
+     * [ENGINE_VERSION]: an old card must never keep what an older build made of it.
+     */
+    fun needsRefile(appVersion: String): Boolean =
+        requirePrefs()?.getString(KEY_REFILED_FOR, null) != "$ENGINE_VERSION/$appVersion"
+
+    fun markRefiled(appVersion: String) {
+        val store = requirePrefs() ?: return
+        store.edit().putString(KEY_REFILED_FOR, "$ENGINE_VERSION/$appVersion").apply()
     }
 
     /** Forces the next scan to re-read the whole inbox, e.g. after the parser changes. */

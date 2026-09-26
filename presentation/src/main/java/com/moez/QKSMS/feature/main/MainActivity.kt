@@ -639,6 +639,14 @@ class MainActivity : QkThemedActivity(), MainView {
         io.reactivex.schedulers.Schedulers.io().scheduleDirect {
             val realm = io.realm.Realm.getDefaultInstance()
             try {
+                // After an update every saved card is read again with the new rules; the scan
+                // below only reaches recent messages
+                val appVersion = com.moez.QKSMS.BuildConfig.VERSION_NAME
+                if (com.moez.QKSMS.feature.smart.promo.PromoStore.needsRefile(appVersion)) {
+                    SmartDataManager.refileAll()
+                    com.moez.QKSMS.feature.smart.promo.PromoStore.markRefiled(appVersion)
+                }
+
                 val conversations = realm.where(Conversation::class.java)
                     .notEqualTo("id", 0L)
                     .equalTo("archived", false)

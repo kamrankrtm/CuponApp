@@ -455,12 +455,19 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
             prefAiAutoRefine?.checkbox?.isChecked = next
         }
 
+        prefAiCheckAll?.checkbox?.isChecked = prefs.aiCheckAll.get()
+        prefAiCheckAll?.setOnClickListener {
+            val next = !prefs.aiCheckAll.get()
+            prefs.aiCheckAll.set(next)
+            prefAiCheckAll?.checkbox?.isChecked = next
+        }
+
         prefAiDailyLimit?.summary = aiUsageSummary()
         prefAiDailyLimit?.setOnClickListener {
             activity?.let { act ->
-                val limits = intArrayOf(10, 30, 60, 100)
+                val limits = intArrayOf(30, 60, 100, 200)
                 val labels = limits.map { "$it messages a day" }.toTypedArray()
-                val selectedIndex = limits.indexOf(prefs.aiDailyLimit.get()).takeIf { it >= 0 } ?: 1
+                val selectedIndex = limits.indexOf(prefs.aiDailyLimit.get()).takeIf { it >= 0 } ?: 2
                 AlertDialog.Builder(act)
                     .setTitle("Daily AI limit")
                     .setSingleChoiceItems(labels, selectedIndex) { dialog, which ->

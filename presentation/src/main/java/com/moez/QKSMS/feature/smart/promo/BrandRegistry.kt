@@ -333,6 +333,10 @@ object BrandRegistry {
             listOf("بیمه دات کام", "bmeh.me", "bimeh.com")),
         Brand("بیمه‌بازار", "BimeBazar", "بیمه آنلاین", SLUG_FINTECH, 0xFF0288D1.toInt(),
             listOf("بیمه بازار", "bimebazar")),
+        Brand("اسنپ‌بیمه", "SnappInsurance", "بیمه آنلاین", SLUG_FINTECH, 0xFF00A86B.toInt(),
+            listOf("اسنپ بیمه", "snappbime", "snapp bime", "snapp insurance"),
+            family = SNAPP, cues = listOf("بیمه", "بیمه ثالث", "بیمه بدنه", "بیمه نامه", "insurance"),
+            codeHints = listOf("bime")),
 
         // ---------- Banks: sponsors of card offers far more often than the shop ----------
         bank("بانک ملی", "Melli", 0xFF0D47A1.toInt(), listOf("بانک ملی", "bmi"), listOf("melli", "bmi")),

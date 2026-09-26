@@ -86,6 +86,24 @@ class AiPrivacyFilterTest {
     }
 
     @Test
+    fun `instalment reminders stay private but instalment coupons may be read`() {
+        // A loan instalment is private whatever else the message says
+        assertEquals(Verdict.BLOCKED_SENSITIVE, AiPrivacyFilter.judge("BANK", "یادآوری: قسط شما سررسید شده است. تخفیف ویژه"))
+        assertEquals(Verdict.BLOCKED_SENSITIVE, AiPrivacyFilter.judge("BANK", "قسط اول شما پرداخت نشد. تخفیف ویژه برای شما"))
+        assertEquals(
+            Verdict.BLOCKED_SENSITIVE,
+            AiPrivacyFilter.judge("BANK", "قسط وام شما معوق است؛ با کد تخفیف LOAN10 جریمه را کم کنید")
+        )
+        // An advert with a coupon for paying in instalments is not a loan statement
+        assertTrue(
+            AiPrivacyFilter.isAllowed(
+                "+9890003403",
+                "تا ۱۷٪ تخفیف برای بیمه ثالث از اسنپ‌بیمه\nکد تخفیف نقدی: SR5H\nکد تخفیف قسطی: HK8N"
+            )
+        )
+    }
+
+    @Test
     fun `court and health notices are withheld`() {
         assertFalse(AiPrivacyFilter.isAllowed("ADLIRAN", "ابلاغیه الکترونیک در سامانه ثنا ثبت شد"))
         assertFalse(AiPrivacyFilter.isAllowed("LAB", "نتیجه تست آزمایش شما آماده است"))

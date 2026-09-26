@@ -3,6 +3,7 @@ package com.moez.QKSMS.feature.smart
 import android.content.Context
 import com.moez.QKSMS.feature.smart.model.OtpItem
 import com.moez.QKSMS.feature.smart.model.PromoItem
+import com.moez.QKSMS.feature.smart.promo.PromoParser
 import com.moez.QKSMS.feature.smart.promo.PromoRanker
 import com.moez.QKSMS.feature.smart.promo.PromoRow
 import com.moez.QKSMS.feature.smart.promo.PromoStore
@@ -137,6 +138,52 @@ object SmartDataManager {
 
     /** Writes the list to disk after a run of [replaceForMessage] calls made with `save = false`. */
     fun save() = persist()
+
+    /**
+     * Reads every saved card again from the message it was saved with.
+     *
+     * Cards are stored with the reading that produced them, and the inbox scan only re-reads
+     * recent messages, so without this a card keeps whatever an older build made of it — the
+     * "اسنپ / تاکسی اینترنتی" a user kept seeing after the rules had learned "فروشگاه اسنپ".
+     * The user's marks carry over by code; a used or broken record the new reading no longer
+     * finds is kept, so it never comes back; a code only the AI could read is kept as it is.
+     */
+    @Synchronized
+    fun refileAll() {
+        val groups = promoList.filter { it.body.isNotBlank() }
+            .groupBy { "${it.sender}\u0000${it.receivedAt}\u0000${it.body}" }
+        for (cards in groups.values) {
+            val first = cards.first()
+            val fresh = try {
+                PromoParser.parse(first.sender, first.body, first.receivedAt, first.threadId)
+            } catch (e: Exception) {
+                continue
+            }
+            if (fresh.isEmpty() && cards.any { it.source == PromoItem.SOURCE_AI || it.id.startsWith("ai-") }) continue
+            for (promo in fresh) {
+                val before = cards.firstOrNull { it.code.equals(promo.code, ignoreCase = true) } ?: continue
+                promo.isPinned = before.isPinned
+                promo.isUsed = before.isUsed
+                promo.isInvalid = before.isInvalid
+            }
+            val records = cards.filter { old ->
+                (old.isUsed || old.isInvalid) && fresh.none { it.code.equals(old.code, ignoreCase = true) }
+            }
+            promoList.removeAll(cards)
+            promoList.addAll(fresh.filter { it.isUsed || it.isInvalid || !it.isExpired() })
+            promoList.addAll(records)
+        }
+
+        // Reminder texts repeat one offer; keep its newest card, and none past a used record
+        val closed = promoList.filter { it.isUsed || it.isInvalid }.map { it.dedupeKey }.toSet()
+        val seen = HashSet<String>()
+        val kept = promoList.sortedByDescending { it.receivedAt }.filter { promo ->
+            promo.isUsed || promo.isInvalid || (promo.dedupeKey !in closed && seen.add(promo.dedupeKey))
+        }
+        promoList.clear()
+        promoList.addAll(kept)
+        persist()
+    }
 
     /** Two cards are one offer when they share a brand and code, or come from one message. */
     private fun sameOffer(a: PromoItem, b: PromoItem): Boolean =

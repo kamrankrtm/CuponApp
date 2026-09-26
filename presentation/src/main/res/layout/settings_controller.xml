@@ -623,8 +623,18 @@
                 android:layout_height="wrap_content"
                 app:icon="@drawable/ic_lc_sparkles"
                 app:iconTileColor="@color/tileIndigo"
-                app:title="Auto-check uncertain codes"
-                app:summary="Only codes the app could not read with confidence are sent"
+                app:title="Automatic AI check"
+                app:summary="Checks new discount SMS in the background, within the daily limit"
+                app:widget="@layout/settings_switch_widget" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAiCheckAll"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_search"
+                app:iconTileColor="@color/tilePurple"
+                app:title="Check every code with AI"
+                app:summary="Most accurate: every discount SMS is checked once. Off: only uncertain ones"
                 app:widget="@layout/settings_switch_widget" />
 
             <com.moez.QKSMS.common.widget.PreferenceView
@@ -635,7 +645,7 @@
                 app:iconTileColor="@color/tileGray"
                 app:chevron="true"
                 app:title="Daily AI limit"
-                app:summary="30 messages a day" />
+                app:summary="100 messages a day" />
 
             <com.moez.QKSMS.common.widget.PreferenceView
                 android:id="@+id/prefAiAutoSendReply"

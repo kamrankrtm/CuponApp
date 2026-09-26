@@ -239,8 +239,14 @@ class Preferences @Inject constructor(
      */
     val aiAutoRefine = rxPrefs.getBoolean("aiAutoRefine", true)
 
+    /**
+     * Have the AI check every discount code, not only the ones the local engine is unsure of.
+     * Costs more requests, bounded by [aiDailyLimit]; each message is still sent only once.
+     */
+    val aiCheckAll = rxPrefs.getBoolean("aiCheckAll", true)
+
     /** Most messages a day the automatic AI pass may send. */
-    val aiDailyLimit = rxPrefs.getInteger("aiDailyLimit", 30)
+    val aiDailyLimit = rxPrefs.getInteger("aiDailyLimit", 100)
 
     // AlarmGuard (دزدگیر) Settings
     val alarmGuardEnabled = rxPrefs.getBoolean("alarmGuardEnabled", true)

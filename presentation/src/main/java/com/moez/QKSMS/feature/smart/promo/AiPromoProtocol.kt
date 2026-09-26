@@ -19,7 +19,7 @@ object AiPromoProtocol {
         You extract discount codes from Iranian promotional SMS. Input: one message per line, "#<n> <sender>: <text>".
         Reply with JSON only: {"r":[{"i":n,"c":"CODE","m":"merchant","k":"category","by":"sponsor","pay":"payment","v":"value","min":"min order","cap":"max discount","exp":"deadline"}]}
         c: the exact code the user types, copied from the text. Skip messages without a code. Never invent one.
-        m: the specific service where the code is used, in Persian (e.g. اسنپ‌فود, اسنپ‌شاپ, اسنپ‌تریپ, دیجی‌کالا جت, فیلیمو). Snapp, Tapsi and Digikala run many services: name the one the text is about (food→اسنپ‌فود, hotel/flight→اسنپ‌تریپ, ride→اسنپ), not the parent.
+        m: the specific service where the code is used, in Persian (e.g. اسنپ‌فود, اسنپ‌شاپ, اسنپ‌تریپ, اسنپ‌بیمه, تپسی موتوپیک, دیجی‌کالا جت, فیلیمو). Snapp, Tapsi and Digikala run many services: name the one the text is about, never just اسنپ, تپسی or دیجی‌کالا when the text names or implies a service (food→اسنپ‌فود, فروشگاه اسنپ→اسنپ‌شاپ, hotel/flight→اسنپ‌تریپ, insurance→اسنپ‌بیمه, موتوپیک/parcel→تپسی موتوپیک or اسنپ‌باکس, ride→اسنپ/تپسی). If the service is unknown to you, copy its name from the text.
         by: the wallet, bank or operator that sent or sponsors the code, only if it is not the merchant.
         pay: the payment method the offer requires, if stated.
         k: food, supermarket, ecommerce, transport, entertainment, fintech, telecom, services or other.

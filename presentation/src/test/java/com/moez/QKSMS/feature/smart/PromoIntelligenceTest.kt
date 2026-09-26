@@ -138,6 +138,88 @@ class PromoIntelligenceTest {
     }
 
     @Test
+    fun `snapp insurance with a cash and an instalment code gives two insurance cards`() {
+        // From a user's screenshot: filed as "سرویس‌های اسنپ", and the second code as اسنپ‌پی
+        val body = "تا ۱۷٪ تخفیف + ۴۰۰ هزار تومن هدیه برای بیمهٔ ثالث ماشینت!\n" +
+            "فقط تا ۹ مهر برای این خرید به‌صرفه از اسنپ‌بیمه فرصت داری ⏰\n" +
+            "کد تخفیف نقدی: SR5H\nکد تخفیف قسطی: HK8N\nلینک خرید بیمه 👇\nl.snpy.ir/dzeoz"
+        val promos = SmartSmsClassifier.extractPromos("+9890003403", body, now)
+        assertEquals(listOf("HK8N", "SR5H"), promos.map { it.code }.sorted())
+        for (p in promos) {
+            assertEquals("اسنپ‌بیمه", p.brand)
+            assertEquals(17L, p.discountValue)
+            assertTrue(p.expiryIsExplicit)
+        }
+        assertTrue(promos.first { it.code == "SR5H" }.description.contains("خرید نقدی"))
+        assertTrue(promos.first { it.code == "HK8N" }.description.contains("خرید قسطی"))
+    }
+
+    @Test
+    fun `a vague cached ai answer never overrides a reading that named the service`() {
+        // A cheap model answering only "تپسی" or "اسنپ" was cached by an earlier build and kept
+        // these cards on "تاکسی اینترنتی" after the rules had learned better
+        val tapsi = "تپسی: تا ۹۰ هزار تومان تخفیف موتوپیک🛵\nکد:TPSBOXH24\nتا ۱۰ مهر\nلغو۱۱"
+        val snapp = "۱۳۰ هزار تومن تخفیف بیشتر فروشگاه اسنپ!\nکد تخفیف: laps130\nاعتبار تا ۷ روز"
+        PromoMemory.remember("+985000301630", now, tapsi, listOf(AiFinding("TPSBOXH24", merchant = "تپسی")))
+        PromoMemory.remember("Snapp", now, snapp, listOf(AiFinding("laps130", merchant = "اسنپ")))
+        assertEquals("تپسی موتوپیک", promo("+985000301630", tapsi).brand)
+        assertEquals("اسنپ‌شاپ", promo("Snapp", snapp).brand)
+
+        // A vague answer on a vague message leaves the group name, not the taxi
+        val bare = "کد تخفیف ABC123 برای شما، ۲۰٪ تخفیف"
+        PromoMemory.remember("SNAPP", now, bare, listOf(AiFinding("ABC123", merchant = "اسنپ")))
+        assertEquals("سرویس‌های اسنپ", promo("SNAPP", bare).category)
+    }
+
+    @Test
+    fun `a specific ai answer still improves a vague reading`() {
+        val bare = "کد تخفیف ZZ4455 برای شما، ۲۰٪ تخفیف"
+        PromoMemory.remember("SNAPP", now, bare, listOf(AiFinding("ZZ4455", merchant = "اسنپ‌بیمه")))
+        assertEquals("اسنپ‌بیمه", promo("SNAPP", bare).brand)
+    }
+
+    @Test
+    fun `check all sends confident offers once and never private ones`() {
+        val sure = "اسنپ‌فود: با کد تخفیف FOOD70 مبلغ ۷۰ هزار تومان تخفیف بگیرید"
+        assertEquals(AiEscalation.Verdict.SKIP_CONFIDENT, AiEscalation.judge("SNAPPFOOD", sure, now))
+        assertEquals(AiEscalation.Verdict.SEND_CHECK_ALL, AiEscalation.judge("SNAPPFOOD", sure, now, checkAll = true))
+
+        PromoMemory.remember("SNAPPFOOD", now, sure, listOf(AiFinding("FOOD70", merchant = "اسنپ‌فود")))
+        assertEquals(AiEscalation.Verdict.SKIP_ALREADY_READ, AiEscalation.judge("SNAPPFOOD", sure, now, checkAll = true))
+
+        assertEquals(
+            AiEscalation.Verdict.SKIP_SENSITIVE,
+            AiEscalation.judge("BANK", "واریز 5,000,000 ریال. موجودی: 12,000,000 ریال. تخفیف ویژه CODE12", now, checkAll = true)
+        )
+        assertEquals(
+            AiEscalation.Verdict.SKIP_NO_CODE_SHAPE,
+            AiEscalation.judge("DIGIKALA", "جشنواره پاییزه دیجی‌کالا با ۵۰٪ تخفیف", now, checkAll = true)
+        )
+    }
+
+    @Test
+    fun `saved cards are read again after an update`() {
+        val today = System.currentTimeMillis()
+        val body = "۱۳۰ هزار تومن تخفیف بیشتر فروشگاه اسنپ!\nکد تخفیف: laps130\nاعتبار تا ۷ روز"
+        // What an older build saved: the right code under the wrong brand, pinned by the user
+        val stale = PromoItem(
+            id = "old", brand = "اسنپ", category = "تاکسی اینترنتی", code = "laps130",
+            discountAmount = "", description = "", sender = "Snapp", body = body,
+            receivedAt = today, expiresAt = today + 5 * 24 * 60 * 60 * 1000L
+        )
+        SmartDataManager.setPromos(emptyList())
+        SmartDataManager.addPromo(stale)
+        SmartDataManager.setPinned(stale, true)
+
+        SmartDataManager.refileAll()
+
+        val card = SmartDataManager.getPromos().single { it.code == "laps130" }
+        assertEquals("اسنپ‌شاپ", card.brand)
+        assertTrue(card.isPinned)
+        SmartDataManager.setPromos(emptyList())
+    }
+
+    @Test
     fun `a snappfood sender with a bare snapp body stays snappfood`() {
         assertEquals("اسنپ‌فود", promo("SnappFood", "اسنپ: کد تخفیف SF25 برای ۲۵٪ تخفیف").brand)
     }

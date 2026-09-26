@@ -4,9 +4,16 @@ import java.util.regex.Pattern
 
 /**
  * A coupon code candidate together with how much the extractor trusts it and where it sits in
- * the normalized body ([start] inclusive, [end] exclusive; -1 when unknown).
+ * the normalized body ([start] inclusive, [end] exclusive; -1 when unknown). [note] says what
+ * the label restricted it to: "کد تخفیف قسطی" gives "خرید قسطی".
  */
-data class CodeCandidate(val code: String, val confidence: Int, val start: Int = -1, val end: Int = -1)
+data class CodeCandidate(
+    val code: String,
+    val confidence: Int,
+    val start: Int = -1,
+    val end: Int = -1,
+    val note: String? = null
+)
 
 /**
  * Pulls the coupon codes themselves out of a promotional SMS.
@@ -44,6 +51,16 @@ object PromoCodeExtractor {
         "اول", "دوم", "درصدی", "درصد", "تومانی", "تومان", "هزار", "هزارتومانی", "میلیونی",
         "میلیون", "ریالی", "شگفت", "انگیز", "انگیزت", "عزیز", "جان", "است", "هست", "یک", "دیگر",
         "مشترک", "گرامی", "ما", "تو", "بعدی", "وارد", "کن", "کنید", "از", "و", "به", "در"
+    )
+
+    /**
+     * Words between a label and its code that say what the code is for: one message often
+     * carries a "کد تخفیف نقدی" and a "کد تخفیف قسطی", and the cards must tell them apart.
+     */
+    private val QUALIFIERS = mapOf(
+        "نقدی" to "خرید نقدی",
+        "قسطی" to "خرید قسطی",
+        "اقساطی" to "خرید قسطی"
     )
 
     /** "کد رهگیری AB123" is a receipt, not a coupon: these end the search for a code. */
@@ -238,12 +255,18 @@ object PromoCodeExtractor {
 
         var penalty = 0
         var unknownWords = 0
+        var note: String? = null
         val matcher = TOKEN.matcher(text)
         matcher.region(labelEnd, limit)
         while (matcher.find()) {
             val persian = matcher.group(2)
             if (persian != null) {
                 if (persian in BLOCKERS) return null
+                val qualifier = QUALIFIERS[persian]
+                if (qualifier != null) {
+                    note = qualifier
+                    continue
+                }
                 if (persian in FILLERS) continue
                 unknownWords++
                 penalty += 6
@@ -264,7 +287,7 @@ object PromoCodeExtractor {
                 if (trust >= NUMERIC_LABEL_TRUST && penalty == 0 && token.length in 4..12 &&
                     !token.startsWith("09") && !token.startsWith("98")
                 ) {
-                    return CodeCandidate(token, 70, start, end)
+                    return CodeCandidate(token, 70, start, end, note)
                 }
                 penalty += 4
                 continue
@@ -274,7 +297,7 @@ object PromoCodeExtractor {
                 penalty += 3
                 continue
             }
-            return CodeCandidate(token, adjustConfidence(token, trust - penalty), start, end)
+            return CodeCandidate(token, adjustConfidence(token, trust - penalty), start, end, note)
         }
         return null
     }

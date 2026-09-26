@@ -23,7 +23,7 @@ object AiPrivacyFilter {
         // banking and money movement
         "موجودی", "مانده", "واریز", "برداشت", "انتقال وجه", "تراکنش", "صورتحساب",
         "شاپرک", "ساتنا", "کسر شد", "بدهکار", "بستانکار", "کارمزد",
-        "تسهیلات", "قسط", "چک ", "سفته", "مسدود", "رمز اینترنتی",
+        "تسهیلات", "چک ", "سفته", "مسدود", "رمز اینترنتی", "سررسید", "معوق", "بدهی", "دیرکرد",
         // identity and legal
         "کد ملی", "شماره شبا", "شماره حساب", "شماره کارت", "ابلاغیه",
         "پرونده", "دادگاه", "شکایت", "احضار", "قبض جریمه", "خلافی",
@@ -54,6 +54,15 @@ object AiPrivacyFilter {
         }
         return false
     }
+
+    /**
+     * "قسط" is a loan instalment in a bank reminder, but "کد تخفیف قسطی" in an advert is a code
+     * for paying in instalments. It is withheld unless the message labels a coupon; a message
+     * that does is still subject to every other rule here, including the debt words above.
+     */
+    private const val INSTALMENT = "قسط"
+
+    private val COUPON_LABELS = listOf("کد تخفیف", "کد هدیه", "کوپن", "promo code", "discount code", "coupon")
 
     /** Structures that betray an account number, card number, IBAN or balance. */
     private val SENSITIVE_PATTERNS = listOf(
@@ -105,6 +114,9 @@ object AiPrivacyFilter {
             return Verdict.BLOCKED_SENSITIVE
         }
         if (WHOLE_WORD_KEYWORDS.any { containsWord(normalizedBody, it) }) {
+            return Verdict.BLOCKED_SENSITIVE
+        }
+        if (normalizedBody.contains(INSTALMENT) && COUPON_LABELS.none { normalizedBody.contains(it) }) {
             return Verdict.BLOCKED_SENSITIVE
         }
         if (SENSITIVE_PATTERNS.any { it.matcher(normalizedBody).find() }) {

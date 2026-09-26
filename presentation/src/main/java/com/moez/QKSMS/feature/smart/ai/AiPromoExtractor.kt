@@ -46,8 +46,8 @@ object AiPromoExtractor {
     /** Messages per request: enough to share the instructions, small enough to stay reliable. */
     private const val BATCH_SIZE = 15
 
-    /** Ceiling for one manual scan, so a large inbox cannot run up an unbounded bill. */
-    private const val MAX_MESSAGES_PER_SCAN = 60
+    /** Ceiling for one scan, so a large inbox cannot run up an unbounded bill. */
+    private const val MAX_MESSAGES_PER_SCAN = 150
 
     private const val MANUAL_LOOKBACK_DAYS = 60L
     private const val AUTO_LOOKBACK_DAYS = 14L
@@ -247,7 +247,7 @@ object AiPromoExtractor {
                 if (body.isBlank() || !seenBodies.add(body)) continue
                 if (alreadyScanned.contains(message.id.toString())) continue
 
-                val verdict = AiEscalation.judge(message.address, body, message.date)
+                val verdict = AiEscalation.judge(message.address, body, message.date, prefs.aiCheckAll.get())
                 when {
                     verdict == AiEscalation.Verdict.SKIP_SENSITIVE -> skippedSensitive++
                     verdict == AiEscalation.Verdict.SKIP_CONFIDENT || verdict == AiEscalation.Verdict.SKIP_ALREADY_READ ->

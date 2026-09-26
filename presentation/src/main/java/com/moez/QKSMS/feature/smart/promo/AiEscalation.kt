@@ -29,6 +29,9 @@ object AiEscalation {
         /** The text quotes a figure the parser could not turn into a discount. */
         SEND_MISSING_VALUE(true),
 
+        /** Read confidently, but the user asked for every code to be checked by the AI. */
+        SEND_CHECK_ALL(true),
+
         SKIP_ALREADY_READ(false),
         SKIP_SENSITIVE(false),
         SKIP_NOT_OFFER(false),
@@ -44,7 +47,11 @@ object AiEscalation {
 
     private val FIGURE = Pattern.compile("\\d+\\s*(?:درصد|٪|%|هزار|میلیون|تومان|تومن|ریال)")
 
-    fun judge(sender: String, body: String, date: Long): Verdict {
+    /**
+     * @param checkAll send every offer that could hold a code, not only the ones the local
+     *   reading is unsure of; privacy, the offer test and the one-answer-per-message rule still apply
+     */
+    fun judge(sender: String, body: String, date: Long, checkAll: Boolean = false): Verdict {
         if (PromoMemory.findingsFor(PromoMemory.messageKey(sender, date, body)) != null) return Verdict.SKIP_ALREADY_READ
         when (AiPrivacyFilter.judge(sender, body)) {
             AiPrivacyFilter.Verdict.ALLOWED -> Unit
@@ -61,6 +68,7 @@ object AiEscalation {
         }
         // The AI may only report a code that is in the text; with nothing code-shaped, it can't
         if (!PromoCodeExtractor.hasCodeShapedToken(normalized)) return Verdict.SKIP_NO_CODE_SHAPE
+        if (checkAll) return Verdict.SEND_CHECK_ALL
 
         val analyses = PromoParser.analyze(sender, body, date)
         if (analyses.isEmpty()) return Verdict.SEND_NO_CODE
@@ -74,5 +82,6 @@ object AiEscalation {
         return Verdict.SKIP_CONFIDENT
     }
 
-    fun shouldSend(sender: String, body: String, date: Long): Boolean = judge(sender, body, date).send
+    fun shouldSend(sender: String, body: String, date: Long, checkAll: Boolean = false): Boolean =
+        judge(sender, body, date, checkAll).send
 }

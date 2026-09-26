@@ -155,7 +155,8 @@ object PromoParser {
                 threadId = threadId,
                 key = key,
                 source = source,
-                aiFinding = null
+                aiFinding = null,
+                note = candidate.note
             )
         }
     }
@@ -188,11 +189,12 @@ object PromoParser {
         // to open and a colour, so a wrong one is worse than none.
         val claimed = finding.merchant?.let { BrandRegistry.byName(it) }
         val merchant: Brand? = when {
-            claimed != null && isBackedByMessage(claimed, lowerBody, lowerSender, local) -> claimed
+            claimed != null && isBackedByMessage(claimed, lowerBody, lowerSender, local) -> moreSpecific(claimed, local)
             claimed == null && finding.merchant != null && namedIn(finding.merchant, lowerBody, lowerSender) ->
                 brandFromName(finding.merchant, finding.category)
             else -> local.merchant
         }
+        val brandFromAi = merchant != null && merchant != local.merchant
         val issuer = finding.issuer?.let { BrandRegistry.byName(it) }
             ?.takeIf { isBackedByMessage(it, lowerBody, lowerSender, local) && !BrandRegistry.sameFamily(it, merchant) }
             ?: local.issuer?.takeIf { !BrandRegistry.sameFamily(it, merchant) }
@@ -206,11 +208,17 @@ object PromoParser {
             ?: issuer?.takeIf { it.role == BrandRole.PAYMENT }
 
         val candidate = CodeCandidate(code, AI_CONFIDENCE, start, end)
+        // The label's own word ("قسطی") still describes the code the AI confirmed
+        val note = PromoCodeExtractor.extractAll(normalizedBody).firstOrNull { it.code.equals(code, ignoreCase = true) }?.note
         return build(
             code = code,
             codeConfidence = AI_CONFIDENCE,
             brand = merchant ?: unknownBrandFor(sender),
-            brandConfidence = if (merchant == null) 30 else AI_CONFIDENCE,
+            brandConfidence = when {
+                merchant == null -> 30
+                brandFromAi -> AI_CONFIDENCE
+                else -> maxOf(local.confidence, AI_CONFIDENCE - 10)
+            },
             issuer = issuer,
             payWith = payWith?.takeIf { it != merchant },
             usableAt = if (merchant == local.merchant) local.usableAt else emptyList(),
@@ -222,8 +230,29 @@ object PromoParser {
             threadId = threadId,
             key = key,
             source = Source.AI,
-            aiFinding = finding
+            aiFinding = finding,
+            note = note
         )
+    }
+
+    /**
+     * Which of the AI's brand and the local reading to believe.
+     *
+     * An AI answer that names only the group ("اسنپ", "تپسی") says less than a local reading
+     * that found the service ("اسنپ‌شاپ" from "فروشگاه اسنپ", "تپسی موتوپیک" from "موتوپیک"), so
+     * it never replaces one. Such vague answers were cached by earlier versions and kept
+     * overriding better readings. A service named in the code's own sentence also stands
+     * against a different one the AI prefers.
+     */
+    private fun moreSpecific(claimed: Brand, local: BrandResolution): Brand {
+        val localBrand = local.merchant ?: return claimed
+        if (claimed == localBrand) return localBrand
+        if (claimed.isFamilyRoot) {
+            if (BrandRegistry.sameFamily(claimed, localBrand)) return localBrand
+            return claimed.familyLabel?.let { claimed.copy(category = it, categorySlug = BrandRegistry.SLUG_OTHER) } ?: claimed
+        }
+        if (!localBrand.isFamilyRoot && local.confidence >= 88 && local.usableAt.isEmpty()) return localBrand
+        return claimed
     }
 
     private fun isBackedByMessage(brand: Brand, lowerBody: String, lowerSender: String, local: BrandResolution): Boolean {
@@ -285,12 +314,14 @@ object PromoParser {
         threadId: Long,
         key: String,
         source: Source,
-        aiFinding: AiFinding?
+        aiFinding: AiFinding?,
+        note: String? = null
     ): Analysis {
         val scoped = PromoValueParser.parseValues(scope.text, scope.anchor)
         val whole = if (scope.text.length == normalizedBody.length) scoped else PromoValueParser.parseValues(normalizedBody)
 
-        var discount = scoped.discount
+        // "تا ۱۷٪ تخفیف … کد نقدی: A … کد قسطی: B": a headline figure covers every code under it
+        var discount = if (scoped.discount.type == DiscountType.UNKNOWN) whole.discount else scoped.discount
         if (discount.type == DiscountType.UNKNOWN && aiFinding?.value != null) {
             val fromAi = PromoValueParser.parseDiscount(PromoValueParser.normalize(aiFinding.value))
             discount = if (fromAi.type != DiscountType.UNKNOWN) fromAi else discount
@@ -300,7 +331,8 @@ object PromoParser {
         val cap = if (discount.type != DiscountType.PERCENT) {
             null
         } else {
-            scoped.cap ?: aiFinding?.cap?.let { PromoValueParser.parseCap("تا سقف " + PromoValueParser.normalize(it))?.first }
+            scoped.cap ?: whole.cap?.takeIf { scoped.discount.type == DiscountType.UNKNOWN }
+                ?: aiFinding?.cap?.let { PromoValueParser.parseCap("تا سقف " + PromoValueParser.normalize(it))?.first }
         }
         val expiry = PromoValueParser.findExpiry(scope.text, date)
             ?: PromoValueParser.findExpiry(normalizedBody, date)
@@ -321,7 +353,7 @@ object PromoParser {
                 val kind = if (discount.isCashback) "کش‌بک" else "تخفیف"
                 listOfNotNull("${discount.display} $kind ${brand.fa}", cap?.display).joinToString(" ")
             }
-        }
+        }.let { text -> if (note == null) text else "$text · $note" }
         val instructions = buildString {
             append("در صفحه پرداخت ${brand.fa} کد $code را وارد کنید.")
             payWith?.let { append(" پرداخت باید با ${it.fa} انجام شود.") }
