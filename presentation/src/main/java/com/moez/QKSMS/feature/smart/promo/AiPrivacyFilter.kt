@@ -22,14 +22,47 @@ object AiPrivacyFilter {
         "verification code", "otp", "security code", "login code", "one time password",
         // banking and money movement
         "موجودی", "مانده", "واریز", "برداشت", "انتقال وجه", "تراکنش", "صورتحساب",
-        "شاپرک", "پایا", "ساتنا", "کسر شد", "بدهکار", "بستانکار", "کارمزد",
-        "تسهیلات", "قسط", "وام", "چک ", "سفته", "مسدود", "رمز اینترنتی",
+        "شاپرک", "ساتنا", "کسر شد", "بدهکار", "بستانکار", "کارمزد",
+        "تسهیلات", "چک ", "سفته", "مسدود", "رمز اینترنتی", "سررسید", "معوق", "بدهی", "دیرکرد",
         // identity and legal
-        "کد ملی", "شماره شبا", "شماره حساب", "شماره کارت", "ابلاغیه", "ثنا",
+        "کد ملی", "شماره شبا", "شماره حساب", "شماره کارت", "ابلاغیه",
         "پرونده", "دادگاه", "شکایت", "احضار", "قبض جریمه", "خلافی",
         // health
         "آزمایش", "نسخه پزشک", "نتیجه تست", "بیمارستان"
     )
+
+    /**
+     * Sensitive words short enough to sit inside everyday ones: "پایا" (the interbank transfer)
+     * in "تا پایان هفته", "ثنا" in "استثنایی", "وام" in "بادوام". Matched as words, so an offer
+     * that runs "until the end of the week" is no longer withheld as a bank message. A word
+     * followed by a Persian ending ("وامی", "وام‌تان") still counts, erring towards withholding.
+     */
+    private val WHOLE_WORD_KEYWORDS = listOf("پایا", "ثنا", "وام")
+
+    private val WORD_ENDINGS = listOf("ی", "ها", "های", "تان", "ت", "م", "ش", "مان", "شان")
+
+    private fun containsWord(text: String, word: String): Boolean {
+        var idx = text.indexOf(word)
+        while (idx >= 0) {
+            val end = idx + word.length
+            val startsWord = idx == 0 || !text[idx - 1].isLetter()
+            val endsWord = end >= text.length || !text[end].isLetter() || WORD_ENDINGS.any { ending ->
+                text.startsWith(ending, end) && (end + ending.length >= text.length || !text[end + ending.length].isLetter())
+            }
+            if (startsWord && endsWord) return true
+            idx = text.indexOf(word, idx + 1)
+        }
+        return false
+    }
+
+    /**
+     * "قسط" is a loan instalment in a bank reminder, but "کد تخفیف قسطی" in an advert is a code
+     * for paying in instalments. It is withheld unless the message labels a coupon; a message
+     * that does is still subject to every other rule here, including the debt words above.
+     */
+    private const val INSTALMENT = "قسط"
+
+    private val COUPON_LABELS = listOf("کد تخفیف", "کد هدیه", "کوپن", "promo code", "discount code", "coupon")
 
     /** Structures that betray an account number, card number, IBAN or balance. */
     private val SENSITIVE_PATTERNS = listOf(
@@ -78,6 +111,12 @@ object AiPrivacyFilter {
 
         // 2. Never upload anything carrying credentials, money or identity.
         if (SENSITIVE_KEYWORDS.any { normalizedBody.contains(it) }) {
+            return Verdict.BLOCKED_SENSITIVE
+        }
+        if (WHOLE_WORD_KEYWORDS.any { containsWord(normalizedBody, it) }) {
+            return Verdict.BLOCKED_SENSITIVE
+        }
+        if (normalizedBody.contains(INSTALMENT) && COUPON_LABELS.none { normalizedBody.contains(it) }) {
             return Verdict.BLOCKED_SENSITIVE
         }
         if (SENSITIVE_PATTERNS.any { it.matcher(normalizedBody).find() }) {

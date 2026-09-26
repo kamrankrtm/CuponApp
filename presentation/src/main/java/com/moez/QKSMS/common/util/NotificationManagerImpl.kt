@@ -129,6 +129,13 @@ class NotificationManagerImpl @Inject constructor(
         // The user's "Move to …" choice for this sender decides, except for verification codes
         val smartCategory = SmartSmsClassifier.classifyForUser(sender, body, msgDate, threadId)
 
+        // An offer the rules were unsure of, or one with a code they could not find, is checked
+        // by the AI shortly after, if the user set it up; the call is a no-op otherwise. Before
+        // the silent-spam exit, because an ad the rules found no code in is filed as spam.
+        if (smartCategory is SmsCategory.Promo || smartCategory is SmsCategory.Spam) {
+            com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.scheduleAutoRefine(context, prefs)
+        }
+
         // Silent Spam: if spam and silentSpam is enabled, do not display notification
         if (smartCategory is SmsCategory.Spam && prefs.silentSpam.get()) {
             return
@@ -142,9 +149,10 @@ class NotificationManagerImpl @Inject constructor(
             }
         }
 
-        // Promo: Add to SmartDataManager
+        // Promo: every code in the message goes to the discounts tab
         if (smartCategory is SmsCategory.Promo) {
-            SmartDataManager.addPromo(smartCategory.promo)
+            val promos = SmartSmsClassifier.extractPromos(sender, body, msgDate, threadId)
+            SmartDataManager.addPromos(if (promos.isEmpty()) listOf(smartCategory.promo) else promos)
         }
 
         val contentIntent = Intent(context, ComposeActivity::class.java).putExtra("threadId", threadId)
@@ -380,7 +388,9 @@ class NotificationManagerImpl @Inject constructor(
                 // a way that "۱۴۰۴/۰۷/۰۵" is not.
                 val deadline = promo.remainingLabel()
                 val line = listOfNotNull("کد ${promo.code}", deadline.takeIf { it.isNotBlank() },
-                        promo.minOrder?.takeIf { it.isNotBlank() }).joinToString(" · ")
+                        promo.minOrder?.takeIf { it.isNotBlank() },
+                        promo.issuer?.takeIf { it.isNotBlank() && it != promo.brand }?.let { "از طرف $it" })
+                        .joinToString(" · ")
                 notification.setContentTitle(title)
                 notification.setContentText(line)
 

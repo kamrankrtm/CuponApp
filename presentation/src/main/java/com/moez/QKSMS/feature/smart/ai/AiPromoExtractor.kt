@@ -3,19 +3,14 @@ package com.moez.QKSMS.feature.smart.ai
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import com.moez.QKSMS.common.util.JalaliCalendar
 import com.moez.QKSMS.feature.smart.SmartDataManager
-import com.moez.QKSMS.feature.smart.SmartSmsClassifier
-import com.moez.QKSMS.feature.smart.model.PromoItem
-import com.moez.QKSMS.feature.smart.promo.AiPrivacyFilter
-import com.moez.QKSMS.feature.smart.promo.BrandRegistry
-import com.moez.QKSMS.feature.smart.promo.DiscountType
-import com.moez.QKSMS.feature.smart.promo.PromoCodeExtractor
+import com.moez.QKSMS.feature.smart.promo.AiEscalation
+import com.moez.QKSMS.feature.smart.promo.AiPromoProtocol
+import com.moez.QKSMS.feature.smart.promo.PromoMemory
+import com.moez.QKSMS.feature.smart.promo.PromoParser
 import com.moez.QKSMS.feature.smart.promo.PromoStore
-import com.moez.QKSMS.feature.smart.promo.PromoValueParser
 import com.moez.QKSMS.util.Preferences
 import io.realm.Realm
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -23,34 +18,48 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Second-tier extraction: asks a language model about the messages the local engine could not
- * read.
+ * Second-tier extraction: asks a language model about the messages the local engine is unsure of.
  *
- * Three things changed from the original implementation, all of which mattered:
- * - it no longer uploads everything from a short code, which previously included every bank
- *   alert and one-time password in the inbox;
- * - it only looks at messages the regex engine failed on, instead of re-analysing (and
- *   re-charging for) the same 30 messages every scan;
- * - the results keep the original sender, body and timestamp, so search, expiry and the
- *   "original message" dialog work on AI-derived codes too.
+ * Cost is controlled at every step:
+ * - [AiEscalation] sends a message only when the local reading is unsure of the code, the shop
+ *   or a stated figure, the message could hold a code at all, and [com.moez.QKSMS.feature.smart.promo.AiPrivacyFilter]
+ *   lets it leave the device;
+ * - messages of one campaign (same sender, same wording) go once, and the answer is applied
+ *   to the rest through [PromoMemory];
+ * - every answer is remembered, so nothing is paid for twice, even after a re-scan;
+ * - requests are batched, trimmed ([AiPromoProtocol.compact]) and capped in length;
+ * - the automatic pass stops at the user's daily limit.
+ *
+ * The answer never becomes a card directly: it is stored in [PromoMemory] and the message is
+ * re-read by [PromoParser], which checks the code against the text and the shop against the
+ * message before believing either.
  */
 object AiPromoExtractor {
 
     private val executor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val running = AtomicBoolean(false)
 
-    /** Messages per request — small enough to stay well inside the model's context. */
-    private const val BATCH_SIZE = 20
+    /** Messages per request: enough to share the instructions, small enough to stay reliable. */
+    private const val BATCH_SIZE = 15
 
-    /** Hard ceiling per scan, so a large inbox cannot run up an unbounded bill. */
-    private const val MAX_MESSAGES_PER_SCAN = 60
+    /** Ceiling for one scan, so a large inbox cannot run up an unbounded bill. */
+    private const val MAX_MESSAGES_PER_SCAN = 150
 
-    /** How far back a scan looks. */
-    private const val LOOKBACK_DAYS = 60L
+    private const val MANUAL_LOOKBACK_DAYS = 60L
+    private const val AUTO_LOOKBACK_DAYS = 14L
 
-    /** One inbox message, carried through so the parsed result can keep its provenance. */
+    /** Messages that arrive together are sent together. */
+    private const val AUTO_DELAY_MS = 20_000L
+
+    const val DEFAULT_MODEL = "gemini-2.5-flash-lite"
+
+    enum class Mode { MANUAL, AUTO }
+
+    /** One inbox message, carried through so the result can keep its provenance. */
     private data class Candidate(
         val messageId: Long,
         val sender: String,
@@ -61,11 +70,27 @@ object AiPromoExtractor {
 
     /** What a scan did, so the UI can be honest about it. */
     data class ScanReport(
+        /** Discount cards produced or corrected by this pass. */
         val found: Int,
+        /** Messages actually sent to the AI. */
         val analysed: Int,
         val skippedSensitive: Int,
-        val skippedAlreadyParsed: Int
+        /** Messages the local engine read confidently, or the AI had already answered. */
+        val skippedAlreadyParsed: Int,
+        /** Offers with nothing code-shaped in them, which the AI could not help with. */
+        val skippedNoCode: Int = 0,
+        /** Messages of an already-sent campaign, answered from the same request. */
+        val reusedTemplates: Int = 0,
+        val promptTokens: Int = 0,
+        val completionTokens: Int = 0
     )
+
+    /** Told on the main thread when an automatic pass changed the discount list. */
+    @Volatile
+    var onPromosUpdated: (() -> Unit)? = null
+
+    @Volatile
+    private var pendingAuto: Runnable? = null
 
     fun testConnection(apiKey: String, baseUrl: String, callback: (Boolean, String) -> Unit) {
         if (apiKey.isBlank()) {
@@ -104,24 +129,58 @@ object AiPromoExtractor {
         }
     }
 
+    /** Messages the automatic pass may still send today. */
+    fun remainingToday(prefs: Preferences): Int =
+        maxOf(0, prefs.aiDailyLimit.get() - PromoStore.getAiUsage().messagesToday)
+
+    /** Whether the automatic pass is switched on, set up, agreed to, and within today's limit. */
+    fun canRunAuto(prefs: Preferences): Boolean =
+        prefs.aiAutoRefine.get() && prefs.aiApiKey.get().isNotBlank() &&
+            PromoStore.hasAiConsent() && remainingToday(prefs) > 0
+
     /**
-     * Scans the inbox for offers the local engine missed.
+     * Queues an automatic pass over recent messages the local engine was unsure of.
+     *
+     * Safe to call for every incoming message: calls within [delayMs] of each other collapse
+     * into one pass, so a burst of promotional texts becomes one request.
+     */
+    fun scheduleAutoRefine(context: Context, prefs: Preferences, delayMs: Long = AUTO_DELAY_MS) {
+        if (!canRunAuto(prefs)) return
+        val appContext = context.applicationContext
+        mainHandler.post {
+            pendingAuto?.let { mainHandler.removeCallbacks(it) }
+            val task = Runnable {
+                pendingAuto = null
+                launch(appContext, prefs, Mode.AUTO) { _, _, report ->
+                    if ((report?.found ?: 0) > 0) onPromosUpdated?.invoke()
+                }
+            }
+            pendingAuto = task
+            mainHandler.postDelayed(task, delayMs)
+        }
+    }
+
+    /**
+     * Scans the inbox for offers the local engine could not read with confidence.
      *
      * Requires [PromoStore.hasAiConsent]; the caller is responsible for asking first. Nothing
      * leaves the device until that flag is set.
-     *
-     * @param onlyUnparsed when true (the default) only messages the regex engine failed on are
-     *   uploaded, which is the whole point of a fallback tier
      */
     fun extractPromos(
         context: Context,
         prefs: Preferences,
-        onlyUnparsed: Boolean = true,
+        callback: (Boolean, String, ScanReport?) -> Unit
+    ) = launch(context, prefs, Mode.MANUAL, callback)
+
+    private fun launch(
+        context: Context,
+        prefs: Preferences,
+        mode: Mode,
         callback: (Boolean, String, ScanReport?) -> Unit
     ) {
         val apiKey = prefs.aiApiKey.get()
-        val baseUrl = prefs.aiBaseUrl.get()
-        val model = prefs.aiModel.get()
+        val baseUrl = prefs.aiBaseUrl.get().ifBlank { "https://api.avalai.ir/v1" }
+        val model = prefs.aiModel.get().ifBlank { DEFAULT_MODEL }
 
         if (apiKey.isBlank()) {
             callback(false, "ابتدا کلید API را در تنظیمات وارد کنید", null)
@@ -131,110 +190,189 @@ object AiPromoExtractor {
             callback(false, "برای ارسال متن پیامک‌های تبلیغاتی به سرویس هوش مصنوعی، ابتدا باید اجازه بدهید", null)
             return
         }
+        if (!running.compareAndSet(false, true)) {
+            callback(false, "بررسی دیگری در حال انجام است؛ کمی بعد دوباره امتحان کنید", null)
+            return
+        }
 
         executor.execute {
-            var skippedSensitive = 0
-            var skippedAlreadyParsed = 0
-            val candidates = ArrayList<Candidate>()
-            val alreadyScanned = PromoStore.getAiScannedIds()
-
-            val realm = Realm.getDefaultInstance()
             try {
-                val since = System.currentTimeMillis() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000L
-                val messages = realm.where(com.moez.QKSMS.model.Message::class.java)
-                    .greaterThanOrEqualTo("date", since)
-                    .equalTo("type", "sms")
-                    .equalTo("boxId", android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX)
-                    .sort("date", io.realm.Sort.DESCENDING)
-                    .findAll()
-
-                val seenBodies = HashSet<String>()
-                for (message in messages) {
-                    if (!message.isValid) continue
-                    val body = message.body.trim()
-                    if (body.isBlank() || !seenBodies.add(body)) continue
-                    if (alreadyScanned.contains(message.id.toString())) continue
-
-                    // Privacy gate first: a message that must not leave is never a candidate,
-                    // whatever else it looks like.
-                    if (!AiPrivacyFilter.isAllowed(message.address, body)) {
-                        skippedSensitive++
-                        continue
-                    }
-
-                    // Fallback gate: the local engine is free and instant, so only pay for
-                    // what it could not read.
-                    if (onlyUnparsed &&
-                        SmartSmsClassifier.extractPromo(message.address, body, message.date) != null
-                    ) {
-                        skippedAlreadyParsed++
-                        continue
-                    }
-
-                    candidates.add(Candidate(message.id, message.address, body, message.date, message.threadId))
-                    if (candidates.size >= MAX_MESSAGES_PER_SCAN) break
-                }
+                scan(prefs, mode, apiKey, baseUrl, model, callback)
             } catch (t: Throwable) {
-                android.util.Log.e("AiPromoExtractor", "Failed to read inbox", t)
+                android.util.Log.e("AiPromoExtractor", "AI scan failed", t)
+                mainHandler.post { callback(false, "خطا در اجرای تحلیل: ${t.localizedMessage ?: t.javaClass.simpleName}", null) }
             } finally {
-                realm.close()
+                running.set(false)
             }
+        }
+    }
 
-            if (candidates.isEmpty()) {
-                mainHandler.post {
-                    callback(
-                        true,
-                        "پیامک جدیدی برای تحلیل پیدا نشد",
-                        ScanReport(0, 0, skippedSensitive, skippedAlreadyParsed)
+    private fun scan(
+        prefs: Preferences,
+        mode: Mode,
+        apiKey: String,
+        baseUrl: String,
+        model: String,
+        callback: (Boolean, String, ScanReport?) -> Unit
+    ) {
+        val budget = if (mode == Mode.AUTO) minOf(remainingToday(prefs), MAX_MESSAGES_PER_SCAN) else MAX_MESSAGES_PER_SCAN
+        if (budget <= 0) {
+            mainHandler.post { callback(true, "سقف روزانه‌ی هوش مصنوعی پر شده است", ScanReport(0, 0, 0, 0)) }
+            return
+        }
+
+        var skippedSensitive = 0
+        var skippedConfident = 0
+        var skippedNoCode = 0
+        var reused = 0
+        val representatives = ArrayList<Pair<String, Candidate>>()
+        val lookAlikes = HashMap<String, MutableList<Candidate>>()
+        val alreadyScanned = PromoStore.getAiScannedIds()
+        val lookbackDays = if (mode == Mode.AUTO) AUTO_LOOKBACK_DAYS else MANUAL_LOOKBACK_DAYS
+
+        val realm = Realm.getDefaultInstance()
+        try {
+            val since = System.currentTimeMillis() - lookbackDays * 24 * 60 * 60 * 1000L
+            val messages = realm.where(com.moez.QKSMS.model.Message::class.java)
+                .greaterThanOrEqualTo("date", since)
+                .equalTo("type", "sms")
+                .equalTo("boxId", android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX)
+                .sort("date", io.realm.Sort.DESCENDING)
+                .findAll()
+
+            val seenBodies = HashSet<String>()
+            for (message in messages) {
+                if (!message.isValid) continue
+                val body = message.body.trim()
+                if (body.isBlank() || !seenBodies.add(body)) continue
+                if (alreadyScanned.contains(message.id.toString())) continue
+
+                val verdict = AiEscalation.judge(message.address, body, message.date, prefs.aiCheckAll.get())
+                when {
+                    verdict == AiEscalation.Verdict.SKIP_SENSITIVE -> skippedSensitive++
+                    verdict == AiEscalation.Verdict.SKIP_CONFIDENT || verdict == AiEscalation.Verdict.SKIP_ALREADY_READ ->
+                        skippedConfident++
+                    verdict == AiEscalation.Verdict.SKIP_NO_CODE_SHAPE -> skippedNoCode++
+                    verdict.send -> {
+                        val candidate = Candidate(message.id, message.address, body, message.date, message.threadId)
+                        // One campaign, one request: the rest are read from its answer
+                        val campaign = PromoMemory.templateKey(message.address, body) ?: "message:${message.id}"
+                        val group = lookAlikes[campaign]
+                        if (group != null) {
+                            group.add(candidate)
+                            reused++
+                        } else if (representatives.size < budget) {
+                            representatives.add(campaign to candidate)
+                            lookAlikes[campaign] = ArrayList()
+                        }
+                    }
+                }
+            }
+        } finally {
+            realm.close()
+        }
+
+        if (representatives.isEmpty()) {
+            val report = ScanReport(0, 0, skippedSensitive, skippedConfident, skippedNoCode, reused)
+            mainHandler.post { callback(true, "پیامک نامطمئنی برای بررسی پیدا نشد", report) }
+            return
+        }
+
+        var updated = 0
+        var promptTokens = 0
+        var completionTokens = 0
+        var sent = 0
+        var lastError: String? = null
+        val scannedIds = ArrayList<String>()
+
+        for (batch in representatives.chunked(BATCH_SIZE)) {
+            val items = batch.mapIndexed { index, (_, c) -> AiPromoProtocol.Item(index, c.sender, c.body) }
+            val response = request(apiKey, baseUrl, model, items)
+            if (response.second != null) {
+                lastError = response.second
+                break
+            }
+            val raw = response.first ?: ""
+            val usage = AiPromoProtocol.usageOf(raw)
+            promptTokens += usage.promptTokens
+            completionTokens += usage.completionTokens
+            sent += batch.size
+            PromoStore.recordAiUsage(batch.size, usage.promptTokens, usage.completionTokens)
+
+            val findings = AiPromoProtocol.parse(AiPromoProtocol.contentOf(raw)).groupBy { it.index }
+            batch.forEachIndexed { index, (campaign, candidate) ->
+                // Remembered even when empty: "no code here" is an answer too
+                PromoMemory.remember(
+                    candidate.sender, candidate.date, candidate.body,
+                    findings[index]?.map { it.finding } ?: emptyList()
+                )
+                for (message in listOf(candidate) + lookAlikes[campaign].orEmpty()) {
+                    val promos = PromoParser.parse(message.sender, message.body, message.date, message.threadId)
+                    SmartDataManager.replaceForMessage(
+                        PromoMemory.messageKey(message.sender, message.date, message.body), promos, save = false
                     )
+                    updated += promos.size
+                    scannedIds.add(message.messageId.toString())
                 }
-                return@execute
             }
+            PromoStore.saveMemory()
+            SmartDataManager.save()
+        }
 
-            var totalFound = 0
-            var lastError: String? = null
-            val scannedIds = ArrayList<String>()
+        PromoStore.addAiScannedIds(scannedIds)
 
-            for (batch in candidates.chunked(BATCH_SIZE)) {
-                val result = requestBatch(apiKey, baseUrl, model, batch)
-                if (result.second != null) {
-                    lastError = result.second
-                    break
-                }
-                result.first?.forEach { promo ->
-                    SmartDataManager.addPromo(promo)
-                    totalFound++
-                }
-                // Mark as scanned even when the model found nothing, so it is not re-sent.
-                batch.forEach { scannedIds.add(it.messageId.toString()) }
-            }
-
-            PromoStore.addAiScannedIds(scannedIds)
-
-            val report = ScanReport(totalFound, scannedIds.size, skippedSensitive, skippedAlreadyParsed)
-            mainHandler.post {
-                if (lastError != null && totalFound == 0) {
-                    callback(false, lastError!!, report)
-                } else {
-                    callback(true, "هوش مصنوعی $totalFound کد تخفیف جدید پیدا کرد", report)
-                }
+        val report = ScanReport(updated, sent, skippedSensitive, skippedConfident, skippedNoCode, reused, promptTokens, completionTokens)
+        val error = lastError
+        mainHandler.post {
+            if (error != null && sent == 0) {
+                callback(false, error, report)
+            } else {
+                callback(true, "هوش مصنوعی $sent پیامک را بررسی کرد و $updated کد تخفیف را خواند یا اصلاح کرد", report)
             }
         }
     }
 
     /**
-     * Sends one batch and parses the reply.
+     * Sends one batch.
      *
-     * @return parsed promos, or an error message; exactly one is non-null.
+     * Some models refuse `max_tokens` or a fixed temperature; the request is retried once
+     * without whatever the provider rejected rather than failing the scan.
+     *
+     * @return the raw response body, or an error message; exactly one is non-null
      */
-    private fun requestBatch(
+    private fun request(
         apiKey: String,
         baseUrl: String,
         model: String,
-        batch: List<Candidate>
-    ): Pair<List<PromoItem>?, String?> {
+        items: List<AiPromoProtocol.Item>
+    ): Pair<String?, String?> {
+        val payload = AiPromoProtocol.buildRequest(model, items)
+        var result = post(apiKey, baseUrl, payload)
+        val error = result.third
+        if (result.first == 400 && error != null) {
+            var changed = false
+            if (error.contains("max_tokens")) {
+                payload.put("max_completion_tokens", payload.optInt("max_tokens"))
+                payload.remove("max_tokens")
+                changed = true
+            }
+            if (error.contains("temperature")) {
+                payload.remove("temperature")
+                changed = true
+            }
+            if (changed) result = post(apiKey, baseUrl, payload)
+        }
+        return if (result.first in 200..299) {
+            result.second to null
+        } else {
+            null to (result.third ?: "تحلیل هوش مصنوعی ناموفق بود (${result.first})")
+        }
+    }
+
+    /** @return HTTP status (0 on a network failure), body on success, error text otherwise */
+    private fun post(apiKey: String, baseUrl: String, payload: JSONObject): Triple<Int, String?, String?> {
         var conn: HttpURLConnection? = null
-        try {
+        return try {
             val cleanUrl = baseUrl.trim().removeSuffix("/") + "/chat/completions"
             conn = (URL(cleanUrl).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
@@ -245,197 +383,22 @@ object AiPromoExtractor {
                 readTimeout = 45000
                 doOutput = true
             }
-
-            val systemPrompt = """
-                You extract Iranian discount coupon codes from Persian promotional SMS.
-                For each message that contains a usable coupon code, return one object with:
-                - index: the [Msg N] number of the message
-                - brand: the Persian brand name (e.g. اسنپ‌فود, دیجی‌کالا, تپسی)
-                - code: the exact alphanumeric code the user must type
-                - discountAmount: the saving as written (e.g. "۵۰ هزار تومان", "۳۰٪", "ارسال رایگان")
-                - minOrder: minimum basket if stated, otherwise null
-                - expiryDateText: the deadline if stated (e.g. "تا ۵ مهر", "۴۸ ساعت"), otherwise null
-                - category: one of food, supermarket, ecommerce, transport, entertainment, fintech, telecom, services, other
-                Skip any message with no coupon code. Return strictly {"results": [...]} and nothing else.
-            """.trimIndent()
-
-            val userContent = StringBuilder("Messages:\n")
-            batch.forEachIndexed { index, candidate ->
-                val jalali = JalaliCalendar.fromMillis(candidate.date)
-                val dateStr = "${jalali.year}/${pad(jalali.month)}/${pad(jalali.day)}"
-                userContent.append("[Msg $index] Sender: ${candidate.sender} | Date: $dateStr\n")
-                userContent.append("Body: ${candidate.body}\n\n")
-            }
-
-            val payload = JSONObject().apply {
-                put("model", if (model.isNotBlank()) model else "gemini-2.5-flash-lite")
-                put("temperature", 0.1)
-                put("messages", JSONArray().apply {
-                    put(JSONObject().apply {
-                        put("role", "system")
-                        put("content", systemPrompt)
-                    })
-                    put(JSONObject().apply {
-                        put("role", "user")
-                        put("content", userContent.toString())
-                    })
-                })
-            }
-
             OutputStreamWriter(conn.outputStream, "UTF-8").use { it.write(payload.toString()) }
 
-            val responseCode = conn.responseCode
-            if (responseCode !in 200..299) {
+            val code = conn.responseCode
+            if (code in 200..299) {
+                val body = BufferedReader(InputStreamReader(conn.inputStream, "UTF-8")).use { it.readText() }
+                Triple(code, body, null)
+            } else {
                 val err = BufferedReader(
                     InputStreamReader(conn.errorStream ?: conn.inputStream, "UTF-8")
                 ).use { it.readText() }
-                return null to "تحلیل هوش مصنوعی ناموفق بود ($responseCode): ${err.take(200)}"
+                Triple(code, null, "تحلیل هوش مصنوعی ناموفق بود ($code): ${err.take(200)}")
             }
-
-            val response = BufferedReader(InputStreamReader(conn.inputStream, "UTF-8")).use { it.readText() }
-            val content = JSONObject(response)
-                .optJSONArray("choices")
-                ?.optJSONObject(0)
-                ?.optJSONObject("message")
-                ?.optString("content")
-                ?: ""
-
-            return parseResults(content, batch) to null
         } catch (e: Exception) {
-            return null to "خطا در اجرای تحلیل: ${e.localizedMessage ?: e.message}"
+            Triple(0, null, "خطا در اتصال به سرویس هوش مصنوعی: ${e.localizedMessage ?: e.message}")
         } finally {
             conn?.disconnect()
         }
-    }
-
-    /**
-     * Turns the model's reply into promos, re-attaching the original message each one came
-     * from so nothing downstream has to treat AI results as second-class.
-     */
-    private fun parseResults(content: String, batch: List<Candidate>): List<PromoItem> {
-        val cleanJson = content
-            .replace("^```(?:json)?".toRegex(RegexOption.MULTILINE), "")
-            .replace("```$".toRegex(RegexOption.MULTILINE), "")
-            .trim()
-
-        val root = try {
-            JSONObject(cleanJson)
-        } catch (e: Exception) {
-            val start = cleanJson.indexOf('[')
-            val end = cleanJson.lastIndexOf(']')
-            if (start != -1 && end > start) {
-                try {
-                    JSONObject("{\"results\":${cleanJson.substring(start, end + 1)}}")
-                } catch (e2: Exception) {
-                    return emptyList()
-                }
-            } else {
-                return emptyList()
-            }
-        }
-
-        val results = root.optJSONArray("results") ?: root.optJSONArray("data") ?: return emptyList()
-        val promos = ArrayList<PromoItem>()
-
-        for (i in 0 until results.length()) {
-            val item = results.optJSONObject(i) ?: continue
-            val code = item.optString("code").trim()
-            if (code.isBlank() || code.equals("null", ignoreCase = true)) continue
-
-            // Tie the result back to the message it came from; fall back to position.
-            val index = item.optInt("index", i)
-            val source = batch.getOrNull(index) ?: batch.getOrNull(i) ?: continue
-
-            val normalizedBody = PromoValueParser.normalize(source.body)
-
-            // The message is the ground truth. A code the model reports but that is not in the
-            // text it was given either belongs to a different message (a wrong "index") or was
-            // invented, and attaching it to this message produces a card whose code, brand and
-            // amount all contradict the SMS shown under them.
-            if (!PromoCodeExtractor.appearsIn(code, normalizedBody)) continue
-
-            val normalizedSender = PromoValueParser.normalize(source.sender)
-
-            // Identify the brand from the message itself. The model's brand name is accepted
-            // only when the registry recognises nothing AND that name actually occurs in the
-            // message, because a brand carries its own colour, app package and website: a
-            // wrong one sends the "open app" button to an unrelated app.
-            val brand = BrandRegistry.match(
-                normalizedSender.toLowerCase(),
-                normalizedBody.toLowerCase()
-            )
-            val claimedBrand = item.optString("brand").trim()
-            val brandIsSupported = claimedBrand.isNotBlank() && (
-                normalizedBody.contains(claimedBrand) || normalizedSender.contains(claimedBrand)
-                )
-
-            val minOrderParsed = PromoValueParser.parseMinOrder(normalizedBody)
-            val discount = PromoValueParser.parseDiscount(normalizedBody, minOrderParsed?.second)
-            val expiry = PromoValueParser.parseExpiry(normalizedBody, source.date)
-
-            val displayBrand = brand?.fa
-                ?: claimedBrand.takeIf { brandIsSupported }
-                ?: "سایر فروشگاه‌ها"
-
-            // Prefer the locally parsed amount: it is normalized Persian ("۶ میلیون تومان")
-            // rather than whatever raw fragment the model echoed back ("+400ت تخفیف").
-            val displayAmount = if (discount.type != DiscountType.UNKNOWN) {
-                discount.display
-            } else {
-                item.optStringOrNull("discountAmount") ?: discount.display
-            }
-
-            promos.add(
-                PromoItem(
-                    id = "ai-${source.messageId}-${code.hashCode()}",
-                    brand = displayBrand,
-                    brandEn = brand?.en ?: "",
-                    category = brand?.category ?: "سایر",
-                    categorySlug = brand?.categorySlug ?: slugFor(item.optString("category")),
-                    code = code,
-                    discountAmount = displayAmount,
-                    description = "کد تخفیف $displayBrand",
-                    minOrder = minOrderParsed?.first?.display ?: item.optStringOrNull("minOrder"),
-                    instructions = "در صفحه پرداخت $displayBrand کد $code را وارد کنید.",
-                    expiryDateText = expiry.display,
-                    sender = source.sender,
-                    body = source.body,
-                    receivedAt = source.date,
-                    threadId = source.threadId,
-                    discountType = discount.type,
-                    discountValue = discount.value,
-                    minOrderValue = minOrderParsed?.first?.value ?: 0L,
-                    expiresAt = expiry.atMillis,
-                    expiryIsExplicit = expiry.isExplicit,
-                    // AI results are inherently less certain than a labelled regex match.
-                    confidence = 70,
-                    brandColor = brand?.color ?: BrandRegistry.fallbackColor(displayBrand),
-                    appPackage = brand?.appPackage,
-                    website = brand?.website
-                )
-            )
-        }
-
-        return promos
-    }
-
-    private fun slugFor(category: String): String = when (category.trim().toLowerCase()) {
-        "food" -> BrandRegistry.SLUG_FOOD
-        "supermarket" -> BrandRegistry.SLUG_SUPERMARKET
-        "ecommerce", "shopping" -> BrandRegistry.SLUG_ECOMMERCE
-        "transport", "travel" -> BrandRegistry.SLUG_TRANSPORT
-        "entertainment" -> BrandRegistry.SLUG_ENTERTAINMENT
-        "fintech" -> BrandRegistry.SLUG_FINTECH
-        "telecom" -> BrandRegistry.SLUG_TELECOM
-        "services" -> BrandRegistry.SLUG_SERVICES
-        else -> BrandRegistry.SLUG_OTHER
-    }
-
-    private fun pad(value: Int): String = if (value < 10) "0$value" else value.toString()
-
-    private fun JSONObject.optStringOrNull(key: String): String? {
-        if (isNull(key)) return null
-        val value = optString(key).trim()
-        return if (value.isBlank() || value.equals("null", ignoreCase = true)) null else value
     }
 }

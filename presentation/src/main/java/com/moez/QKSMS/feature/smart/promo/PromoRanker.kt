@@ -41,7 +41,9 @@ object PromoRanker {
         DiscountType.AMOUNT -> promo.discountValue
         DiscountType.PERCENT -> {
             val basket = if (promo.minOrderValue > 0) promo.minOrderValue else ASSUMED_BASKET
-            basket * promo.discountValue / 100
+            val saving = basket * promo.discountValue / 100
+            // "۵۰٪ تا سقف ۳۰ هزار تومان" is worth at most 30,000, however big the percentage
+            if (promo.maxDiscountValue > 0) minOf(saving, promo.maxDiscountValue) else saving
         }
         DiscountType.FREE_SHIPPING -> FREE_SHIPPING_WORTH
         DiscountType.UNKNOWN -> 0L

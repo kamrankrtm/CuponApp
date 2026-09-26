@@ -425,6 +425,11 @@ class MainActivity : QkThemedActivity(), MainView {
         super.onResume()
         activityResumedIntent.onNext(true)
 
+        // A background AI pass that corrected a code refreshes the discounts tab in place
+        com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.onPromosUpdated = {
+            if (!isFinishing && currentTabPosition == 4) applyTabFilter()
+        }
+
         // Check for updates from GitHub Releases, also when coming back to an open app
         com.moez.QKSMS.feature.update.AppUpdateChecker.checkForUpdate(this)
     }
@@ -432,6 +437,7 @@ class MainActivity : QkThemedActivity(), MainView {
     override fun onPause() {
         super.onPause()
         activityResumedIntent.onNext(false)
+        com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.onPromosUpdated = null
     }
 
     override fun onDestroy() {
@@ -633,6 +639,14 @@ class MainActivity : QkThemedActivity(), MainView {
         io.reactivex.schedulers.Schedulers.io().scheduleDirect {
             val realm = io.realm.Realm.getDefaultInstance()
             try {
+                // After an update every saved card is read again with the new rules; the scan
+                // below only reaches recent messages
+                val appVersion = com.moez.QKSMS.BuildConfig.VERSION_NAME
+                if (com.moez.QKSMS.feature.smart.promo.PromoStore.needsRefile(appVersion)) {
+                    SmartDataManager.refileAll()
+                    com.moez.QKSMS.feature.smart.promo.PromoStore.markRefiled(appVersion)
+                }
+
                 val conversations = realm.where(Conversation::class.java)
                     .notEqualTo("id", 0L)
                     .equalTo("archived", false)
@@ -726,10 +740,9 @@ class MainActivity : QkThemedActivity(), MainView {
                             newOtps.add(cat.otp)
                         }
                     } else if (isFirstScan || msg.id > lastScannedId) {
-                        val promo = SmartSmsClassifier.extractPromo(msg.address, text, msg.date, msg.threadId)
-                        if (promo != null && !promo.isExpired()) {
-                            newPromos.add(promo)
-                        }
+                        // Every code in the message: some carry one per shop or basket size
+                        SmartSmsClassifier.extractPromos(msg.address, text, msg.date, msg.threadId)
+                            .filterTo(newPromos) { !it.isExpired() }
                     }
                 }
 
@@ -747,6 +760,10 @@ class MainActivity : QkThemedActivity(), MainView {
                     SmartDataManager.setOtps(newOtps)
                 }
                 com.moez.QKSMS.feature.smart.promo.PromoStore.setLastScannedMessageId(newestScannedId)
+
+                // Codes the rules could not read with confidence go to the AI, within the
+                // user's daily limit; a no-op unless it is set up and agreed to
+                com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.scheduleAutoRefine(applicationContext, prefs, 3_000L)
 
                 // Warn about anything valuable that is about to run out.
                 val expiringNotified = com.moez.QKSMS.feature.smart.promo.PromoExpiryNotifier
@@ -908,6 +925,7 @@ class MainActivity : QkThemedActivity(), MainView {
             }
 
             com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.extractPromos(this, prefs) { success, msg, _ ->
+                if (isFinishing || isDestroyed) return@extractPromos
                 if (progressDialog.isShowing && !isFinishing) progressDialog.dismiss()
                 if (success) {
                     val updatedPromos = SmartDataManager.getPromos()

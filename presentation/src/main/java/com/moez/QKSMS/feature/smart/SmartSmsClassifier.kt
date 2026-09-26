@@ -3,10 +3,8 @@ package com.moez.QKSMS.feature.smart
 import com.moez.QKSMS.feature.smart.model.OtpItem
 import com.moez.QKSMS.feature.smart.model.PromoItem
 import com.moez.QKSMS.feature.smart.model.SmsCategory
-import com.moez.QKSMS.feature.smart.promo.Brand
-import com.moez.QKSMS.feature.smart.promo.BrandRegistry
-import com.moez.QKSMS.feature.smart.promo.DiscountType
 import com.moez.QKSMS.feature.smart.promo.PromoCodeExtractor
+import com.moez.QKSMS.feature.smart.promo.PromoParser
 import com.moez.QKSMS.feature.smart.promo.PromoValueParser
 import java.util.regex.Pattern
 
@@ -28,12 +26,6 @@ object SmartSmsClassifier {
         "انتقال وجه", "خرید از:", "خرید با کارت", "خرید شارژ", "شاپرک", "پایا", "ساتنا",
         "حساب:", "کارت:", "رمز اینترنتی", "صورتحساب", "تراکنش", "کسر شد", "افزایش موجودی",
         "بدهکار", "بستانکار", "کارمزد", "تسهیلات", "قسط", "وام"
-    )
-
-    // Discount keywords
-    private val DISCOUNT_KEYWORDS = listOf(
-        "کد تخفیف", "تخفیف", "جشنواره", "ارسال رایگان", "درصد تخفیف", "هدیه خرید",
-        "off", "discount", "promo"
     )
 
     /**
@@ -390,109 +382,31 @@ object SmartSmsClassifier {
         return if (sender.isNotBlank()) sender else "سرویس تایید ورود"
     }
 
-    private fun hasDiscountCode(body: String): Boolean {
-        val lower = body.toLowerCase()
-        return DISCOUNT_KEYWORDS.any { lower.contains(it.toLowerCase()) }
-    }
+    /** The same test [PromoParser] applies, so the notification path and the inbox scan agree. */
+    private fun hasDiscountCode(body: String): Boolean =
+        PromoCodeExtractor.looksPromotional(PromoValueParser.normalize(body))
 
     /**
-     * Builds a [PromoItem] from a promotional SMS, or returns null when the message carries no
-     * usable coupon code.
+     * The best discount card in a promotional SMS, or null when it carries no usable code.
      *
-     * Brand identification, value parsing and code extraction each live in their own object
-     * now. The previous version inlined all three as a 240-line `when` chain whose result
-     * depended on branch order, so a message mentioning "گوگل کروم" was filed under a clothing
-     * shop and "تپسی فود" was filed under "تپسی".
+     * Brand identification, value parsing and code extraction live in `feature/smart/promo`;
+     * [PromoParser] puts them together, including anything the AI tier already answered for
+     * this message.
      */
     fun extractPromo(
         sender: String,
         body: String,
         date: Long = System.currentTimeMillis(),
         threadId: Long = 0L
-    ): PromoItem? {
-        val normalizedBody = PromoValueParser.normalize(body)
-        val normalizedSender = PromoValueParser.normalize(sender)
+    ): PromoItem? = PromoParser.parse(sender, body, date, threadId).maxBy { it.confidence }
 
-        // Both gates live here rather than in the callers. MainActivity used to call this
-        // straight from the inbox scan, skipping the promotional check that only `classify`
-        // applied, so a bank's login SMS was filed under discounts and the SMS Retriever hash
-        // on its last line was offered to the user as a coupon.
-        if (PromoCodeExtractor.isVerificationMessage(normalizedBody)) return null
-        if (!PromoCodeExtractor.looksPromotional(normalizedBody)) return null
-
-        val candidate = PromoCodeExtractor.extract(normalizedBody) ?: return null
-
-        val brand = BrandRegistry.match(
-            normalizedSender.toLowerCase(),
-            normalizedBody.toLowerCase()
-        ) ?: unknownBrandFor(sender)
-
-        val minOrderParsed = PromoValueParser.parseMinOrder(normalizedBody)
-        val discount = PromoValueParser.parseDiscount(normalizedBody, minOrderParsed?.second)
-        val expiry = PromoValueParser.parseExpiry(normalizedBody, date)
-
-        // A message with neither a recognisable brand nor a stated saving is probably not an
-        // offer at all, so lower the confidence rather than presenting it as a sure thing.
-        var confidence = candidate.confidence
-        if (brand.categorySlug == BrandRegistry.SLUG_OTHER) confidence -= 15
-        if (discount.type == DiscountType.UNKNOWN) confidence -= 15
-        confidence = confidence.coerceIn(10, 100)
-
-        val description = when (discount.type) {
-            DiscountType.FREE_SHIPPING -> "ارسال رایگان از ${brand.fa}"
-            DiscountType.UNKNOWN -> "کد تخفیف ${brand.fa}"
-            else -> "${discount.display} تخفیف ${brand.fa}"
-        }
-
-        return PromoItem(
-            id = "promo-$date-${candidate.code.hashCode()}",
-            brand = brand.fa,
-            brandEn = brand.en,
-            category = brand.category,
-            categorySlug = brand.categorySlug,
-            code = candidate.code,
-            discountAmount = discount.display,
-            description = description,
-            minOrder = minOrderParsed?.first?.display,
-            instructions = "در صفحه پرداخت ${brand.fa} کد ${candidate.code} را وارد کنید.",
-            expiryDateText = expiry.display,
-            sender = sender,
-            body = body,
-            receivedAt = date,
-            threadId = threadId,
-            discountType = discount.type,
-            discountValue = discount.value,
-            minOrderValue = minOrderParsed?.first?.value ?: 0L,
-            expiresAt = expiry.atMillis,
-            expiryIsExplicit = expiry.isExplicit,
-            confidence = confidence,
-            brandColor = brand.color,
-            appPackage = brand.appPackage,
-            website = brand.website
-        )
-    }
-
-    /**
-     * Falls back to the sender as a brand name when the registry does not recognise it, so a
-     * card from an unknown shop still shows something better than "Store".
-     */
-    private fun unknownBrandFor(sender: String): Brand {
-        val trimmed = sender.trim()
-        val usableAsName = trimmed.isNotBlank() &&
-            !trimmed.startsWith("09") &&
-            !trimmed.startsWith("+98") &&
-            !trimmed.all { it.isDigit() }
-
-        return if (usableAsName) {
-            BrandRegistry.UNKNOWN.copy(
-                fa = trimmed,
-                en = trimmed,
-                color = BrandRegistry.fallbackColor(trimmed)
-            )
-        } else {
-            BrandRegistry.UNKNOWN
-        }
-    }
+    /** Every discount card in the message: some carry one code per shop or per basket size. */
+    fun extractPromos(
+        sender: String,
+        body: String,
+        date: Long = System.currentTimeMillis(),
+        threadId: Long = 0L
+    ): List<PromoItem> = PromoParser.parse(sender, body, date, threadId)
 
     /** Words that make a message an advertisement, whatever amounts it quotes. */
     private val AD_SIGNALS = listOf(

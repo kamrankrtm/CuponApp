@@ -13,7 +13,13 @@ import org.json.JSONObject
 object PromoCodec {
 
     /** Bumped whenever the stored shape changes; unknown versions are discarded, not guessed at. */
-    const val SCHEMA_VERSION = 2
+    const val SCHEMA_VERSION = 3
+
+    /**
+     * Older shapes this version still reads. Version 3 only added fields, each with a default,
+     * so a version-2 cache keeps the user's "used", "doesn't work" and pinned marks.
+     */
+    private val READABLE_VERSIONS = setOf(2, SCHEMA_VERSION)
 
     fun toJson(promo: PromoItem): JSONObject = JSONObject().apply {
         put("id", promo.id)
@@ -40,6 +46,14 @@ object PromoCodec {
         put("brandColor", promo.brandColor)
         put("appPackage", promo.appPackage ?: JSONObject.NULL)
         put("website", promo.website ?: JSONObject.NULL)
+        put("issuer", promo.issuer ?: JSONObject.NULL)
+        put("payWith", promo.payWith ?: JSONObject.NULL)
+        put("usableAt", JSONArray(promo.usableAt))
+        put("maxDiscountValue", promo.maxDiscountValue)
+        put("maxDiscount", promo.maxDiscount ?: JSONObject.NULL)
+        put("isCashback", promo.isCashback)
+        put("source", promo.source)
+        put("sourceKey", promo.sourceKey)
         put("isUsed", promo.isUsed)
         put("isInvalid", promo.isInvalid)
         put("isPinned", promo.isPinned)
@@ -81,6 +95,16 @@ object PromoCodec {
             brandColor = json.optInt("brandColor", 0),
             appPackage = json.optStringOrNull("appPackage"),
             website = json.optStringOrNull("website"),
+            issuer = json.optStringOrNull("issuer"),
+            payWith = json.optStringOrNull("payWith"),
+            usableAt = json.optJSONArray("usableAt")?.let { array ->
+                (0 until array.length()).mapNotNull { array.optString(it).takeIf { name -> name.isNotBlank() } }
+            } ?: emptyList(),
+            maxDiscountValue = json.optLong("maxDiscountValue", 0L),
+            maxDiscount = json.optStringOrNull("maxDiscount"),
+            isCashback = json.optBoolean("isCashback", false),
+            source = json.optString("source", PromoItem.SOURCE_LOCAL),
+            sourceKey = json.optString("sourceKey", ""),
             isUsed = json.optBoolean("isUsed", false),
             isInvalid = json.optBoolean("isInvalid", false),
             isPinned = json.optBoolean("isPinned", false)
@@ -117,7 +141,7 @@ object PromoCodec {
         if (raw == null || raw.isBlank()) return DecodeResult.Ok(emptyList())
         return try {
             val root = JSONObject(raw)
-            if (root.optInt("version", 0) != SCHEMA_VERSION) return DecodeResult.Unusable
+            if (root.optInt("version", 0) !in READABLE_VERSIONS) return DecodeResult.Unusable
             val array = root.optJSONArray("promos") ?: return DecodeResult.Ok(emptyList())
             val result = ArrayList<PromoItem>(array.length())
             for (i in 0 until array.length()) {
@@ -139,6 +163,6 @@ object PromoCodec {
     private fun JSONObject.optStringOrNull(key: String): String? {
         if (isNull(key)) return null
         val value = optString(key)
-        return if (value.isBlank()) null else value
+        return if (value.isBlank() || value == "null") null else value
     }
 }
