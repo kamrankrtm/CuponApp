@@ -2,6 +2,7 @@ package com.moez.QKSMS.feature.smart
 
 import com.moez.QKSMS.feature.smart.promo.Brand
 import com.moez.QKSMS.feature.smart.promo.BrandRegistry
+import com.moez.QKSMS.feature.smart.promo.BrandRole
 import com.moez.QKSMS.feature.smart.promo.PromoValueParser
 
 /**
@@ -28,10 +29,13 @@ object SenderIdentity {
         val hit = cache[address]
         if (hit != null) return hit as? Brand
 
+        // Banks are in the registry as sponsors of card offers; their conversations keep the
+        // sender id they have always shown
         val brand = if (SmartSmsClassifier.isPersonalNumber(address)) {
             null
         } else {
-            BrandRegistry.match(PromoValueParser.normalize(address).toLowerCase(), "")
+            BrandRegistry.matchSender(PromoValueParser.normalize(address).toLowerCase())
+                ?.takeIf { it.role != BrandRole.BANK }
         }
         cache[address] = brand ?: NONE
         return brand

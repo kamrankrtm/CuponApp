@@ -138,6 +138,9 @@ class PromoCodesAdapter(
                 promo.description.toLowerCase().contains(query) ||
                 promo.discountAmount.toLowerCase().contains(query) ||
                 promo.category.toLowerCase().contains(query) ||
+                (promo.issuer?.toLowerCase()?.contains(query) ?: false) ||
+                (promo.payWith?.toLowerCase()?.contains(query) ?: false) ||
+                promo.usableAt.any { it.toLowerCase().contains(query) } ||
                 promo.sender.toLowerCase().contains(query) ||
                 (promo.minOrder?.toLowerCase()?.contains(query) ?: false) ||
                 promo.body.toLowerCase().contains(query)
@@ -200,6 +203,7 @@ class PromoCodesAdapter(
     inner class PromoViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val promoHeader: View = itemView.findViewById(R.id.promoHeader)
         private val promoCategory: TextView = itemView.findViewById(R.id.promoCategory)
+        private val promoSponsor: TextView = itemView.findViewById(R.id.promoSponsor)
         private val promoBrand: TextView = itemView.findViewById(R.id.promoBrand)
         private val promoDiscountAmount: TextView = itemView.findViewById(R.id.promoDiscountAmount)
         private val promoDescription: TextView = itemView.findViewById(R.id.promoDescription)
@@ -216,6 +220,10 @@ class PromoCodesAdapter(
         fun bind(item: PromoItem) {
             promoBrand.text = item.brand
             promoCategory.text = item.category
+            // "از طرف دیجی‌پی · پرداخت با دیجی‌پی": who sponsors the code and how to pay
+            val sponsor = item.sponsorLine()
+            promoSponsor.text = sponsor
+            promoSponsor.visibility = if (sponsor.isEmpty()) View.GONE else View.VISIBLE
             promoDiscountAmount.text = item.discountAmount
             promoDescription.text = item.description
             promoDescription.visibility = if (item.description.isBlank()) View.GONE else View.VISIBLE
@@ -365,10 +373,18 @@ class PromoCodesAdapter(
             dialogView.findViewById<TextView>(R.id.dialogPromoSender).text = "فرستنده: ${item.sender}"
             dialogView.findViewById<TextView>(R.id.dialogPromoDate).text = "دریافت: $received"
 
+            // Every condition the message set: basket, cap, payment method, sponsor, shops
+            val conditions = listOfNotNull(
+                item.minOrder?.takeIf { it.isNotBlank() },
+                item.maxDiscount?.takeIf { it.isNotBlank() },
+                item.payWith?.takeIf { it.isNotBlank() }?.let { "پرداخت با $it" },
+                item.issuer?.takeIf { it.isNotBlank() && it != item.brand }?.let { "از طرف $it" },
+                item.usableAt.takeIf { it.isNotEmpty() }?.let { "قابل استفاده در ${it.joinToString("، ")}" }
+            )
             val condition = dialogView.findViewById<TextView>(R.id.dialogPromoCondition)
-            if (!item.minOrder.isNullOrBlank()) {
+            if (conditions.isNotEmpty()) {
                 condition.visibility = View.VISIBLE
-                condition.text = item.minOrder
+                condition.text = conditions.joinToString("\n")
             } else {
                 condition.visibility = View.GONE
             }
@@ -378,6 +394,8 @@ class PromoCodesAdapter(
                 item.body.replace("�", " ").trim()
 
             val btnCopy = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.dialogBtnCopy)
+            // Codes can be case-sensitive: show "laps130" as sent, not the button's default capitals
+            btnCopy.isAllCaps = false
             btnCopy.text = "کپی کد ${item.code}"
             btnCopy.setOnClickListener {
                 ClipboardHelper.copyToClipboard(context, item.code, "PROMO")
