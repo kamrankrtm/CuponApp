@@ -27,16 +27,26 @@ android {
     buildToolsVersion "29.0.3"
     flavorDimensions "analytics"
 
-    // CI passes its run number (-PbuildNumber), which is also the last part of the release tag
-    // (v3.0.5.61), so every build knows exactly which release it is.
-    def appVersion = project.property("appVersionName")
-    def buildNumber = project.findProperty("buildNumber")
+    // CI passes its run number (-PbuildNumber), which becomes the last part of both
+    // versionName and versionCode. A new workflow run therefore always produces a newer APK.
+    // Example: appVersionName=3.0.5 and buildNumber=76 -> 3.0.5.76 / versionCode 300050076.
+    def appVersion = project.property("appVersionName").toString()
+    def buildNumber = project.findProperty("buildNumber")?.toString()
+    def versionParts = appVersion.tokenize('.').collect { it.toInteger() }
+    def majorVersion = versionParts.size() > 0 ? versionParts[0] : 0
+    def minorVersion = versionParts.size() > 1 ? versionParts[1] : 0
+    def patchVersion = versionParts.size() > 2 ? versionParts[2] : 0
+    def buildSequence = buildNumber ? buildNumber.toInteger() : 0
+    def computedVersionCode = (majorVersion * 100000000) +
+            (minorVersion * 1000000) +
+            (patchVersion * 10000) +
+            buildSequence
 
     defaultConfig {
         applicationId "com.moez.QKSMS"
         minSdkVersion 21
         targetSdkVersion 29
-        versionCode 30050
+        versionCode computedVersionCode
         versionName buildNumber ? "${appVersion}.${buildNumber}" : appVersion
         setProperty("archivesBaseName", "smsPRO-v${versionName}")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
