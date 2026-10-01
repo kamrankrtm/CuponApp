@@ -44,6 +44,7 @@ import com.moez.QKSMS.manager.AnalyticsManager
 import com.moez.QKSMS.manager.BillingManager
 import com.moez.QKSMS.manager.NotificationManager
 import com.moez.QKSMS.manager.PermissionManager
+import com.moez.QKSMS.common.util.normalizeIranianPhoneForDialer
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -167,8 +168,9 @@ class Navigator @Inject constructor(
     }
 
     fun makePhoneCall(address: String) {
+        val dialAddress = normalizeIranianPhoneForDialer(address)
         val action = if (permissions.hasCalling()) Intent.ACTION_CALL else Intent.ACTION_DIAL
-        val intent = Intent(action, Uri.parse("tel:$address"))
+        val intent = Intent(action, Uri.fromParts("tel", dialAddress, null))
         startActivityExternal(intent)
     }
 
