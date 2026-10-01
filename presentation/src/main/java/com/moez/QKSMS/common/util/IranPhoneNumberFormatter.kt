@@ -13,8 +13,8 @@ fun normalizeIranianPhoneForDialer(address: String): String {
         address.forEach { char ->
             append(
                 when (char) {
-                    in '۰'..'۹' -> ('0'.code + (char.code - '۰'.code)).toChar()
-                    in '٠'..'٩' -> ('0'.code + (char.code - '٠'.code)).toChar()
+                    in '۰'..'۹' -> ('0'.toInt() + (char.toInt() - '۰'.toInt())).toChar()
+                    in '٠'..'٩' -> ('0'.toInt() + (char.toInt() - '٠'.toInt())).toChar()
                     else -> char
                 }
             )
