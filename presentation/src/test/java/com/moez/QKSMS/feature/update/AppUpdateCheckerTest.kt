@@ -14,6 +14,11 @@ import org.junit.Test
 class AppUpdateCheckerTest {
 
     @Test
+    fun `new app version upgrades the previous coupon release`() {
+        assertTrue(AppUpdateChecker.isNewerVersion("v3.0.7.81", "3.0.6.80"))
+    }
+
+    @Test
     fun `a later build of the same version is an update`() {
         assertTrue(AppUpdateChecker.isNewerVersion("v3.0.5.62", "3.0.5.61"))
     }

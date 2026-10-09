@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object AiPromoExtractor {
 
     private val executor = Executors.newSingleThreadExecutor()
+    private val modelExecutor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val running = AtomicBoolean(false)
 
@@ -125,6 +126,38 @@ object AiPromoExtractor {
                 mainHandler.post { callback(false, "Error: ${e.localizedMessage ?: e.message}") }
             } finally {
                 conn?.disconnect()
+            }
+        }
+    }
+
+    fun fetchModels(apiKey: String, baseUrl: String, callback: (List<String>, String?) -> Unit) {
+        if (apiKey.isBlank()) {
+            mainHandler.post { callback(emptyList(), "ابتدا کلید API را وارد کنید؛ ورود دستی مدل هم در دسترس است.") }
+            return
+        }
+        modelExecutor.execute {
+            var connection: HttpURLConnection? = null
+            try {
+                val endpoint = baseUrl.trim().ifBlank { "https://api.avalai.ir/v1" }.removeSuffix("/") + "/models"
+                connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    setRequestProperty("Authorization", "Bearer ${apiKey.trim()}")
+                    setRequestProperty("Accept", "application/json")
+                    connectTimeout = 15000
+                    readTimeout = 15000
+                }
+                val status = connection.responseCode
+                if (status in 200..299) {
+                    val response = BufferedReader(InputStreamReader(connection.inputStream)).use { it.readText() }
+                    val models = AiModelCatalog.parse(response)
+                    mainHandler.post { callback(models, if (models.isEmpty()) "سرویس فهرست مدلی برنگرداند؛ نام مدل را دستی وارد کنید." else null) }
+                } else {
+                    mainHandler.post { callback(emptyList(), "دریافت مدل‌ها ناموفق بود (HTTP $status)؛ ورود دستی در دسترس است.") }
+                }
+            } catch (e: Exception) {
+                mainHandler.post { callback(emptyList(), "اتصال به سرویس برقرار نشد؛ نام مدل را دستی وارد کنید.") }
+            } finally {
+                connection?.disconnect()
             }
         }
     }

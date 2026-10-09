@@ -107,6 +107,15 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
 
     override fun onViewCreated() {
         preferences.postDelayed({ preferences?.animateLayoutChanges = true }, 100)
+        val section = activity?.intent?.getStringExtra("settings_section")
+        if (section == "alarm" || section == "ai") {
+            contentView.post {
+                val header = if (section == "alarm") alarmSettingsHeader else aiSettingsHeader
+                header?.let { contentView?.smoothScrollTo(0, it.top) }
+            }
+            activity?.intent?.removeExtra("settings_section")
+        }
+
 
         when (Build.VERSION.SDK_INT >= 29) {
             true -> nightModeDialog.adapter.setData(R.array.night_modes)
@@ -354,12 +363,12 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
             }
         }
 
-        prefAiApiKey?.summary = if (prefs.aiApiKey.get().isBlank()) "Not configured" else "Configured (••••••••)"
+        prefAiApiKey?.summary = if (prefs.aiApiKey.get().isBlank()) "تنظیم نشده" else "تنظیم شده (••••••••)"
         prefAiApiKey?.setOnClickListener {
             activity?.let { act ->
-                TextInputDialog(act, "AI API Key (AvalAI / OpenAI)") { text ->
+                TextInputDialog(act, "کلید API هوش مصنوعی") { text ->
                     prefs.aiApiKey.set(text.trim())
-                    prefAiApiKey.summary = if (text.isBlank()) "Not configured" else "Configured (••••••••)"
+                    prefAiApiKey.summary = if (text.isBlank()) "تنظیم نشده" else "تنظیم شده (••••••••)"
                 }.setText(prefs.aiApiKey.get()).show()
             }
         }
@@ -367,7 +376,7 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
         prefAiBaseUrl?.summary = prefs.aiBaseUrl.get().ifBlank { "https://api.avalai.ir/v1" }
         prefAiBaseUrl?.setOnClickListener {
             activity?.let { act ->
-                TextInputDialog(act, "AI Service Endpoint") { text ->
+                TextInputDialog(act, "آدرس سرویس هوش مصنوعی") { text ->
                     val url = text.trim().ifBlank { "https://api.avalai.ir/v1" }
                     prefs.aiBaseUrl.set(url)
                     prefAiBaseUrl.summary = url
@@ -378,34 +387,23 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
         prefAiModel?.summary = prefs.aiModel.get().ifBlank { "gemini-2.5-flash-lite" }
         prefAiModel?.setOnClickListener {
             activity?.let { act ->
-                // Cheapest first: reading a trimmed promo SMS needs no large model
-                val models = arrayOf("gemini-2.5-flash-lite", "gpt-4.1-nano", "gpt-4o-mini", "gpt-3.5-turbo", "claude-3-haiku")
-                val current = prefs.aiModel.get()
-                val selectedIndex = models.indexOf(current).takeIf { it >= 0 } ?: 0
-                AlertDialog.Builder(act)
-                    .setTitle("Select AI Model")
-                    .setSingleChoiceItems(models, selectedIndex) { dialog, which ->
-                        val chosen = models[which]
-                        prefs.aiModel.set(chosen)
-                        prefAiModel.summary = chosen
-                        dialog.dismiss()
-                    }
-                    .setNegativeButton("Cancel", null)
-                    .show()
+                com.moez.QKSMS.feature.smart.ai.AiModelPicker.show(act, prefs) { chosen ->
+                    prefAiModel?.summary = chosen
+                }
             }
         }
 
         prefTestAiConnection?.setOnClickListener {
-            prefTestAiConnection.summary = "Testing AI connection..."
+            prefTestAiConnection.summary = "در حال بررسی اتصال…"
             com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.testConnection(
                 apiKey = prefs.aiApiKey.get(),
                 baseUrl = prefs.aiBaseUrl.get()
             ) { success, msg ->
-                prefTestAiConnection?.summary = if (success) "Connection verified" else "Failed"
+                prefTestAiConnection?.summary = if (success) "اتصال برقرار است" else "ناموفق"
                 activity?.let { act ->
                     if (!act.isFinishing && !act.isDestroyed) {
                         AlertDialog.Builder(act)
-                            .setTitle(if (success) "AI Connection Successful" else "AI Connection Failed")
+                            .setTitle(if (success) "اتصال هوش مصنوعی برقرار شد" else "اتصال هوش مصنوعی ناموفق بود")
                             .setMessage(msg)
                             .setPositiveButton("OK", null)
                             .show()
@@ -417,15 +415,15 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
         prefRunAiScan?.setOnClickListener {
             activity?.let { act ->
                 if (prefs.aiApiKey.get().isBlank()) {
-                    android.widget.Toast.makeText(act, "Please configure AI API Key first", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(act, "ابتدا کلید API هوش مصنوعی را وارد کنید", android.widget.Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
                 com.moez.QKSMS.feature.smart.ai.AiConsentDialog.ensureConsent(act, onGranted = {
-                    prefRunAiScan.summary = "Scanning inbox with AI..."
+                    prefRunAiScan.summary = "در حال بررسی پیامک‌ها با هوش مصنوعی…"
                     android.widget.Toast.makeText(act, "AI promo extraction started in background...", android.widget.Toast.LENGTH_LONG).show()
 
                     com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.extractPromos(act, prefs) { success, msg, report ->
-                        prefRunAiScan?.summary = if (success) "Extracted ${report?.found ?: 0} promo codes" else "Scan failed"
+                        prefRunAiScan?.summary = if (success) "${report?.found ?: 0} کد تخفیف شناسایی شد" else "بررسی ناموفق بود"
                         activity?.let { currentAct ->
                             if (!currentAct.isFinishing && !currentAct.isDestroyed) {
                                 val detail = report?.let {
@@ -437,7 +435,7 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
                                         "\nتوکن مصرفی: ${it.promptTokens + it.completionTokens}"
                                 } ?: ""
                                 AlertDialog.Builder(currentAct)
-                                    .setTitle(if (success) "AI Scan Completed" else "AI Scan Failed")
+                                    .setTitle(if (success) "بررسی هوش مصنوعی پایان یافت" else "بررسی هوش مصنوعی ناموفق بود")
                                     .setMessage(msg + detail)
                                     .setPositiveButton("OK", null)
                                     .show()
@@ -466,10 +464,10 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
         prefAiDailyLimit?.setOnClickListener {
             activity?.let { act ->
                 val limits = intArrayOf(30, 60, 100, 200)
-                val labels = limits.map { "$it messages a day" }.toTypedArray()
+                val labels = limits.map { "$it پیامک در روز" }.toTypedArray()
                 val selectedIndex = limits.indexOf(prefs.aiDailyLimit.get()).takeIf { it >= 0 } ?: 2
                 AlertDialog.Builder(act)
-                    .setTitle("Daily AI limit")
+                    .setTitle("سقف روزانه هوش مصنوعی")
                     .setSingleChoiceItems(labels, selectedIndex) { dialog, which ->
                         prefs.aiDailyLimit.set(limits[which])
                         prefAiDailyLimit.summary = aiUsageSummary()
@@ -494,8 +492,8 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
         val usage = com.moez.QKSMS.feature.smart.promo.PromoStore.getAiUsage()
         val tokens = usage.promptTokensThisMonth + usage.completionTokensThisMonth
         val tokenText = if (tokens >= 1000) String.format(java.util.Locale.US, "%.1fK", tokens / 1000.0) else tokens.toString()
-        return "${usage.messagesToday} of ${prefs.aiDailyLimit.get()} today · " +
-            "${usage.messagesThisMonth} this month, $tokenText tokens"
+        return "امروز ${usage.messagesToday} از ${prefs.aiDailyLimit.get()} پیامک · " +
+            "این ماه ${usage.messagesThisMonth} پیامک، $tokenText توکن"
     }
 
     override fun preferenceClicks(): Observable<PreferenceView> = preferences.findPreferenceViews()

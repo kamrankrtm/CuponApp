@@ -229,6 +229,19 @@ class MainActivity : QkThemedActivity(), MainView {
 
         // Don't allow clicks to pass through the drawer layout
         drawer.clicks().autoDisposable(scope()).subscribe()
+        drawerAlarmGuard.setOnClickListener {
+            drawerLayout.closeDrawer(GravityCompat.START)
+            navigator.showAlarmSettings()
+        }
+        drawerAiSettings.setOnClickListener {
+            drawerLayout.closeDrawer(GravityCompat.START)
+            navigator.showAiSettings()
+        }
+        drawerAppUpdate.setOnClickListener {
+            drawerLayout.closeDrawer(GravityCompat.START)
+            com.moez.QKSMS.feature.update.AppUpdateChecker.checkForUpdate(this, manualCheck = true)
+        }
+
 
         // Set the theme color tint to the recyclerView, progressbar, and FAB
         theme

@@ -142,6 +142,14 @@ class Navigator @Inject constructor(
         startActivity(intent)
     }
 
+    fun showAlarmSettings() {
+        startActivity(Intent(context, SettingsActivity::class.java).putExtra("settings_section", "alarm"))
+    }
+
+    fun showAiSettings() {
+        startActivity(Intent(context, SettingsActivity::class.java).putExtra("settings_section", "ai"))
+    }
+
     fun showDeveloper() {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kamrankrtm"))
         startActivityExternal(intent)

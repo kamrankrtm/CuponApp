@@ -383,6 +383,7 @@
         </com.google.android.material.card.MaterialCardView>
 
         <TextView
+            android:id="@+id/alarmSettingsHeader"
             style="@style/SettingsGroupHeader"
             android:text="@string/alarm_guard_settings_group" />
 
@@ -554,8 +555,9 @@
         </com.google.android.material.card.MaterialCardView>
 
         <TextView
+            android:id="@+id/aiSettingsHeader"
             style="@style/SettingsGroupHeader"
-            android:text="AI Discount Extraction" />
+            android:text="هوش مصنوعی کدهای تخفیف" />
 
         <com.google.android.material.card.MaterialCardView
             style="@style/SettingsGroupCard"
@@ -569,14 +571,34 @@
                 android:showDividers="middle">
 
             <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAiAutoRefine"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_sparkles"
+                app:iconTileColor="@color/tileIndigo"
+                app:title="بررسی خودکار کدهای تخفیف"
+                app:summary="بررسی پیامک‌های جدید در پس‌زمینه، تا سقف مصرف روزانه"
+                app:widget="@layout/settings_switch_widget" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAiCheckAll"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_search"
+                app:iconTileColor="@color/tilePurple"
+                app:title="بررسی همه کدهای تخفیف با هوش مصنوعی"
+                app:summary="روشن: هر پیامک مجاز دارای کد یک‌بار بررسی می‌شود. خاموش: فقط موارد نامطمئن"
+                app:widget="@layout/settings_switch_widget" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
                 android:id="@+id/prefAiApiKey"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 app:icon="@drawable/ic_lc_sparkles"
                 app:iconTileColor="@color/tilePurple"
                 app:chevron="true"
-                app:title="AI API Key (AvalAI / OpenAI)"
-                app:summary="Enter your API key to extract promo codes using AI" />
+                app:title="کلید API هوش مصنوعی"
+                app:summary="کلید سرویس متصل برای بررسی کدهای تخفیف" />
 
             <com.moez.QKSMS.common.widget.PreferenceView
                 android:id="@+id/prefAiBaseUrl"
@@ -585,8 +607,8 @@
                 app:icon="@drawable/ic_lc_globe"
                 app:iconTileColor="@color/tileGray"
                 app:chevron="true"
-                app:title="AI Service Endpoint"
-                app:summary="Default: https://api.avalai.ir/v1" />
+                app:title="آدرس سرویس هوش مصنوعی"
+                app:summary="پیش‌فرض: https://api.avalai.ir/v1" />
 
             <com.moez.QKSMS.common.widget.PreferenceView
                 android:id="@+id/prefAiModel"
@@ -596,8 +618,8 @@
                 app:iconTileColor="@color/tileIndigo"
                 app:chevron="true"
                 app:valueSummary="true"
-                app:title="AI Model"
-                app:summary="Default: gemini-2.5-flash-lite" />
+                app:title="انتخاب مدل هوش مصنوعی"
+                app:summary="انتخاب از مدل‌های سرویس یا ورود دستی نام مدل" />
 
             <com.moez.QKSMS.common.widget.PreferenceView
                 android:id="@+id/prefTestAiConnection"
@@ -605,8 +627,8 @@
                 android:layout_height="wrap_content"
                 app:icon="@drawable/ic_lc_activity"
                 app:iconTileColor="@color/tileGreen"
-                app:title="Test AI Connection"
-                app:summary="Verify API key and server connection" />
+                app:title="آزمایش اتصال هوش مصنوعی"
+                app:summary="بررسی کلید API و اتصال به سرویس" />
 
             <com.moez.QKSMS.common.widget.PreferenceView
                 android:id="@+id/prefRunAiScan"
@@ -614,28 +636,12 @@
                 android:layout_height="wrap_content"
                 app:icon="@drawable/ic_lc_search"
                 app:iconTileColor="@color/tilePurple"
-                app:title="Scan Inbox with AI"
-                app:summary="Extract active discount codes from promotional SMS" />
+                app:title="بررسی پیامک‌های قبلی با هوش مصنوعی"
+                app:summary="تحلیل کدهای تخفیف فعال در صندوق پیامک‌ها" />
 
-            <com.moez.QKSMS.common.widget.PreferenceView
-                android:id="@+id/prefAiAutoRefine"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:icon="@drawable/ic_lc_sparkles"
-                app:iconTileColor="@color/tileIndigo"
-                app:title="Automatic AI check"
-                app:summary="Checks new discount SMS in the background, within the daily limit"
-                app:widget="@layout/settings_switch_widget" />
 
-            <com.moez.QKSMS.common.widget.PreferenceView
-                android:id="@+id/prefAiCheckAll"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:icon="@drawable/ic_lc_search"
-                app:iconTileColor="@color/tilePurple"
-                app:title="Check every code with AI"
-                app:summary="Most accurate: every discount SMS is checked once. Off: only uncertain ones"
-                app:widget="@layout/settings_switch_widget" />
+
+
 
             <com.moez.QKSMS.common.widget.PreferenceView
                 android:id="@+id/prefAiDailyLimit"
@@ -644,8 +650,8 @@
                 app:icon="@drawable/ic_lc_activity"
                 app:iconTileColor="@color/tileGray"
                 app:chevron="true"
-                app:title="Daily AI limit"
-                app:summary="100 messages a day" />
+                app:title="سقف روزانه بررسی هوش مصنوعی"
+                app:summary="۱۰۰ پیامک در روز" />
 
             <com.moez.QKSMS.common.widget.PreferenceView
                 android:id="@+id/prefAiAutoSendReply"
@@ -653,8 +659,8 @@
                 android:layout_height="wrap_content"
                 app:icon="@drawable/ic_lc_send"
                 app:iconTileColor="@color/tileBlue"
-                app:title="Auto-Send AI Replies"
-                app:summary="Send generated AI reply immediately without prompt"
+                app:title="ارسال خودکار پاسخ‌های هوش مصنوعی"
+                app:summary="ارسال فوری پاسخ تولیدشده بدون تأیید مجدد"
                 app:widget="@layout/settings_switch_widget" />
 
             </LinearLayout>

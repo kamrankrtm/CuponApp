@@ -171,6 +171,51 @@
         <View style="@style/DrawerDivider" />
 
         <LinearLayout
+            android:id="@+id/drawerAlarmGuard"
+            style="@style/DrawerRow">
+
+            <ImageView
+                style="@style/DrawerIcon"
+                android:backgroundTint="@color/tileGreen"
+                android:src="@drawable/ic_lc_shield" />
+
+            <com.moez.QKSMS.common.widget.QkTextView
+                style="@style/DrawerText"
+                android:text="دزدگیر" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/drawerAiSettings"
+            style="@style/DrawerRow">
+
+            <ImageView
+                style="@style/DrawerIcon"
+                android:backgroundTint="@color/tilePurple"
+                android:src="@drawable/ic_lc_cpu" />
+
+            <com.moez.QKSMS.common.widget.QkTextView
+                style="@style/DrawerText"
+                android:text="هوش مصنوعی" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/drawerAppUpdate"
+            style="@style/DrawerRow">
+
+            <ImageView
+                style="@style/DrawerIcon"
+                android:backgroundTint="@color/tileBlue"
+                android:src="@drawable/ic_lc_download" />
+
+            <com.moez.QKSMS.common.widget.QkTextView
+                style="@style/DrawerText"
+                android:text="به‌روزرسانی برنامه" />
+
+        </LinearLayout>
+
+        <LinearLayout
             android:id="@+id/settings"
             style="@style/DrawerRow">
 
