@@ -20,8 +20,8 @@ import com.moez.QKSMS.model.Recipient
 
 /**
  * What a long press on a conversation opens: an action sheet with the sender at the top and
- * the tabs it can be moved to, plus "Select" in the All list, where a long press used to
- * start multi-select straight away.
+ * the tabs it can be moved to, "Return to automatic detection" once the user has moved it, plus
+ * "Select" in the All list, where a long press used to start multi-select straight away.
  */
 object SenderMoveSheet {
 
@@ -32,7 +32,9 @@ object SenderMoveSheet {
         current: Tab?,
         offerSelect: Boolean,
         onMove: (Tab) -> Unit,
-        onSelect: () -> Unit
+        onSelect: () -> Unit,
+        /** Set when the user chose this sender's tab; offers to hand it back to the classifier. */
+        onAutomatic: (() -> Unit)? = null
     ) {
         // Views take the activity's theme (colours, Dubai); the dialog theme only shapes the window
         val inflater = LayoutInflater.from(activity)
@@ -64,6 +66,9 @@ object SenderMoveSheet {
         }
         if (current != Tab.SPAM) {
             addRow(R.string.sender_move_spam, R.drawable.ic_lc_spam, R.color.tabSpam) { onMove(Tab.SPAM) }
+        }
+        if (onAutomatic != null) {
+            addRow(R.string.sender_move_automatic, R.drawable.ic_lc_sparkles, R.color.tileIndigo, onAutomatic)
         }
         if (offerSelect) {
             addRow(R.string.sender_select, R.drawable.ic_lc_circle_check, R.color.tileGray, onSelect)

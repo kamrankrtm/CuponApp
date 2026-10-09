@@ -9,6 +9,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.text.buildSpannedString
 import androidx.core.text.color
 import androidx.core.view.isVisible
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListUpdateCallback
 import androidx.recyclerview.widget.RecyclerView
 import com.moez.QKSMS.R
 import com.moez.QKSMS.common.Navigator
@@ -19,7 +21,8 @@ import com.moez.QKSMS.common.util.ContrastUtils
 import com.moez.QKSMS.common.util.extensions.resolveThemeColor
 import com.moez.QKSMS.common.util.extensions.setTint
 import com.moez.QKSMS.feature.smart.SenderIdentity
-import com.moez.QKSMS.feature.smart.SmartSmsClassifier
+import com.moez.QKSMS.feature.smart.analysis.Money
+import com.moez.QKSMS.feature.smart.analysis.MoneyUnit
 import com.moez.QKSMS.feature.smart.model.SmsCategory
 import com.moez.QKSMS.model.Conversation
 import com.moez.QKSMS.util.PhoneNumberUtils
@@ -39,7 +42,6 @@ class FilteredConversationsAdapter(
         const val VIEW_TYPE_UNREAD = 1
         const val VIEW_TYPE_BANK = 2
 
-        private val AMOUNT = Regex("([0-9,٬]+)\\s*(ریال|تومان)")
     }
 
     /** The Banking tab reads each conversation as a transaction rather than a message. */
@@ -53,8 +55,16 @@ class FilteredConversationsAdapter(
     /** Called with the conversation's id when a row is long-pressed. */
     var onLongPress: ((conversationId: Long) -> Unit)? = null
 
-    /** Banking reads per conversation, keyed by the last message id they were made from. */
-    private val bankingCache = HashMap<Long, Pair<Long, SmsCategory.Banking?>>()
+    /**
+     * What each bank conversation's latest message says, read in the background pass. Rows
+     * never parse a message while binding; one not read yet shows its title until it is.
+     */
+    var bankingReadings: Map<Long, SmsCategory.Banking> = emptyMap()
+        set(value) {
+            if (field == value) return
+            field = value
+            if (bankingMode) notifyItemRangeChanged(0, itemCount)
+        }
 
     init {
         setHasStableIds(true)
@@ -77,15 +87,53 @@ class FilteredConversationsAdapter(
     var data: List<Conversation> = emptyList()
         set(value) {
             val valid = value.filter { it.isValid }
+            val oldIds = itemIds
+            val oldUnread = unreadFlags
+            val oldStamps = stamps
+            val newIds = LongArray(valid.size) { i -> valid[i].id }
+            val newUnread = BooleanArray(valid.size) { i -> valid[i].unread }
+            val newStamps = Array(valid.size) { i -> stampOf(valid[i]) }
+            val offset = if (hasHeader) 1 else 0
+
             field = valid
-            itemIds = LongArray(valid.size) { i -> valid[i].id }
-            unreadFlags = BooleanArray(valid.size) { i -> valid[i].unread }
-            notifyDataSetChanged()
+            itemIds = newIds
+            unreadFlags = newUnread
+            stamps = newStamps
+            if (hasHeader != headerWithData) {
+                // Every position shifts by one; nothing to diff
+                headerWithData = hasHeader
+                notifyDataSetChanged()
+                emptyView?.isVisible = valid.isEmpty()
+                return
+            }
+            // Only rows that moved or changed are redrawn, from snapshots taken here: the
+            // Realm objects themselves may already have changed or been deleted
+            DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+                override fun getOldListSize() = oldIds.size
+                override fun getNewListSize() = newIds.size
+                override fun areItemsTheSame(oldPos: Int, newPos: Int) = oldIds[oldPos] == newIds[newPos]
+                override fun areContentsTheSame(oldPos: Int, newPos: Int) =
+                    oldUnread[oldPos] == newUnread[newPos] && oldStamps[oldPos] == newStamps[newPos]
+            }).dispatchUpdatesTo(object : ListUpdateCallback {
+                override fun onInserted(position: Int, count: Int) = notifyItemRangeInserted(position + offset, count)
+                override fun onRemoved(position: Int, count: Int) = notifyItemRangeRemoved(position + offset, count)
+                override fun onMoved(fromPosition: Int, toPosition: Int) = notifyItemMoved(fromPosition + offset, toPosition + offset)
+                override fun onChanged(position: Int, count: Int, payload: Any?) = notifyItemRangeChanged(position + offset, count, payload)
+            })
             emptyView?.isVisible = valid.isEmpty()
         }
 
     private var itemIds = LongArray(0)
     private var unreadFlags = BooleanArray(0)
+    private var stamps = emptyArray<String>()
+
+    /** Whether the frequent-contacts header was showing when [data] was last set. */
+    private var headerWithData = false
+
+    /** What a row shows that can change under the same id. */
+    private fun stampOf(conversation: Conversation): String =
+        "${conversation.date}|${conversation.snippet}|${conversation.draft}|${conversation.pinned}|" +
+            "${conversation.recipients.joinToString { it.contact?.name ?: it.address }}"
 
     var emptyView: View? = null
         set(value) {
@@ -191,20 +239,25 @@ class FilteredConversationsAdapter(
             val time = conversation.date.takeIf { it > 0 }?.let(dateFormatter::getConversationTimestamp).orEmpty()
             meta.text = if (time.isEmpty()) kind else "$kind · $time"
 
-            val match = banking?.amount?.let { AMOUNT.find(it) }
-            if (banking != null && match != null) {
+            val money = banking?.details?.headline
+            if (banking != null && money != null) {
                 val deposit = banking.isDeposit == true
                 val sign = when (banking.isDeposit) {
                     true -> "+"
                     false -> "−"
                     null -> ""
                 }
-                amount.text = sign + match.groupValues[1]
+                amount.text = sign + Money.group(money.value)
                 amount.setTextColor(if (deposit) ContextCompat.getColor(context, R.color.success)
                         else itemView.context.resolveThemeColor(android.R.attr.textColorPrimary))
-                unit.text = match.groupValues[2]
+                // A unit only when the message stated one; never a guessed "ریال"
+                unit.text = when (money.unit) {
+                    MoneyUnit.RIAL -> "ریال"
+                    MoneyUnit.TOMAN -> "تومان"
+                    MoneyUnit.UNKNOWN -> ""
+                }
                 amount.visibility = View.VISIBLE
-                unit.visibility = View.VISIBLE
+                unit.visibility = if (money.unit == MoneyUnit.UNKNOWN) View.GONE else View.VISIBLE
                 chevron.visibility = View.GONE
             } else {
                 amount.visibility = View.GONE
@@ -222,18 +275,9 @@ class FilteredConversationsAdapter(
         }
     }
 
-    /** What the bank said in the conversation's latest message, read once per message. */
-    private fun bankingOf(conversation: Conversation): SmsCategory.Banking? {
-        if (!conversation.isValid) return null
-        val lastMessage = conversation.lastMessage ?: return null
-        val cached = bankingCache[conversation.id]
-        if (cached != null && cached.first == lastMessage.id) return cached.second
-        val sender = conversation.recipients.firstOrNull()?.address ?: lastMessage.address
-        val category = SmartSmsClassifier.classify(sender, lastMessage.body, lastMessage.date, conversation.id)
-        val banking = category as? SmsCategory.Banking
-        bankingCache[conversation.id] = Pair(lastMessage.id, banking)
-        return banking
-    }
+    /** What the bank said in the conversation's latest message, as the background pass read it. */
+    private fun bankingOf(conversation: Conversation): SmsCategory.Banking? =
+        if (conversation.isValid) bankingReadings[conversation.id] else null
 
     inner class FrequentHeaderViewHolder(view: View) : QkViewHolder(view) {
         private val container: android.widget.LinearLayout = view.findViewById(R.id.frequentContactsContainer)

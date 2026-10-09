@@ -14,6 +14,10 @@ import java.util.concurrent.CopyOnWriteArrayList
  *
  * OTPs stay memory-only on purpose: they are single-use and worthless after a day, so writing
  * them to disk would be a liability rather than a feature.
+ *
+ * The single writer for both lists: the inbox scan, incoming messages and AI updates all
+ * change them through the synchronized methods here, and a scan merges what it found instead
+ * of replacing what arrived while it ran.
  */
 object SmartDataManager {
 
@@ -72,9 +76,10 @@ object SmartDataManager {
     fun getArchivedPromos(): List<PromoItem> =
         promoList.filter { it.isUsed || it.isInvalid }.sortedByDescending { it.receivedAt }
 
+    /** Today's and yesterday's codes, newest first. */
     fun getOtps(): List<OtpItem> {
         val cutoff = getYesterdayCutoff()
-        return otpList.filter { it.receivedAt >= cutoff }
+        return otpList.filter { it.receivedAt >= cutoff }.sortedByDescending { it.receivedAt }
     }
 
     /**
@@ -84,11 +89,13 @@ object SmartDataManager {
      * — brands re-send reminder texts for the same offer constantly, and the old cache had no
      * way to remember that the user was done with it.
      */
+    @Synchronized
     fun addPromo(promo: PromoItem) {
         if (addWithoutSaving(promo)) persist()
     }
 
     /** Adds every card of one message, saving once. */
+    @Synchronized
     fun addPromos(promos: List<PromoItem>) {
         var changed = false
         for (promo in promos) changed = addWithoutSaving(promo) || changed
@@ -137,6 +144,7 @@ object SmartDataManager {
     }
 
     /** Writes the list to disk after a run of [replaceForMessage] calls made with `save = false`. */
+    @Synchronized
     fun save() = persist()
 
     /**
@@ -203,6 +211,7 @@ object SmartDataManager {
     }
 
     /** Bulk replace after a full inbox scan, preserving everything the user marked. */
+    @Synchronized
     fun setPromos(promos: List<PromoItem>) {
         val userFlags = HashMap<String, PromoItem>()
         for (promo in promoList) {
@@ -250,12 +259,14 @@ object SmartDataManager {
         persist()
     }
 
+    @Synchronized
     fun markUsed(promo: PromoItem, used: Boolean) {
         promoList.firstOrNull { it.dedupeKey == promo.dedupeKey }?.isUsed = used
         promo.isUsed = used
         persist()
     }
 
+    @Synchronized
     fun markInvalid(promo: PromoItem, invalid: Boolean) {
         promoList.firstOrNull { it.dedupeKey == promo.dedupeKey }?.let {
             it.isInvalid = invalid
@@ -266,6 +277,7 @@ object SmartDataManager {
         persist()
     }
 
+    @Synchronized
     fun setPinned(promo: PromoItem, pinned: Boolean) {
         promoList.firstOrNull { it.dedupeKey == promo.dedupeKey }?.isPinned = pinned
         promo.isPinned = pinned
@@ -273,6 +285,7 @@ object SmartDataManager {
     }
 
     /** Undo for the "used" / "doesn't work" buttons. */
+    @Synchronized
     fun restore(promo: PromoItem) {
         promoList.firstOrNull { it.dedupeKey == promo.dedupeKey }?.let {
             it.isUsed = false
@@ -283,29 +296,66 @@ object SmartDataManager {
         persist()
     }
 
-    fun addOtp(otp: OtpItem) {
-        if (otp.receivedAt < getYesterdayCutoff()) return
-        val key = "${otp.sender.trim()}_${otp.code.trim()}"
-        otpList.removeAll { "${it.sender.trim()}_${it.code.trim()}" == key }
-        otpList.add(0, otp)
+    /**
+     * Adds a freshly read code. A code already listed for the same message (or, for older
+     * items without one, the same sender and code) is replaced by the newer reading.
+     *
+     * @return false when the code is too old to list
+     */
+    @Synchronized
+    fun addOtp(otp: OtpItem): Boolean {
+        if (otp.receivedAt < getYesterdayCutoff()) return false
+        otpList.removeAll { sameOtp(it, otp) }
+        insertByTime(otp)
+        return true
     }
 
-    /** Replaces the OTP cache; promos are untouched. */
-    fun setOtps(otps: List<OtpItem>) {
-        otpList.clear()
+    /**
+     * Merges the codes a scan found into the list. Nothing already listed is dropped, so a code
+     * that arrived while the scan was running survives it.
+     */
+    @Synchronized
+    fun mergeOtps(otps: List<OtpItem>) {
         val cutoff = getYesterdayCutoff()
-        val seenOtpKeys = HashSet<String>()
-        for (o in otps) {
-            if (o.receivedAt < cutoff) continue
-            val key = "${o.sender.trim()}_${o.code.trim()}"
-            if (seenOtpKeys.add(key)) {
-                otpList.add(o)
-            }
+        otpList.removeAll { it.receivedAt < cutoff }
+        for (otp in otps) {
+            if (otp.receivedAt < cutoff) continue
+            val existing = otpList.firstOrNull { sameOtp(it, otp) }
+            // The listed copy may already carry a better reading (the AI's); keep it
+            if (existing != null) continue
+            insertByTime(otp)
         }
     }
 
+    /** Replaced by [mergeOtps]; a scan must never drop codes that arrived while it ran. */
+    @Deprecated("Scans merge", ReplaceWith("mergeOtps(otps)"))
+    fun setOtps(otps: List<OtpItem>) = mergeOtps(otps)
+
+    /** Whether a code received after [receivedAt] is already listed: the older one is superseded. */
+    fun hasNewerOtp(receivedAt: Long, exceptSourceKey: String = ""): Boolean =
+        otpList.any { it.receivedAt > receivedAt && (exceptSourceKey.isEmpty() || it.sourceKey != exceptSourceKey) }
+
+    private fun sameOtp(a: OtpItem, b: OtpItem): Boolean = when {
+        a.sourceKey.isNotEmpty() && b.sourceKey.isNotEmpty() -> a.sourceKey == b.sourceKey
+        else -> a.sender.trim() == b.sender.trim() && a.code.trim() == b.code.trim()
+    }
+
+    /** Newest first. */
+    private fun insertByTime(otp: OtpItem) {
+        val index = otpList.indexOfFirst { it.receivedAt < otp.receivedAt }
+        if (index < 0) otpList.add(otp) else otpList.add(index, otp)
+    }
+
+    /** Test hook: forgets every code and card held in memory; the disk is untouched. */
+    @Synchronized
+    internal fun clearForTest() {
+        otpList.clear()
+        promoList.clear()
+    }
+
+    @Synchronized
     fun setPromosAndOtps(promos: List<PromoItem>, otps: List<OtpItem>) {
         setPromos(promos)
-        setOtps(otps)
+        mergeOtps(otps)
     }
 }

@@ -359,6 +359,8 @@ object AiPromoExtractor {
         }
 
         PromoStore.addAiScannedIds(scannedIds)
+        // The coupon parser now answers differently for these messages; shared readings are redone
+        if (sent > 0) com.moez.QKSMS.feature.smart.SmartAnalysisCache.invalidateAll()
 
         val report = ScanReport(updated, sent, skippedSensitive, skippedConfident, skippedNoCode, reused, promptTokens, completionTokens)
         val error = lastError

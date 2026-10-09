@@ -1,5 +1,6 @@
 package com.moez.QKSMS.feature.smart.promo
 
+import com.moez.QKSMS.feature.smart.analysis.SmsSignals
 import java.util.regex.Pattern
 
 /**
@@ -107,12 +108,8 @@ object PromoCodeExtractor {
      * message telling the user to type a code to sign in is not an offer, whatever else it
      * happens to contain.
      */
-    private val VERIFICATION_SIGNALS = listOf(
-        "جهت ورود", "برای ورود", "رمز ورود", "کد ورود", "کد تایید", "کد فعالسازی",
-        "کد فعال سازی", "رمز یکبار مصرف", "رمز یکبارمصرف", "رمز پویا", "کد احراز",
-        "کد امنیتی", "کد عبور", "رمز دوم", "verification code", "login code",
-        "security code", "one time password", "otp"
-    )
+    private val VERIFICATION_SIGNALS: List<String> =
+        SmsSignals.VERIFICATION_ENTRY + SmsSignals.VERIFICATION_LABELS
 
     /**
      * Receipts about a code already spent or dead. "کد FOOD30 روی سفارش شما اعمال شد" names a
@@ -149,7 +146,7 @@ object PromoCodeExtractor {
     /** Whether the message is a login / verification code rather than an offer. */
     fun isVerificationMessage(normalizedBody: String): Boolean {
         val lower = normalizedBody.toLowerCase()
-        if (VERIFICATION_SIGNALS.any { lower.contains(it) }) return true
+        if (SmsSignals.containsAny(lower, VERIFICATION_SIGNALS)) return true
         return !looksPromotional(normalizedBody) && NUMERIC_CODE_INSTRUCTION.matcher(normalizedBody).find()
     }
 

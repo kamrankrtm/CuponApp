@@ -1,6 +1,7 @@
 package com.moez.QKSMS.feature.smart.promo
 
 import com.moez.QKSMS.common.util.JalaliCalendar
+import com.moez.QKSMS.feature.smart.analysis.SmsText
 import java.util.Calendar
 import java.util.regex.Matcher
 import java.util.regex.Pattern
@@ -83,31 +84,10 @@ object PromoValueParser {
      * becomes a space and the invisible formatting marks, kashida ("تخفیـــف") and runs of
      * spaces disappear. Ads use all of these, and each one used to break a keyword match:
      * "اسنپ‌ فود" with a joiner and a space never matched "اسنپ فود".
+     *
+     * The rules are [SmsText]'s, shared with the classifier and the privacy filter.
      */
-    fun normalize(input: String): String {
-        val sb = StringBuilder(input.length)
-        for (raw in input) {
-            val c: Char? = when (raw) {
-                'ي', 'ى' -> 'ی'
-                'ك' -> 'ک'
-                'ة', 'ۀ' -> 'ه'
-                'أ', 'إ', 'ٱ' -> 'ا'
-                '٬' -> ','
-                '٫' -> '.'
-                '\u200c', '\u00a0', '\u2002', '\u2003', '\u2007', '\u2009', '\u200a', '\u202f',
-                '\u3000', '\t' -> ' '
-                'ـ', '\r', '\u200b', '\u200d', '\u200e', '\u200f', '\u202a', '\u202b', '\u202c',
-                '\u202d', '\u202e', '\u2066', '\u2067', '\u2068', '\u2069', '\ufeff', '\u00ad' -> null
-                in '۰'..'۹' -> '0' + (raw - '۰')
-                in '٠'..'٩' -> '0' + (raw - '٠')
-                else -> raw
-            }
-            if (c == null) continue
-            if (c == ' ' && (sb.isEmpty() || sb[sb.length - 1] == ' ')) continue
-            sb.append(c)
-        }
-        return sb.toString()
-    }
+    fun normalize(input: String): String = SmsText.text(input)
 
     fun toPersianDigits(input: String): String {
         val chars = input.toCharArray()

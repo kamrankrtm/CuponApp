@@ -31,6 +31,11 @@ object SenderOverrides {
     @Volatile
     private var prefs: SharedPreferences? = null
 
+    /** Moves on every change, so caches of where conversations are listed know to redo them. */
+    @Volatile
+    var version: Int = 0
+        private set
+
     /** Safe to call repeatedly; the first call loads the saved choices. */
     fun init(context: Context) {
         if (prefs != null) return
@@ -82,6 +87,7 @@ object SenderOverrides {
     private fun update(change: (Map<String, Tab>) -> Map<String, Tab>) {
         val updated = change(tabs)
         tabs = updated
+        version++
         prefs?.edit()?.apply {
             Tab.values().forEach { tab ->
                 putStringSet(tab.storageKey, updated.filterValues { it == tab }.keys.toHashSet())

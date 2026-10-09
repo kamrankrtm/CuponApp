@@ -38,8 +38,15 @@ class SmsReceiver : BroadcastReceiver() {
         Sms.Intents.getMessagesFromIntent(intent)?.let { messages ->
             val subId = intent.extras?.getInt("subscription", -1) ?: -1
 
+            // Finished on success, failure and cancellation alike; a receiver left unfinished
+            // holds the broadcast queue until the system kills the process
             val pendingResult = goAsync()
-            receiveMessage.execute(ReceiveSms.Params(subId, messages)) { pendingResult.finish() }
+            try {
+                receiveMessage.executeThenFinally(ReceiveSms.Params(subId, messages)) { pendingResult.finish() }
+            } catch (t: Throwable) {
+                Timber.e(t, "Could not start receiving an SMS")
+                pendingResult.finish()
+            }
         }
     }
 

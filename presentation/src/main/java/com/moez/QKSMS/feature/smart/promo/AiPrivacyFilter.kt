@@ -1,5 +1,8 @@
 package com.moez.QKSMS.feature.smart.promo
 
+import com.moez.QKSMS.feature.smart.analysis.BankingParser
+import com.moez.QKSMS.feature.smart.analysis.OtpExtractor
+import com.moez.QKSMS.feature.smart.analysis.SmsSignals
 import java.util.regex.Pattern
 
 /**
@@ -14,8 +17,19 @@ import java.util.regex.Pattern
  */
 object AiPrivacyFilter {
 
-    /** Anything that marks a message as an account, payment or identity event. */
-    private val SENSITIVE_KEYWORDS = listOf(
+    /**
+     * Anything that marks a message as an account, payment or identity event: the engine's
+     * shared verification and money vocabulary ([SmsSignals]), plus the legal, identity and
+     * health words below. Matched as plain substrings, erring towards withholding.
+     */
+    private val SENSITIVE_KEYWORDS: List<String> by lazy {
+        (LOCAL_SENSITIVE_KEYWORDS + SmsSignals.VERIFICATION_LABELS +
+            SmsSignals.BALANCE_LABELS.filter { it != "balance" } + SmsSignals.FEE_LABELS.filter { it != "fee" } +
+            SmsSignals.GATEWAY_RECEIPTS + listOf("انتقال وجه", "کسر شد", "واریز شد", "برداشت شد", "خرید با کارت"))
+            .distinct()
+    }
+
+    private val LOCAL_SENSITIVE_KEYWORDS = listOf(
         // one-time passwords and login
         "کد تایید", "کد فعالسازی", "کد فعال سازی", "رمز یکبار مصرف", "رمز یکبارمصرف",
         "رمز پویا", "کد ورود", "کد احراز", "کد عبور", "کد امنیتی", "رمز دوم",
@@ -109,8 +123,13 @@ object AiPrivacyFilter {
             return Verdict.BLOCKED_PERSONAL
         }
 
-        // 2. Never upload anything carrying credentials, money or identity.
+        // 2. Never upload anything carrying credentials, money or identity. The classifier's own
+        //    verification test runs too, so a code it would file as an OTP never leaves here.
         if (SENSITIVE_KEYWORDS.any { normalizedBody.contains(it) }) {
+            return Verdict.BLOCKED_SENSITIVE
+        }
+        val text = PromoValueParser.normalize(body)
+        if (OtpExtractor.isVerification(text) || BankingParser.parse(sender, text).isReceipt) {
             return Verdict.BLOCKED_SENSITIVE
         }
         if (WHOLE_WORD_KEYWORDS.any { containsWord(normalizedBody, it) }) {

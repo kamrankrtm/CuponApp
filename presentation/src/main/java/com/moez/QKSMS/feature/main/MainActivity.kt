@@ -124,6 +124,11 @@ class MainActivity : QkThemedActivity(), MainView {
     private var pendingReclassify = false
     private var lastScannedConversationCount = -1
     private var lastScannedConversationId: Long = -1
+    /** The first conversation's latest message, so a new text in the top thread re-cuts the lists. */
+    private var lastScannedFirstMessage: String = ""
+    /** Messages per conversation over the last month, counted in the background pass. */
+    @Volatile
+    private var recentMessageCounts: Map<Long, Int> = emptyMap()
     private var lastSyncProgress: SyncRepository.SyncProgress = SyncRepository.SyncProgress.Idle
     private var currentState: MainState? = null
 
@@ -394,8 +399,9 @@ class MainActivity : QkThemedActivity(), MainView {
         val wasSyncing = lastSyncProgress is SyncRepository.SyncProgress.Running
         val isNowIdle = state.syncing is SyncRepository.SyncProgress.Idle
         if (wasSyncing && isNowIdle) {
-            // Full imports rebuild internal message IDs; coupon scanning must not reuse the old cursor.
-            com.moez.QKSMS.feature.smart.promo.PromoStore.setLastScannedMessageId(0L)
+            // A full import rebuilds every local record. The coupon cursor is the provider's own
+            // id and stays valid; the readings and placements made from the old records do not.
+            com.moez.QKSMS.feature.smart.SmartAnalysisCache.invalidateAll()
             classificationCache.clear()
             preClassifyConversations()
         }
@@ -445,6 +451,13 @@ class MainActivity : QkThemedActivity(), MainView {
         com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.onPromosUpdated = {
             if (!isFinishing && currentTabPosition == 4) applyTabFilter()
         }
+        // A message read in the background, or an AI answer that changed a reading
+        com.moez.QKSMS.feature.smart.SmartEvents.listener = {
+            if (!isFinishing) {
+                if (currentTabPosition in 2..4) applyTabFilter()
+                preClassifyConversations()
+            }
+        }
 
         // Check for updates from GitHub Releases, also when coming back to an open app
         com.moez.QKSMS.feature.update.AppUpdateChecker.checkForUpdate(this)
@@ -454,6 +467,7 @@ class MainActivity : QkThemedActivity(), MainView {
         super.onPause()
         activityResumedIntent.onNext(false)
         com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.onPromosUpdated = null
+        com.moez.QKSMS.feature.smart.SmartEvents.listener = null
     }
 
     override fun onDestroy() {
@@ -590,8 +604,26 @@ class MainActivity : QkThemedActivity(), MainView {
         empty.setCompoundDrawablesRelative(null, icon, null, null)
     }
 
-    private val classificationCache = java.util.concurrent.ConcurrentHashMap<Long, Pair<Long, SmsCategory>>()
+    /**
+     * The tab each conversation was put in, keyed by everything that decides it: the latest
+     * message's provider identity, time and text, whether the sender is a saved contact, the
+     * user's sender choices, the engine and full syncs. Any of them changing re-reads it.
+     */
+    private val classificationCache = java.util.concurrent.ConcurrentHashMap<Long, Pair<String, SmsCategory>>()
 
+    private fun placementKey(conv: Conversation): String {
+        val last = conv.lastMessage
+        val contacts = conv.recipients.joinToString(",") { "${it.contact?.lookupKey}:${it.contact?.name}" }
+        return "${last?.type}:${last?.contentId}:${last?.id}|${last?.date}|${last?.body?.hashCode()}|$contacts|" +
+                "${SenderOverrides.version}|${com.moez.QKSMS.feature.smart.SmartAnalysisCache.generation}|" +
+                com.moez.QKSMS.feature.smart.analysis.SmsAnalyzer.ENGINE_VERSION
+    }
+
+    /**
+     * A first cut of the lists from what is already known, on the UI thread: the user's sender
+     * choices, cached placements, and people (mobile numbers, saved contacts). Nothing is
+     * parsed here; the background pass reads the rest and corrects this.
+     */
     private fun classifyConversationsImmediately(conversations: List<Conversation>) {
         if (conversations.isEmpty()) return
         val personal = HashSet<Long>(conversations.size)
@@ -601,8 +633,6 @@ class MainActivity : QkThemedActivity(), MainView {
         for (conv in conversations) {
             if (!conv.isValid) continue
             val id = conv.id
-            val lastMsg = conv.lastMessage
-            val lastMsgId = lastMsg?.id ?: -1L
 
             // Where the user moved this sender wins over anything its messages say
             val chosen = SenderOverrides.tabFor(conv.recipients.firstOrNull()?.address ?: "")
@@ -615,9 +645,8 @@ class MainActivity : QkThemedActivity(), MainView {
                 continue
             }
 
-            // Check if cached
             val cached = classificationCache[id]
-            if (cached != null && cached.first == lastMsgId) {
+            if (cached != null && cached.first == placementKey(conv)) {
                 when (cached.second) {
                     is SmsCategory.Personal -> personal.add(id)
                     is SmsCategory.Banking -> banking.add(id)
@@ -627,15 +656,9 @@ class MainActivity : QkThemedActivity(), MainView {
                 continue
             }
 
-            val hasSavedContact = conv.recipients.any { it.contact != null }
+            // A person for now; a bank saved as a contact moves to Banking once it is read
             val sender = conv.recipients.firstOrNull()?.address ?: ""
-            val personalNow = when {
-                SmartSmsClassifier.isPersonalNumber(sender) -> true
-                // A service number saved as a contact (a bank, say) is judged by its messages
-                hasSavedContact -> SmartSmsClassifier.classifyConversation(sender, lastMsg?.body ?: "", true) is SmsCategory.Personal
-                else -> false
-            }
-            if (personalNow) personal.add(id)
+            if (SmartSmsClassifier.isPersonalNumber(sender) || conv.recipients.any { it.contact != null }) personal.add(id)
         }
 
         cachedPersonalIds = personal
@@ -682,35 +705,41 @@ class MainActivity : QkThemedActivity(), MainView {
                 val personal = HashSet<Long>(conversations.size)
                 val banking = HashSet<Long>()
                 val spam = HashSet<Long>()
+                val bankingReadings = HashMap<Long, SmsCategory.Banking>()
                 val newPromos = mutableListOf<com.moez.QKSMS.feature.smart.model.PromoItem>()
                 val newOtps = mutableListOf<com.moez.QKSMS.feature.smart.model.OtpItem>()
+                val cache = com.moez.QKSMS.feature.smart.SmartAnalysisCache
+                val analyzer = com.moez.QKSMS.feature.smart.analysis.SmsAnalyzer
 
                 for (conv in conversations) {
                     if (!conv.isValid) continue
                     val id = conv.id
                     val lastMsg = conv.lastMessage
-                    val lastMsgId = lastMsg?.id ?: -1L
+                    val sender = conv.recipients.firstOrNull()?.address ?: ""
+                    val key = placementKey(conv)
 
-                    // Check fast cache
                     val cached = classificationCache[id]
-                    val cat = if (cached != null && cached.first == lastMsgId) {
+                    val cat = if (cached != null && cached.first == key) {
                         cached.second
                     } else {
                         val hasSavedContact = conv.recipients.any { it.contact != null }
-                        val sender = conv.recipients.firstOrNull()?.address ?: ""
-                        val body = lastMsg?.body ?: ""
-                        val msgDate = lastMsg?.date ?: System.currentTimeMillis()
-
+                        // The same reading the notification and the inbox scan use
+                        val analysis = cache.analyze(
+                            lastMsg?.address?.takeIf { it.isNotBlank() } ?: sender,
+                            lastMsg?.body ?: "",
+                            lastMsg?.date ?: 0L,
+                            id,
+                            lastMsg?.let { analyzer.sourceKeyOf(it.type, it.contentId) })
                         // Contacts and senders marked "not spam" are Personal; a bank saved as a
                         // contact still goes to Banking
-                        val computedCat = SmartSmsClassifier.classifyConversation(sender, body, hasSavedContact, msgDate, id)
-                        classificationCache[id] = Pair(lastMsgId, computedCat)
+                        val computedCat = SmartSmsClassifier.classifyConversation(analysis, sender, hasSavedContact)
+                        classificationCache[id] = Pair(key, computedCat)
                         computedCat
                     }
+                    if (cat is SmsCategory.Banking) bankingReadings[id] = cat
 
-                    // The list is where the user moved the sender, if they did; the codes in the
-                    // message are collected either way
-                    when (SenderOverrides.tabFor(conv.recipients.firstOrNull()?.address ?: "")) {
+                    // The list is where the user moved the sender, if they did
+                    when (SenderOverrides.tabFor(sender)) {
                         Tab.PERSONAL -> personal.add(id)
                         Tab.BANKING -> banking.add(id)
                         Tab.SPAM -> spam.add(id)
@@ -721,71 +750,72 @@ class MainActivity : QkThemedActivity(), MainView {
                             else -> Unit
                         }
                     }
-                    when (cat) {
-                        is SmsCategory.Promo -> if (!cat.promo.isExpired()) newPromos.add(cat.promo)
-                        is SmsCategory.Otp -> newOtps.add(cat.otp)
-                        else -> Unit
-                    }
                 }
 
                 // Scan the inbox for OTPs and promo codes with their exact timestamps.
                 //
-                // Promo parsing is incremental: saved codes are already in memory, so only
-                // messages newer than the last scan need to be re-read. OTPs are still swept
-                // over a short window because they are pruned to the last day anyway.
+                // Promo parsing is incremental, by the provider's own message id: it survives a
+                // full re-sync, where Realm's ids are regenerated. OTPs are swept over the last
+                // day, and merged, so a code that arrives during the scan is never lost.
                 val inboxType: Int = android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX
-                val lastScannedId = com.moez.QKSMS.feature.smart.promo.PromoStore.getLastScannedMessageId()
+                val lastScannedId = com.moez.QKSMS.feature.smart.promo.PromoStore.getLastScannedContentId()
                 val isFirstScan = lastScannedId == 0L
 
                 val promoQuery = realm.where(com.moez.QKSMS.model.Message::class.java)
                     .equalTo("type", "sms")
                     .equalTo("boxId", inboxType)
-                if (!isFirstScan) promoQuery.greaterThan("id", lastScannedId)
-                val recentMessages = promoQuery.sort("id", io.realm.Sort.ASCENDING).findAll()
+                if (!isFirstScan) promoQuery.greaterThan("contentId", lastScannedId)
+                val recentMessages = promoQuery.sort("contentId", io.realm.Sort.ASCENDING).findAll()
                 val couponReadIds = mutableListOf<Long>()
 
+                fun read(message: com.moez.QKSMS.model.Message) = cache.analyze(message.address, message.body,
+                    message.date, message.threadId, analyzer.sourceKeyOf(message.type, message.contentId))
+
+                val dayAgo = System.currentTimeMillis() - 24L * 60 * 60 * 1000
                 realm.where(com.moez.QKSMS.model.Message::class.java)
                     .equalTo("type", "sms").equalTo("boxId", inboxType)
-                    .greaterThan("date", System.currentTimeMillis() - 24L * 60 * 60 * 1000)
+                    .greaterThan("date", dayAgo)
                     .findAll().forEach { message ->
-                        val category = SmartSmsClassifier.classify(message.address, message.body, message.date, message.threadId)
-                        if (category is SmsCategory.Otp) newOtps.add(category.otp)
+                        read(message).otpItem?.let { newOtps.add(it) }
                     }
                 var newestScannedId = lastScannedId
                 for (msg in recentMessages) {
                     if (!msg.isValid) continue
-                    val text = msg.body.trim()
-                    if (msg.id > newestScannedId) newestScannedId = msg.id
-
-                    if (SmartSmsClassifier.isOtpMessage(text)) {
-                        val cat = SmartSmsClassifier.classify(msg.address, text, msg.date, msg.threadId)
-                        if (cat is SmsCategory.Otp) {
-                            newOtps.add(cat.otp)
-                        }
-                    } else if (isFirstScan || msg.id > lastScannedId) {
-                        // Every code in the message: some carry one per shop or basket size
-                        SmartSmsClassifier.extractPromos(msg.address, text, msg.date, msg.threadId)
-                            .filterTo(newPromos) { !it.isExpired() }
-                        if (!msg.read && com.moez.QKSMS.feature.smart.PromoMessageReader.confirmed(
-                                msg.address, text, msg.date, msg.threadId)) couponReadIds.add(msg.id)
+                    if (msg.contentId > newestScannedId) newestScannedId = msg.contentId
+                    val analysis = read(msg)
+                    // Every code in the message: some carry one per shop or basket size
+                    analysis.promos.filterTo(newPromos) { !it.isExpired() }
+                    if (!msg.read && com.moez.QKSMS.feature.smart.promo.PromoReadPolicy.shouldMarkRead(analysis.promoAnalyses)) {
+                        couponReadIds.add(msg.id)
                     }
                 }
+
+                // Who the user writes to most, for the Personal tab's header; counted here,
+                // never on the UI thread
+                val monthAgo = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
+                val counts = HashMap<Long, Int>()
+                realm.where(com.moez.QKSMS.model.Message::class.java)
+                    .greaterThan("date", monthAgo)
+                    .findAll()
+                    .forEach { counts[it.threadId] = (counts[it.threadId] ?: 0) + 1 }
+                recentMessageCounts = counts
 
                 newOtps.sortByDescending { it.receivedAt }
                 newPromos.sortByDescending { it.receivedAt }
 
                 if (isFirstScan) {
-                    // A full sweep is authoritative, so it may replace the cached set.
-                    SmartDataManager.setPromosAndOtps(newPromos, newOtps)
+                    // A full sweep is authoritative for codes, so it may replace the cached set;
+                    // the user's marks carry over inside setPromos
+                    SmartDataManager.setPromos(newPromos)
                 } else {
                     // An incremental pass only ever adds: replacing the set would drop stored
-                    // codes whose original messages have scrolled out of the scan window.
-                    // Oldest first, so the newest ends up at the head of the list.
-                    newPromos.asReversed().forEach { SmartDataManager.addPromo(it) }
-                    SmartDataManager.setOtps(newOtps)
+                    // codes whose original messages have scrolled out of the scan window. One
+                    // write for the whole batch.
+                    SmartDataManager.addPromos(newPromos.asReversed())
                 }
+                SmartDataManager.mergeOtps(newOtps)
                 com.moez.QKSMS.feature.smart.PromoMessageReader.markRead(applicationContext, couponReadIds)
-                com.moez.QKSMS.feature.smart.promo.PromoStore.setLastScannedMessageId(newestScannedId)
+                com.moez.QKSMS.feature.smart.promo.PromoStore.setLastScannedContentId(newestScannedId)
 
                 // Codes the rules could not read with confidence go to the AI, within the
                 // user's daily limit; a no-op unless it is set up and agreed to
@@ -802,6 +832,7 @@ class MainActivity : QkThemedActivity(), MainView {
                     cachedPersonalIds = personal
                     cachedBankingIds = banking
                     cachedSpamIds = spam
+                    filteredConversationsAdapter.bankingReadings = bankingReadings
                     isClassificationReady = true
                     isClassifying = false
                     applyTabFilter()
@@ -1008,7 +1039,8 @@ class MainActivity : QkThemedActivity(), MainView {
                     conversationsAdapter.emptyView = empty
                 }
                 1 -> {
-                    // Personal: Saved contacts or 09... personal numbers
+                    // Personal: Saved contacts or 09... personal numbers. Before the first pass
+                    // has run, only what needs no parsing: the user's choices and people
                     val list = if (cachedPersonalIds.isNotEmpty()) {
                         currentConversationsList.filter { it.isValid && cachedPersonalIds.contains(it.id) }
                     } else {
@@ -1016,9 +1048,7 @@ class MainActivity : QkThemedActivity(), MainView {
                             if (!conv.isValid) return@filter false
                             val sender = conv.recipients.firstOrNull()?.address ?: ""
                             SenderOverrides.tabFor(sender)?.let { tab -> return@filter tab == Tab.PERSONAL }
-                            val body = conv.lastMessage?.body ?: ""
-                            val hasSavedContact = conv.recipients.any { it.contact != null }
-                            SmartSmsClassifier.classifyConversation(sender, body, hasSavedContact) is SmsCategory.Personal
+                            SmartSmsClassifier.isPersonalNumber(sender) || conv.recipients.any { it.contact != null }
                         }
                     }
                     filteredConversationsAdapter.frequentContacts = getFrequentContacts(list)
@@ -1107,17 +1137,20 @@ class MainActivity : QkThemedActivity(), MainView {
             in cachedSpamIds -> Tab.SPAM
             else -> null
         }
+        val overridden = conversation.recipients.any { SenderOverrides.tabFor(it.address) != null }
+        val automatic: (() -> Unit)? = if (overridden) fun() { moveSender(conversationId, null) } else null
         SenderMoveSheet.show(this, conversation.getTitle(), conversation.recipients.toList(), current,
                 offerSelect = currentTabPosition == 0,
                 onMove = { tab -> moveSender(conversationId, tab) },
-                onSelect = { conversationsAdapter.startSelection(conversationId) })
+                onSelect = { conversationsAdapter.startSelection(conversationId) },
+                onAutomatic = automatic)
     }
 
     /**
      * Puts a conversation's senders in [tab] for good: the lists change at once and later
      * messages follow, notifying the way that tab does. The snackbar puts back what was there.
      */
-    private fun moveSender(conversationId: Long, tab: Tab, fromSpam: Boolean = false) {
+    private fun moveSender(conversationId: Long, tab: Tab?, fromSpam: Boolean = false) {
         val conversation = currentConversationsList.firstOrNull { it.isValid && it.id == conversationId } ?: return
         val addresses = conversation.recipients.map { it.address }.filter { it.isNotBlank() }
         if (addresses.isEmpty()) return
@@ -1128,6 +1161,7 @@ class MainActivity : QkThemedActivity(), MainView {
         reclassify(conversation)
 
         val message = when {
+            tab == null -> getString(R.string.sender_moved_automatic, title)
             fromSpam -> getString(R.string.spam_moved_to_personal, title)
             tab == Tab.PERSONAL -> getString(R.string.sender_moved_personal, title)
             tab == Tab.BANKING -> getString(R.string.sender_moved_banking, title)
@@ -1154,14 +1188,15 @@ class MainActivity : QkThemedActivity(), MainView {
         preClassifyConversations()
     }
 
-    /** The list a conversation belongs in: where the user put its sender, else what its last message says. */
+    /**
+     * The list a conversation belongs in: where the user put its sender, else what its last
+     * message was last read as. Never parses on the UI thread; the background pass that
+     * [reclassify] starts settles anything not read yet.
+     */
     private fun tabOf(conversation: Conversation): Tab? {
         val sender = conversation.recipients.firstOrNull()?.address ?: ""
         SenderOverrides.tabFor(sender)?.let { return it }
-        val last = conversation.lastMessage
-        val category = SmartSmsClassifier.classifyConversation(sender, last?.body ?: "",
-                conversation.recipients.any { it.contact != null }, last?.date ?: System.currentTimeMillis(), conversation.id)
-        return when (category) {
+        return when (classificationCache[conversation.id]?.second) {
             is SmsCategory.Personal -> Tab.PERSONAL
             is SmsCategory.Banking -> Tab.BANKING
             is SmsCategory.Spam -> Tab.SPAM
@@ -1172,14 +1207,20 @@ class MainActivity : QkThemedActivity(), MainView {
     /** Re-cuts the Personal, Banking and Spam lists from the inbox, classifying what is new. */
     private fun refreshInbox(rawData: RealmResults<Conversation>?) {
         val count = rawData?.size ?: 0
-        val firstId = rawData?.firstOrNull()?.id ?: -1L
-        val countOrStructureChanged = count != lastScannedConversationCount || firstId != lastScannedConversationId
+        val first = rawData?.firstOrNull()
+        val firstId = first?.id ?: -1L
+        // A new message in the conversation already at the top changes neither the count nor
+        // the first id, only that conversation's latest message
+        val firstMessage = first?.lastMessage?.let { "${it.id}|${it.date}|${it.contentId}" } ?: ""
+        val countOrStructureChanged = count != lastScannedConversationCount || firstId != lastScannedConversationId ||
+                firstMessage != lastScannedFirstMessage
 
         currentConversationsList = rawData?.toList() ?: emptyList()
 
         if (countOrStructureChanged) {
             lastScannedConversationCount = count
             lastScannedConversationId = firstId
+            lastScannedFirstMessage = firstMessage
             classifyConversationsImmediately(currentConversationsList)
             preClassifyConversations()
         }
@@ -1193,27 +1234,9 @@ class MainActivity : QkThemedActivity(), MainView {
         data?.addChangeListener(inboxListener)
     }
 
+    /** The people written to most this month; the counts come from the background pass. */
     private fun getFrequentContacts(personalList: List<Conversation>): List<Conversation> {
-        val oneMonthAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
-        val messageCountsByThread = HashMap<Long, Int>()
-
-        try {
-            val realm = io.realm.Realm.getDefaultInstance()
-            try {
-                val recentMessages = realm.where(com.moez.QKSMS.model.Message::class.java)
-                    .greaterThan("date", oneMonthAgo)
-                    .findAll()
-
-                for (msg in recentMessages) {
-                    val tid = msg.threadId
-                    messageCountsByThread[tid] = (messageCountsByThread[tid] ?: 0) + 1
-                }
-            } finally {
-                realm.close()
-            }
-        } catch (t: Throwable) {
-            android.util.Log.e("MainActivity", "Error counting recent messages for frequent contacts", t)
-        }
+        val messageCountsByThread = recentMessageCounts
 
         val eligible = personalList
             .filter { conv ->

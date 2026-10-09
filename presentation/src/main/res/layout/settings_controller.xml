@@ -591,6 +591,16 @@
                 app:widget="@layout/settings_switch_widget" />
 
             <com.moez.QKSMS.common.widget.PreferenceView
+                android:id="@+id/prefAiSensitive"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:icon="@drawable/ic_lc_shield"
+                app:iconTileColor="@color/tileGray"
+                app:title="ارسال پیامک‌های بانکی و کد تایید مبهم"
+                app:summary="خاموش. با روشن کردن، متن کامل پیامک‌های بانکی، کد تایید و نامشخص به سرویس هوش مصنوعی فرستاده می‌شود"
+                app:widget="@layout/settings_switch_widget" />
+
+            <com.moez.QKSMS.common.widget.PreferenceView
                 android:id="@+id/prefAiApiKey"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

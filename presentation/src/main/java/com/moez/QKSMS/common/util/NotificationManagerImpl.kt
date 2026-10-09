@@ -59,11 +59,14 @@ import com.moez.QKSMS.repository.MessageRepository
 import com.moez.QKSMS.util.GlideApp
 import com.moez.QKSMS.util.PhoneNumberUtils
 import com.moez.QKSMS.util.Preferences
-import com.moez.QKSMS.feature.smart.ClipboardHelper
-import com.moez.QKSMS.feature.smart.SmartDataManager
+import com.moez.QKSMS.feature.smart.OtpCopyTracker
+import com.moez.QKSMS.feature.smart.SmartAnalysisCache
 import com.moez.QKSMS.feature.smart.SmartSmsClassifier
+import com.moez.QKSMS.feature.smart.analysis.SmsAnalysis
+import com.moez.QKSMS.feature.smart.analysis.SmsAnalyzer
 import com.moez.QKSMS.feature.smart.model.SmsCategory
 import com.moez.QKSMS.feature.smart.promo.BrandRegistry
+import com.moez.QKSMS.feature.smart.promo.PromoReadPolicy
 import com.moez.QKSMS.receiver.CopyClipReceiver
 import com.moez.QKSMS.util.tryOrNull
 import javax.inject.Inject
@@ -101,16 +104,21 @@ class NotificationManagerImpl @Inject constructor(
      * Updates the notification for a particular conversation
      */
     override fun markPromotionalMessagesRead(threadId: Long) {
+        // The cards themselves were saved when each message was read; this only marks the
+        // confirmed coupon texts read, from the same reading
         val ids = messageRepo.getUnreadMessages(threadId).mapNotNull { message ->
-            if (message.type != "sms" || message.boxId != android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX ||
-                !com.moez.QKSMS.feature.smart.PromoMessageReader.confirmed(
-                    message.address, message.body, message.date, message.threadId)) return@mapNotNull null
-            SmartDataManager.addPromos(SmartSmsClassifier.extractPromos(
-                message.address, message.body, message.date, message.threadId))
+            if (message.type != "sms" || message.boxId != android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX) return@mapNotNull null
+            val analysis = analysisOf(message)
+            if (!PromoReadPolicy.shouldMarkRead(analysis.promoAnalyses)) return@mapNotNull null
             message.id
         }
         com.moez.QKSMS.feature.smart.PromoMessageReader.markRead(context, ids)
     }
+
+    /** The shared reading of [message]; computed here only if the receive pipeline did not. */
+    private fun analysisOf(message: com.moez.QKSMS.model.Message): SmsAnalysis =
+        SmartAnalysisCache.analyze(message.address, message.body, message.date, message.threadId,
+            SmsAnalyzer.sourceKeyOf(message.type, message.contentId))
 
     override fun update(threadId: Long) {
         // If notifications are disabled, don't do anything
@@ -135,36 +143,17 @@ class NotificationManagerImpl @Inject constructor(
         } ?: conversation.recipients.firstOrNull()
 
         val lastMessage = conversation.lastMessage
-        val sender = lastRecipient?.address ?: ""
         val body = lastMessage?.body ?: ""
-        val msgDate = lastMessage?.date ?: System.currentTimeMillis()
-        // The user's "Move to …" choice for this sender decides, except for verification codes
-        val smartCategory = SmartSmsClassifier.classifyForUser(sender, body, msgDate, threadId)
+        // The reading the receive pipeline already made: a refresh of this notification never
+        // reads, lists or copies anything again. The user's "Move to …" choice for the sender
+        // decides, except for verification codes.
+        val analysis = lastMessage?.let { analysisOf(it) }
+        val smartCategory = analysis?.let { SmartSmsClassifier.classifyForUser(it) } ?: SmsCategory.Personal
 
-        // An offer the rules were unsure of, or one with a code they could not find, is checked
-        // by the AI shortly after, if the user set it up; the call is a no-op otherwise. Before
-        // the silent-spam exit, because an ad the rules found no code in is filed as spam.
-        if (smartCategory is SmsCategory.Promo || smartCategory is SmsCategory.Spam) {
-            com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.scheduleAutoRefine(context, prefs)
-        }
-
-        // Silent Spam: if spam and silentSpam is enabled, do not display notification
+        // Silent Spam: if spam and silentSpam is enabled, do not display notification. Unknown
+        // messages are not spam and notify normally.
         if (smartCategory is SmsCategory.Spam && prefs.silentSpam.get()) {
             return
-        }
-
-        // OTP: Auto-copy to clipboard if enabled
-        if (smartCategory is SmsCategory.Otp) {
-            SmartDataManager.addOtp(smartCategory.otp)
-            if (prefs.autoCopyOtp.get()) {
-                ClipboardHelper.copyToClipboard(context, smartCategory.otp.code, "OTP", showToast = true)
-            }
-        }
-
-        // Promo: every code in the message goes to the discounts tab
-        if (smartCategory is SmsCategory.Promo) {
-            val promos = SmartSmsClassifier.extractPromos(sender, body, msgDate, threadId)
-            SmartDataManager.addPromos(if (promos.isEmpty()) listOf(smartCategory.promo) else promos)
         }
 
         val contentIntent = Intent(context, ComposeActivity::class.java).putExtra("threadId", threadId)
@@ -285,8 +274,9 @@ class NotificationManagerImpl @Inject constructor(
             notification.addPerson("tel:${recipient.address}")
         }
 
-        // Add the action buttons ONLY for Personal messages
-        if (smartCategory is SmsCategory.Personal) {
+        // The usual action buttons for Personal messages, and for the ones the engine could not
+        // place: an unrecognised message is notified as an ordinary one
+        if (smartCategory is SmsCategory.Personal || smartCategory is SmsCategory.Unknown) {
             val actionLabels = context.resources.getStringArray(R.array.notification_actions)
             listOf(prefs.notifAction1, prefs.notifAction2, prefs.notifAction3)
                     .map { preference -> preference.get() }
@@ -431,8 +421,13 @@ class NotificationManagerImpl @Inject constructor(
             is SmsCategory.Otp -> {
                 val otp = smartCategory.otp
                 val otpColor = ContextCompat.getColor(context, R.color.tabOtp)
-                val copied = prefs.autoCopyOtp.get()
-                val note = if (copied) "کد به صورت خودکار کپی شد" else "برای کپی، دکمه‌ی زیر را بزنید"
+                // Says what actually happened, not what the setting would have liked
+                val copied = OtpCopyTracker.wasCopied(otp.sourceKey)
+                val note = when {
+                    copied -> "کد به صورت خودکار کپی شد"
+                    otp.expiresAt != null -> "معتبر تا ${JalaliCalendar.formatTime(java.util.Calendar.getInstance().apply { timeInMillis = otp.expiresAt })} · برای کپی، دکمه‌ی زیر را بزنید"
+                    else -> "برای کپی، دکمه‌ی زیر را بزنید"
+                }
 
                 // Text versions for accessibility, wearables and anything that ignores custom views
                 notification.setContentTitle(otp.code)
@@ -491,15 +486,17 @@ class NotificationManagerImpl @Inject constructor(
                 // is one expand away
                 val title = "$bank · $type"
                 val amount = smartCategory.amount?.takeIf { it.isNotBlank() }?.let { sign + it }
+                val balance = smartCategory.details?.balance?.let { "مانده: ${it.label()}" }
+                val summary = listOfNotNull(amount, balance).joinToString(" · ").ifEmpty { null }
                 notification.setContentTitle(title)
-                notification.setContentText(amount ?: body)
+                notification.setContentText(summary ?: body)
                 notification.setColor(ContextCompat.getColor(context, R.color.tabBanking))
                 notification.setLargeIcon(NotificationArt.glyphTile(context,
                         ContextCompat.getColor(context, R.color.tabBanking), R.drawable.ic_lc_landmark))
                 // Banking: show full message body in BigTextStyle, no action buttons
                 val bigTextStyle = NotificationCompat.BigTextStyle()
                     .setBigContentTitle(title)
-                    .bigText(if (amount != null) "$amount\n$body" else body)
+                    .bigText(if (summary != null) "$summary\n$body" else body)
                 notification.setStyle(bigTextStyle)
             }
             is SmsCategory.Spam -> {

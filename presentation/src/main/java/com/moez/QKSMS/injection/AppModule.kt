@@ -31,6 +31,7 @@ import com.moez.QKSMS.common.ViewModelFactory
 import com.moez.QKSMS.common.util.BillingManagerImpl
 import com.moez.QKSMS.common.util.NotificationManagerImpl
 import com.moez.QKSMS.common.util.ShortcutManagerImpl
+import com.moez.QKSMS.feature.smart.SmartMessageProcessor
 import com.moez.QKSMS.feature.conversationinfo.injection.ConversationInfoComponent
 import com.moez.QKSMS.feature.themepicker.injection.ThemePickerComponent
 import com.moez.QKSMS.listener.ContactAddedListener
@@ -52,6 +53,7 @@ import com.moez.QKSMS.manager.PermissionManagerImpl
 import com.moez.QKSMS.manager.RatingManager
 import com.moez.QKSMS.manager.ReferralManager
 import com.moez.QKSMS.manager.ReferralManagerImpl
+import com.moez.QKSMS.manager.MessageAnalysisProcessor
 import com.moez.QKSMS.manager.ShortcutManager
 import com.moez.QKSMS.manager.WidgetManager
 import com.moez.QKSMS.manager.WidgetManagerImpl
@@ -155,6 +157,9 @@ class AppModule(private var application: Application) {
 
     @Provides
     fun provideNotificationsManager(manager: NotificationManagerImpl): NotificationManager = manager
+
+    @Provides
+    fun provideMessageAnalysisProcessor(processor: SmartMessageProcessor): MessageAnalysisProcessor = processor
 
     @Provides
     fun providePermissionsManager(manager: PermissionManagerImpl): PermissionManager = manager

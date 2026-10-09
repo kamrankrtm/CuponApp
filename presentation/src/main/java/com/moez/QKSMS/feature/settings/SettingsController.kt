@@ -453,6 +453,29 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
             prefAiAutoRefine?.checkbox?.isChecked = next
         }
 
+        // Separate from the advertising consent above, and off unless the user turns it on here
+        fun sensitiveSummary(on: Boolean) = if (on) {
+            "روشن: پیامک‌های بانکی، کد تایید و نامشخصی که موتور داخلی مطمئن نیست، با متن کامل به سرویس هوش مصنوعی فرستاده می‌شوند"
+        } else {
+            "خاموش. با روشن کردن، متن کامل پیامک‌های بانکی، کد تایید و نامشخص به سرویس هوش مصنوعی فرستاده می‌شود"
+        }
+        val sensitiveOn = com.moez.QKSMS.feature.smart.promo.PromoStore.hasSensitiveAiConsent()
+        prefAiSensitive?.checkbox?.isChecked = sensitiveOn
+        prefAiSensitive?.summary = sensitiveSummary(sensitiveOn)
+        prefAiSensitive?.setOnClickListener {
+            val act = activity ?: return@setOnClickListener
+            if (com.moez.QKSMS.feature.smart.promo.PromoStore.hasSensitiveAiConsent()) {
+                com.moez.QKSMS.feature.smart.ai.SensitiveAiConsentDialog.revoke(act)
+                prefAiSensitive?.checkbox?.isChecked = false
+                prefAiSensitive?.summary = sensitiveSummary(false)
+            } else {
+                com.moez.QKSMS.feature.smart.ai.SensitiveAiConsentDialog.ask(act, onGranted = {
+                    prefAiSensitive?.checkbox?.isChecked = true
+                    prefAiSensitive?.summary = sensitiveSummary(true)
+                })
+            }
+        }
+
         prefAiCheckAll?.checkbox?.isChecked = prefs.aiCheckAll.get()
         prefAiCheckAll?.setOnClickListener {
             val next = !prefs.aiCheckAll.get()

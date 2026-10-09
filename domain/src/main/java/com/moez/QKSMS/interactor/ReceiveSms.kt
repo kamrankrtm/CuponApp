@@ -21,6 +21,7 @@ package com.moez.QKSMS.interactor
 import android.telephony.SmsMessage
 import com.moez.QKSMS.blocking.BlockingClient
 import com.moez.QKSMS.extensions.mapNotNull
+import com.moez.QKSMS.manager.MessageAnalysisProcessor
 import com.moez.QKSMS.manager.NotificationManager
 import com.moez.QKSMS.manager.ShortcutManager
 import com.moez.QKSMS.repository.ConversationRepository
@@ -37,7 +38,8 @@ class ReceiveSms @Inject constructor(
     private val messageRepo: MessageRepository,
     private val notificationManager: NotificationManager,
     private val updateBadge: UpdateBadge,
-    private val shortcutManager: ShortcutManager
+    private val shortcutManager: ShortcutManager,
+    private val analysisProcessor: MessageAnalysisProcessor
 ) : Interactor<ReceiveSms.Params>() {
 
     class Params(val subId: Int, val messages: Array<SmsMessage>)
@@ -81,6 +83,16 @@ class ReceiveSms @Inject constructor(
                         }
                         is BlockingClient.Action.Unblock -> conversationRepo.markUnblocked(message.threadId)
                         else -> Unit
+                    }
+
+                    // Read once, now that it is stored: codes are extracted even when this
+                    // conversation's notifications are off, and the notification reuses the result
+                    if (action !is BlockingClient.Action.Block) {
+                        try {
+                            analysisProcessor.onMessageStored(message)
+                        } catch (t: Throwable) {
+                            Timber.e(t, "Message analysis failed")
+                        }
                     }
 
                     message

@@ -11,6 +11,7 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.moez.QKSMS.R
 import com.moez.QKSMS.common.util.JalaliCalendar
@@ -21,7 +22,10 @@ import java.util.Calendar
 
 /**
  * The OTP tab: the newest code from today as a large card, everything else as a compact group
- * underneath. Codes from earlier days are marked expired and can no longer be copied.
+ * underneath.
+ *
+ * A code is called valid or expired only when its message said how long it lasts. Otherwise
+ * the card shows when it arrived, rather than implying it works until midnight.
  */
 class OtpCodesAdapter(
     private val context: Context,
@@ -47,6 +51,7 @@ class OtpCodesAdapter(
         otps.clear()
         otps.addAll(newOtps)
 
+        val oldRows = ArrayList(rows)
         rows.clear()
         val sorted = newOtps.sortedByDescending { it.receivedAt }
         val latest = sorted.firstOrNull()?.takeIf { DateUtils.isToday(it.receivedAt) }
@@ -61,7 +66,24 @@ class OtpCodesAdapter(
                 rows += Row.Earlier(otp, first = index == 0, last = index == earlier.lastIndex)
             }
         }
-        notifyDataSetChanged()
+        DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = oldRows.size
+            override fun getNewListSize() = rows.size
+            override fun areItemsTheSame(oldPos: Int, newPos: Int) = identity(oldRows[oldPos]) == identity(rows[newPos])
+            override fun areContentsTheSame(oldPos: Int, newPos: Int) = oldRows[oldPos] == rows[newPos]
+        }).dispatchUpdatesTo(this)
+    }
+
+    private fun identity(row: Row): String = when (row) {
+        is Row.Header -> "h:${row.title}"
+        is Row.Latest -> "l:${row.otp.id}"
+        is Row.Earlier -> "e:${row.otp.id}"
+    }
+
+    /** "معتبر تا ۱۴:۳۲", "منقضی شده", or just when it arrived when the message gave no validity. */
+    private fun validityOf(item: OtpItem, now: Long = System.currentTimeMillis()): String? {
+        val expiresAt = item.expiresAt ?: return null
+        return if (now < expiresAt) "معتبر تا ${timeOf(expiresAt)}" else "منقضی شده"
     }
 
     override fun getItemCount(): Int = rows.size
@@ -116,8 +138,8 @@ class OtpCodesAdapter(
         }
 
     private fun copy(code: String) {
-        ClipboardHelper.copyToClipboard(context, code, "OTP", showToast = false)
-        Toast.makeText(context, "کد تایید $code کپی شد", Toast.LENGTH_SHORT).show()
+        val copied = ClipboardHelper.copyToClipboard(context, code, "OTP", showToast = false, sensitive = true)
+        Toast.makeText(context, if (copied) "کد تایید $code کپی شد" else "کپی کد ممکن نشد", Toast.LENGTH_SHORT).show()
     }
 
     private inner class HeaderViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -149,8 +171,10 @@ class OtpCodesAdapter(
             code.text = spaced(item.code)
 
             val success = ContextCompat.getColor(context, R.color.success)
-            status.text = "فعال · امروز $time"
-            status.setCompoundDrawablesRelative(glyph(R.drawable.ic_lc_circle_check, success, 16), null, null, null)
+            val validity = validityOf(item)
+            status.text = validity?.let { "$it · دریافت $time" } ?: "دریافت امروز $time"
+            status.setCompoundDrawablesRelative(
+                if (item.isExpired()) null else glyph(R.drawable.ic_lc_circle_check, success, 16), null, null, null)
 
             val copyGlyph = glyph(R.drawable.ic_lc_copy, Color.WHITE, 18)
             val doneGlyph = glyph(R.drawable.ic_lc_circle_check, Color.WHITE, 18)
@@ -182,11 +206,13 @@ class OtpCodesAdapter(
             meta.text = "${item.sender} · ${dayOf(item.receivedAt)} ${timeOf(item.receivedAt)}"
             code.text = spaced(item.code)
 
-            // Today's codes may still be valid and copy on tap; older ones are marked expired
-            state.text = if (today) "فعال" else "منقضی شده"
-            state.visibility = View.VISIBLE
-            itemView.isClickable = today
-            itemView.setOnClickListener(if (today) View.OnClickListener { copy(item.code) } else null)
+            // Expired only when the message said so; a code from an earlier day is old news, and
+            // one with no stated validity simply shows when it arrived
+            val expired = item.isExpired() || !today
+            state.text = validityOf(item) ?: if (today) "" else "قدیمی"
+            state.visibility = if (state.text.isNullOrEmpty()) View.GONE else View.VISIBLE
+            itemView.isClickable = !expired
+            itemView.setOnClickListener(if (!expired) View.OnClickListener { copy(item.code) } else null)
 
             itemView.setBackgroundResource(when {
                 row.first && row.last -> R.drawable.group_single

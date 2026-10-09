@@ -1,5 +1,7 @@
 package com.moez.QKSMS.feature.smart
 
+import com.moez.QKSMS.feature.smart.analysis.Direction
+import com.moez.QKSMS.feature.smart.analysis.MoneyUnit
 import com.moez.QKSMS.feature.smart.model.SmsCategory
 import com.moez.QKSMS.feature.smart.promo.BrandRegistry
 import org.junit.Assert.assertEquals
@@ -100,22 +102,27 @@ class BankingDetectionTest {
 
     @Test
     fun `amounts without a unit are read, and the sign sets the direction`() {
+        // No unit written means none is claimed: these used to come back as "… ریال"
         val melli = banking("+98700717", "بانك ملي ايران\nانتقال:+7,000,000\nحساب:66005\nمانده:25,817,272\n0701-13:49")
-        assertEquals("7,000,000 ریال", melli?.amount)
+        assertEquals("7,000,000", melli?.amount)
         assertEquals(true, melli?.isDeposit)
+        assertEquals(MoneyUnit.UNKNOWN, melli?.details?.transaction?.unit)
 
         val fee = banking("+98700717", "بانك ملي ايران\nكارمزد:-1,008,000\nحساب:56007\nمانده:14,646,341\n0628-09:29")
-        assertEquals("1,008,000 ریال", fee?.amount)
+        assertEquals("1,008,000", fee?.amount)
         assertEquals(false, fee?.isDeposit)
+        assertNull(fee?.details?.transaction)
+        assertEquals(1_008_000L, fee?.details?.fee?.value)
 
         val mehr = banking("B.QMEHRIRAN", "300356873684\n1,000,000+\n1405/6/21-17:32\nمانده:4,405,082")
-        assertEquals("1,000,000 ریال", mehr?.amount)
+        assertEquals("1,000,000", mehr?.amount)
         assertEquals(true, mehr?.isDeposit)
 
         val profit = banking("Bank Mellat", "واریز سود کوتاه مدت\nحساب5786970551\nمبلغ2,319\n05/07/01")
-        assertEquals("2,319 ریال", profit?.amount)
+        assertEquals("2,319", profit?.amount)
         assertEquals(true, profit?.isDeposit)
 
+        // Stated units are kept as stated
         val debt = banking("Bank Mellat", "بانک ملت\nمشتری گرامی، پرداخت بدهی ش.ق 1404785794911 بمبلغ 94,076,000 ریال از محل حساب بشماره 7772286851 انجام شد.")
         assertEquals("94,076,000 ریال", debt?.amount)
         assertEquals(false, debt?.isDeposit)
@@ -123,5 +130,88 @@ class BankingDetectionTest {
         val wallet = banking("+981000123456", "کیف پول بازارپی شما ۱۰,۰۰۰,۰۰۰ تومان شارژ شد.")
         assertEquals("10,000,000 تومان", wallet?.amount)
         assertEquals(true, wallet?.isDeposit)
+    }
+
+    // ------------------------------------------------------------ amounts, balance and fee
+
+    @Test
+    fun `the balance is not the withdrawal even when it comes first and is signed`() {
+        val category = banking("Bank Mellat", "بانک ملت\nمانده:+9,000,000؛ برداشت:500,000")
+        val details = category?.details
+        assertEquals(500_000L, details?.transaction?.value)
+        assertEquals(9_000_000L, details?.balance?.value)
+        assertEquals(Direction.DEBIT, details?.direction)
+        assertEquals(false, category?.isDeposit)
+    }
+
+    @Test
+    fun `transaction, balance and fee are read separately`() {
+        val details = banking("Bank Melli", "بانک ملی ایران\nبرداشت: 1,200,000 ریال\nکارمزد: 7,200 ریال\nمانده: 3,450,000 ریال\n1403/07/20-14:32")?.details
+        assertEquals(1_200_000L, details?.transaction?.value)
+        assertEquals(7_200L, details?.fee?.value)
+        assertEquals(3_450_000L, details?.balance?.value)
+        assertEquals(MoneyUnit.RIAL, details?.transaction?.unit)
+        assertEquals(Direction.DEBIT, details?.direction)
+    }
+
+    @Test
+    fun `ungrouped amounts, Arabic digits and trailing signs`() {
+        val details = banking("Bank Tejarat", "بانک تجارت\nحساب: 1234\n٢٥٠٠٠٠٠-\nمانده: ١٢٣٤٥٦٧٨")?.details
+        assertEquals(2_500_000L, details?.transaction?.value)
+        assertEquals(Direction.DEBIT, details?.direction)
+        assertEquals(12_345_678L, details?.balance?.value)
+    }
+
+    @Test
+    fun `a direction word in the amount's own line decides`() {
+        val details = banking("Bank Saderat", "بانک صادرات\nانتقال از حساب 1234\nواریز: 700,000 ریال\nمانده: 2,000,000 ریال")?.details
+        assertEquals(700_000L, details?.transaction?.value)
+        assertEquals(Direction.CREDIT, details?.direction)
+    }
+
+    @Test
+    fun `advertising words do not cancel a real receipt`() {
+        val body = "بانک ملت\nخرید از فروشگاه رفاه\nمبلغ: 1,200,000 ریال\nمانده: 5,000,000 ریال\nهدیه: ۱۰٪ تخفیف در خرید بعدی"
+        val category = banking("Bank Mellat", body)
+        assertEquals("بانک ملت", category?.bankName)
+        assertEquals(1_200_000L, category?.details?.transaction?.value)
+        assertEquals(Direction.DEBIT, category?.details?.direction)
+    }
+
+    @Test
+    fun `the issuer is the sender, not the destination bank`() {
+        val body = "انتقال وجه به بانک ملی ایران\nمبلغ: 500,000 ریال\nمانده: 2,000,000 ریال"
+        val category = banking("Bank Mellat", body)
+        assertEquals("بانک ملت", category?.bankName)
+        assertEquals("بانک ملی ایران", category?.details?.destinationBank)
+    }
+
+    @Test
+    fun `the issuer is the signature, not the bank money went to`() {
+        val body = "بانک ملت\nانتقال به حساب 0101234567001 نزد بانک ملی\nمبلغ: 500,000 ریال\nمانده: 2,000,000 ریال"
+        val category = banking("+98700717", body)
+        assertEquals("بانک ملت", category?.bankName)
+        assertEquals("بانک ملی ایران", category?.details?.destinationBank)
+    }
+
+    @Test
+    fun `loans, instalments and a bank's name alone are not receipts`() {
+        assertNull(banking("+985000123", "وام ۵۰ میلیون تومانی بدون ضامن از بانک ملت با اقساط ۳۶ ماهه"))
+        assertNull(banking("+985000123", "پرداخت قسط آسان با اپلیکیشن ما؛ همین حالا نصب کنید"))
+        assertNull(banking("Bank Mellat", "مشتری گرامی، قسط وام شما سررسید شده است"))
+        assertNull(banking("+985000123", "پول خود را در بانک پاسارگاد سرمایه‌گذاری کنید"))
+    }
+
+    @Test
+    fun `an advertisement that quotes a purchase is not a receipt`() {
+        assertNull(banking("+985000303112", "با خرید ۵۰۰,۰۰۰ تومانی از فروشگاه ما ۲۰٪ تخفیف بگیرید\nلغو۱۱"))
+        assertNull(banking("+985000303112", "فقط ۳ روز مانده تا پایان جشنواره"))
+    }
+
+    @Test
+    fun `a bank's verification code is an OTP, but its conversation stays under Banking`() {
+        val body = "بانک ملت\nرمز پویا: 48291375\nمبلغ: 1,250,000 ریال"
+        assertTrue(SmartSmsClassifier.classify("Bank Mellat", body) is SmsCategory.Otp)
+        assertTrue(SmartSmsClassifier.classifyConversation("Bank Mellat", body, hasSavedContact = false) is SmsCategory.Banking)
     }
 }

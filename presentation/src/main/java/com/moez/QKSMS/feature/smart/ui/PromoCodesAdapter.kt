@@ -16,6 +16,7 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.moez.QKSMS.R
 import com.moez.QKSMS.common.util.ContrastUtils
@@ -148,10 +149,29 @@ class PromoCodesAdapter(
     }
 
     private fun applyFilter() {
+        val oldRows = ArrayList(rows)
         rows.clear()
         rows.addAll(PromoRanker.buildRows(visiblePromos()))
-        notifyDataSetChanged()
+        // Cards hold mutable marks, so compare against a snapshot of what each row showed
+        val oldStamps = oldRows.map { stampOf(it) }
+        val newStamps = rows.map { stampOf(it) }
+        DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = oldRows.size
+            override fun getNewListSize() = rows.size
+            override fun areItemsTheSame(oldPos: Int, newPos: Int) = identityOf(oldRows[oldPos]) == identityOf(rows[newPos])
+            override fun areContentsTheSame(oldPos: Int, newPos: Int) = oldStamps[oldPos] == newStamps[newPos]
+        }).dispatchUpdatesTo(this)
         onDataChanged()
+    }
+
+    private fun identityOf(row: PromoRow): String = when (row) {
+        is PromoRow.Header -> "h:${row.section}"
+        is PromoRow.Item -> "i:${row.promo.id}"
+    }
+
+    private fun stampOf(row: PromoRow): String = when (row) {
+        is PromoRow.Header -> row.toString()
+        is PromoRow.Item -> "${row.promo}|${row.promo.isPinned}|${row.promo.isUsed}|${row.promo.isInvalid}"
     }
 
     override fun getItemViewType(position: Int): Int = when (rows[position]) {

@@ -49,6 +49,19 @@ abstract class Interactor<in Params> : Disposable {
                 })
     }
 
+    /**
+     * Like [execute], but [onFinally] runs however the work ends: completion, error or
+     * disposal. Broadcast receivers use it so their pending result is always finished.
+     */
+    fun executeThenFinally(params: Params, onFinally: () -> Unit) {
+        val finished = java.util.concurrent.atomic.AtomicBoolean(false)
+        val finish = { if (finished.compareAndSet(false, true)) onFinally() }
+        disposables += buildObservable(params)
+                .subscribeOn(Schedulers.io())
+                .doFinally { finish() }
+                .subscribe({ }, { error -> Timber.w(error) })
+    }
+
     override fun dispose() {
         return disposables.dispose()
     }
