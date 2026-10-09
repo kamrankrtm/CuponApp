@@ -394,6 +394,9 @@ class MainActivity : QkThemedActivity(), MainView {
         val wasSyncing = lastSyncProgress is SyncRepository.SyncProgress.Running
         val isNowIdle = state.syncing is SyncRepository.SyncProgress.Idle
         if (wasSyncing && isNowIdle) {
+            // Full imports rebuild internal message IDs; coupon scanning must not reuse the old cursor.
+            com.moez.QKSMS.feature.smart.promo.PromoStore.setLastScannedMessageId(0L)
+            classificationCache.clear()
             preClassifyConversations()
         }
         lastSyncProgress = state.syncing
