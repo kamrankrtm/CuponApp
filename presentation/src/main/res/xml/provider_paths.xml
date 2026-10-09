@@ -18,6 +18,10 @@
   ~ along with QKSMS.  If not, see <http://www.gnu.org/licenses/>.
   -->
 <paths>
+    <!-- Downloaded app updates, handed to the system installer -->
+    <cache-path
+        name="updates"
+        path="updates/" />
     <external-path
         name="external_files"
         path="." />

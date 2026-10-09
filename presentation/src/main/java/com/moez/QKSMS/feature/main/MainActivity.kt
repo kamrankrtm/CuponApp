@@ -91,7 +91,7 @@ import io.realm.RealmChangeListener
 import io.realm.RealmResults
 import javax.inject.Inject
 
-class MainActivity : QkThemedActivity(), MainView {
+class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update.AppUpdateChecker.Host {
 
     @Inject lateinit var blockingDialog: BlockingDialog
     @Inject lateinit var disposables: CompositeDisposable
@@ -460,7 +460,86 @@ class MainActivity : QkThemedActivity(), MainView {
         }
 
         // Check for updates from GitHub Releases, also when coming back to an open app
+        com.moez.QKSMS.feature.update.UpdateInstaller.host = this
+        com.moez.QKSMS.feature.update.UpdateInstaller.listener = { renderUpdate() }
+        renderUpdate()
+        // Back from "allow installs from this app": the install carries on by itself
+        com.moez.QKSMS.feature.update.UpdateInstaller.resume(this)
         com.moez.QKSMS.feature.update.AppUpdateChecker.checkForUpdate(this)
+    }
+
+    /** The release the banner offers, if any. */
+    private var offeredUpdate: com.moez.QKSMS.feature.update.AppUpdateChecker.ReleaseInfo? = null
+
+    override fun showUpdate(release: com.moez.QKSMS.feature.update.AppUpdateChecker.ReleaseInfo) {
+        offeredUpdate = release
+        renderUpdate()
+    }
+
+    /**
+     * The update banner at the top: "new version" → tap → download progress in place → the
+     * installer opens by itself. Close snoozes the release for a day.
+     */
+    private fun renderUpdate() {
+        val banner = updateBanner ?: return
+        val installer = com.moez.QKSMS.feature.update.UpdateInstaller
+        val release = offeredUpdate
+        val state = installer.state
+        val fa = { n: Long -> com.moez.QKSMS.feature.smart.SmartSmsClassifier.toPersianDigits(n.toString()) }
+        val name = release?.tagName?.removePrefix("v") ?: ""
+
+        if (release == null && (state is com.moez.QKSMS.feature.update.UpdateInstaller.State.Idle ||
+                        state is com.moez.QKSMS.feature.update.UpdateInstaller.State.Failed)) {
+            banner.visibility = View.GONE
+            return
+        }
+        banner.visibility = View.VISIBLE
+        updateBannerProgress.visibility = View.GONE
+        updateBannerClose.visibility = View.VISIBLE
+        when (state) {
+            is com.moez.QKSMS.feature.update.UpdateInstaller.State.Downloading -> {
+                updateBannerTitle.text = "در حال دانلود نسخه‌ی ${state.tag.removePrefix("v")}"
+                val mb = { b: Long -> String.format("%.1f", b / 1_048_576.0) }
+                updateBannerSubtitle.text = if (state.totalBytes > 0) {
+                    "${fa(state.percent.toLong())}٪ · ${com.moez.QKSMS.feature.smart.SmartSmsClassifier.toPersianDigits(mb(state.doneBytes))} از " +
+                        "${com.moez.QKSMS.feature.smart.SmartSmsClassifier.toPersianDigits(mb(state.totalBytes))} مگابایت · پس از پایان، نصب خودکار باز می‌شود"
+                } else "پس از پایان، نصب خودکار باز می‌شود"
+                updateBannerProgress.visibility = View.VISIBLE
+                updateBannerProgress.isIndeterminate = state.totalBytes <= 0
+                updateBannerProgress.progress = state.percent
+                updateBannerClose.visibility = View.GONE
+            }
+            is com.moez.QKSMS.feature.update.UpdateInstaller.State.Ready -> {
+                updateBannerTitle.text = "نسخه‌ی ${state.tag.removePrefix("v")} دانلود شد"
+                updateBannerSubtitle.text = "برای نصب بزنید"
+            }
+            is com.moez.QKSMS.feature.update.UpdateInstaller.State.NeedsPermission -> {
+                updateBannerTitle.text = "نسخه‌ی ${state.tag.removePrefix("v")} آماده‌ی نصب است"
+                updateBannerSubtitle.text = "اجازه‌ی «نصب برنامه‌های ناشناس» را برای smsPRO روشن کنید، سپس بزنید"
+            }
+            is com.moez.QKSMS.feature.update.UpdateInstaller.State.Failed -> {
+                updateBannerTitle.text = "دانلود نسخه‌ی ${state.tag.removePrefix("v")} کامل نشد"
+                updateBannerSubtitle.text = "${state.message}"
+            }
+            else -> {
+                updateBannerTitle.text = "نسخه‌ی جدید $name آماده است"
+                updateBannerSubtitle.text = "برای دانلود و نصب خودکار بزنید" +
+                    (release?.sizeBytes?.takeIf { it > 0 }?.let { " · ${com.moez.QKSMS.feature.smart.SmartSmsClassifier.toPersianDigits(String.format("%.1f", it / 1_048_576.0))} مگابایت" } ?: "")
+            }
+        }
+        banner.setOnClickListener {
+            when (val current = installer.state) {
+                is com.moez.QKSMS.feature.update.UpdateInstaller.State.Downloading -> Unit
+                is com.moez.QKSMS.feature.update.UpdateInstaller.State.Ready -> installer.install(this, current.file, current.tag)
+                is com.moez.QKSMS.feature.update.UpdateInstaller.State.NeedsPermission -> installer.install(this, current.file, current.tag)
+                else -> offeredUpdate?.let { installer.start(this, it) }
+            }
+        }
+        updateBannerClose.setOnClickListener {
+            offeredUpdate?.let { com.moez.QKSMS.feature.update.AppUpdateChecker.snooze(this, it) }
+            offeredUpdate = null
+            banner.visibility = View.GONE
+        }
     }
 
     override fun onPause() {
@@ -468,6 +547,8 @@ class MainActivity : QkThemedActivity(), MainView {
         activityResumedIntent.onNext(false)
         com.moez.QKSMS.feature.smart.ai.AiPromoExtractor.onPromosUpdated = null
         com.moez.QKSMS.feature.smart.SmartEvents.listener = null
+        com.moez.QKSMS.feature.update.UpdateInstaller.listener = null
+        com.moez.QKSMS.feature.update.UpdateInstaller.host = null
     }
 
     override fun onDestroy() {

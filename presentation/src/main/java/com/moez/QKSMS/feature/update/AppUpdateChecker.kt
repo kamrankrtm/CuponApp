@@ -30,8 +30,25 @@ object AppUpdateChecker {
         val tagName: String,
         val title: String,
         val notes: String,
-        val downloadUrl: String
+        val downloadUrl: String,
+        /** Size of the APK as the release lists it; 0 when unknown. */
+        val sizeBytes: Long = 0L,
+        /** Whether [downloadUrl] is the APK itself rather than the release page. */
+        val isApk: Boolean = false
     )
+
+    /** A screen that shows new releases as its own banner instead of a dialog. */
+    interface Host {
+        fun showUpdate(release: ReleaseInfo)
+    }
+
+    /** "Later": the same release stays quiet for a day. */
+    fun snooze(context: Context, release: ReleaseInfo) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                .putString(KEY_SNOOZED_TAG, release.tagName)
+                .putLong(KEY_SNOOZED_AT, System.currentTimeMillis())
+                .apply()
+    }
 
     fun checkForUpdate(activity: Activity, manualCheck: Boolean = false) {
         val prefs = activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -65,16 +82,20 @@ object AppUpdateChecker {
                     val body = json.optString("body", "")
                     val htmlUrl = json.optString("html_url", "https://github.com/kamrankrtm/CuponApp/releases")
 
+                    // The versioned APK (smsPRO-3.0.9.83.apk) when the release has one, else any APK
                     var downloadUrl = htmlUrl
+                    var sizeBytes = 0L
+                    var isApk = false
                     val assets = json.optJSONArray("assets")
                     if (assets != null && assets.length() > 0) {
-                        for (i in 0 until assets.length()) {
-                            val asset = assets.getJSONObject(i)
-                            val assetName = asset.optString("name", "")
-                            if (assetName.endsWith(".apk")) {
-                                downloadUrl = asset.optString("browser_download_url", htmlUrl)
-                                break
-                            }
+                        val apks = (0 until assets.length()).map { assets.getJSONObject(it) }
+                                .filter { it.optString("name", "").endsWith(".apk") }
+                        val asset = apks.firstOrNull { Regex("^smsPRO-\\d.*\\.apk$").matches(it.optString("name", "")) }
+                                ?: apks.firstOrNull()
+                        if (asset != null) {
+                            downloadUrl = asset.optString("browser_download_url", htmlUrl)
+                            sizeBytes = asset.optLong("size", 0L)
+                            isApk = true
                         }
                     }
 
@@ -84,9 +105,11 @@ object AppUpdateChecker {
                                 prefs.getString(KEY_SNOOZED_TAG, null) == tagName &&
                                 now - prefs.getLong(KEY_SNOOZED_AT, 0L) < SNOOZE_MS
                         if (!snoozed) {
-                            val releaseInfo = ReleaseInfo(tagName, name, body, downloadUrl)
+                            val releaseInfo = ReleaseInfo(tagName, name, body, downloadUrl, sizeBytes, isApk)
                             activity.runOnUiThread {
-                                showUpdateDialog(activity, releaseInfo)
+                                if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
+                                if (activity is Host && releaseInfo.isApk) activity.showUpdate(releaseInfo)
+                                else showUpdateDialog(activity, releaseInfo)
                             }
                         }
                     } else if (manualCheck) {
@@ -154,16 +177,17 @@ object AppUpdateChecker {
         AlertDialog.Builder(activity)
             .setTitle("🚀 نسخه جدید smsPRO آماده است!")
             .setMessage(message)
-            .setPositiveButton("دانلود نسخه جدید") { _, _ ->
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(release.downloadUrl))
-                activity.startActivity(intent)
+            .setPositiveButton(if (release.isApk) "به‌روزرسانی" else "دانلود نسخه جدید") { _, _ ->
+                if (release.isApk) {
+                    // Downloaded here and installed when done; progress shows on the main screen
+                    UpdateInstaller.start(activity, release)
+                    android.widget.Toast.makeText(activity, "دانلود نسخه‌ی جدید شروع شد؛ پس از پایان، نصب خودکار باز می‌شود",
+                            android.widget.Toast.LENGTH_LONG).show()
+                } else {
+                    activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.downloadUrl)))
+                }
             }
-            .setNegativeButton("بعداً") { _, _ ->
-                activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
-                        .putString(KEY_SNOOZED_TAG, release.tagName)
-                        .putLong(KEY_SNOOZED_AT, System.currentTimeMillis())
-                        .apply()
-            }
+            .setNegativeButton("بعداً") { _, _ -> snooze(activity, release) }
             .setCancelable(true)
             .show()
     }
