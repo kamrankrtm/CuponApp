@@ -67,6 +67,20 @@ class PromoDetectionRegressionTest {
         assertTrue(PromoCodeExtractor.appearsIn("PAY-CNN48", "کد تخفیف: PAY-CNN48"))
     }
 
+    @Test fun `lowercase unlabelled coupons are kept for review`() {
+        val result = analyze("اسنپ فود ۳۰ درصد تخفیف food30")
+        assertEquals("food30", result.single().promo.code)
+        assertFalse(PromoReadPolicy.shouldMarkRead(result, date))
+    }
+
+    @Test fun `receipt code on the next line does not become a coupon`() {
+        assertTrue(analyze("تخفیف خرید؛ کد رهگیری:\nAB12345").isEmpty())
+    }
+
+    @Test fun `long numeric labelled coupon is preserved`() {
+        assertEquals("123456789012", extract("کد تخفیف: 123456789012").first().code)
+    }
+
     @Test fun `receipts and used notices never trigger auto read`() {
         listOf("تخفیف خرید؛ کد رهگیری AB12345", "کد FOOD30 روی سفارش شما اعمال شد").forEach {
             assertFalse(PromoReadPolicy.shouldMarkRead(analyze(it), date))

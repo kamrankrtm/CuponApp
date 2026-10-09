@@ -287,8 +287,9 @@ object PromoCodeExtractor {
                 // Dates, clocks and grouped amounts are not numeric coupons.
                 val tail = text.substring(end)
                 if (Regex("^[/:.,٬-][0-9]").containsMatchIn(tail)) return null
-                if (trust >= NUMERIC_LABEL_TRUST && penalty <= 4 && token.length in 4..8 &&
-                    !token.startsWith("09") && !token.startsWith("98")
+                if (trust >= NUMERIC_LABEL_TRUST && penalty <= 4 && token.length in 4..12 &&
+                    !token.startsWith("09") && !token.startsWith("98") &&
+                    !(token.length == 10 && token.startsWith("9"))
                 ) {
                     return CodeCandidate(token, 85 - penalty, start, end, note)
                 }
@@ -320,8 +321,7 @@ object PromoCodeExtractor {
 
     /** "کد رهگیری AB12345", "شماره سفارش: X12": a token a blocker word points at. */
     private fun isReceiptNumber(text: String, start: Int): Boolean {
-        val lineStart = text.lastIndexOf('\n', start - 1) + 1
-        val before = text.substring(maxOf(lineStart, start - 28), start)
+        val before = text.substring(maxOf(0, start - 48), start)
         return (before.contains("کد") || before.contains("شماره")) && BLOCKERS.any { before.contains(it) }
     }
 
@@ -334,11 +334,10 @@ object PromoCodeExtractor {
             (before == '“' && after == '”') || (before == '[' && after == ']')
     }
 
-    /** Letters and digits together, in capitals: the classic coupon shape. */
+    /** Mixed letters and digits; unlabelled candidates remain uncertain, regardless of case. */
     private fun isCodeShaped(token: String): Boolean =
-        token.length in 5..16 &&
-            token.any { it in 'A'..'Z' } && token.any { it in '0'..'9' } &&
-            token.none { it in 'a'..'z' }
+        token.length in 4..24 &&
+            token.any { it in 'A'..'Z' || it in 'a'..'z' } && token.any { it in '0'..'9' }
 
     private fun urlSpans(text: String): List<IntRange> {
         val spans = ArrayList<IntRange>()
