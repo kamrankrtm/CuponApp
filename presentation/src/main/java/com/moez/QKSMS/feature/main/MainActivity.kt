@@ -721,13 +721,20 @@ class MainActivity : QkThemedActivity(), MainView {
                 val lastScannedId = com.moez.QKSMS.feature.smart.promo.PromoStore.getLastScannedMessageId()
                 val isFirstScan = lastScannedId == 0L
 
-                val recentMessages = realm.where(com.moez.QKSMS.model.Message::class.java)
+                val promoQuery = realm.where(com.moez.QKSMS.model.Message::class.java)
                     .equalTo("type", "sms")
                     .equalTo("boxId", inboxType)
-                    .sort("date", io.realm.Sort.DESCENDING)
-                    .limit(if (isFirstScan) 300 else 100)
-                    .findAll()
+                if (!isFirstScan) promoQuery.greaterThan("id", lastScannedId)
+                val recentMessages = promoQuery.sort("id", io.realm.Sort.ASCENDING).findAll()
+                val couponReadIds = mutableListOf<Long>()
 
+                realm.where(com.moez.QKSMS.model.Message::class.java)
+                    .equalTo("type", "sms").equalTo("boxId", inboxType)
+                    .greaterThan("date", System.currentTimeMillis() - 24L * 60 * 60 * 1000)
+                    .findAll().forEach { message ->
+                        val category = SmartSmsClassifier.classify(message.address, message.body, message.date, message.threadId)
+                        if (category is SmsCategory.Otp) newOtps.add(category.otp)
+                    }
                 var newestScannedId = lastScannedId
                 for (msg in recentMessages) {
                     if (!msg.isValid) continue
@@ -743,6 +750,8 @@ class MainActivity : QkThemedActivity(), MainView {
                         // Every code in the message: some carry one per shop or basket size
                         SmartSmsClassifier.extractPromos(msg.address, text, msg.date, msg.threadId)
                             .filterTo(newPromos) { !it.isExpired() }
+                        if (!msg.read && com.moez.QKSMS.feature.smart.PromoMessageReader.confirmed(
+                                msg.address, text, msg.date, msg.threadId)) couponReadIds.add(msg.id)
                     }
                 }
 
@@ -759,6 +768,7 @@ class MainActivity : QkThemedActivity(), MainView {
                     newPromos.asReversed().forEach { SmartDataManager.addPromo(it) }
                     SmartDataManager.setOtps(newOtps)
                 }
+                com.moez.QKSMS.feature.smart.PromoMessageReader.markRead(applicationContext, couponReadIds)
                 com.moez.QKSMS.feature.smart.promo.PromoStore.setLastScannedMessageId(newestScannedId)
 
                 // Codes the rules could not read with confidence go to the AI, within the

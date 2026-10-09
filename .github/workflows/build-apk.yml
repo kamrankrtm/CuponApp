@@ -46,6 +46,12 @@ jobs:
           base=$(sed -n 's/^appVersionName=//p' gradle.properties | tr -d '[:space:]')
           echo "name=${base}.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
+      - name: Test discount detection and read policy
+        run: ./gradlew testNoAnalyticsDebugUnitTest --stacktrace --no-daemon
+        env:
+          ANDROID_NDK_HOME: ""
+          ANDROID_NDK_ROOT: ""
+
       - name: Build Debug APK (noAnalytics)
         run: ./gradlew assembleNoAnalyticsDebug -PbuildNumber=${{ github.run_number }} --stacktrace --no-daemon
         env:

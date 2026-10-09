@@ -188,8 +188,10 @@ object SmartSmsClassifier {
     fun isOtpMessage(body: String): Boolean {
         val normalized = normalizeText(body)
         val lower = normalized.toLowerCase()
-        if (OTP_KEYWORDS.any { lower.contains(it.toLowerCase()) }) return true
-        return OTP_PATTERNS.any { it.matcher(normalized).find() }
+        if (OTP_KEYWORDS.filter { it != "کد شما" }.any { lower.contains(it.toLowerCase()) }) return true
+        if (PromoCodeExtractor.looksPromotional(PromoValueParser.normalize(body)) &&
+            PromoCodeExtractor.extractAll(PromoValueParser.normalize(body)).any { it.confidence >= 80 }) return false
+        return lower.contains("کد شما") || OTP_PATTERNS.any { it.matcher(normalized).find() }
     }
 
     fun extractOtpCode(body: String): String? {

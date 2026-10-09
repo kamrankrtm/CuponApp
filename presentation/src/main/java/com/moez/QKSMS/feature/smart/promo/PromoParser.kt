@@ -176,6 +176,9 @@ object PromoParser {
         val code = finding.code.trim()
         // The message is the ground truth: a code that is not in it was invented or misplaced
         if (!PromoCodeExtractor.appearsIn(code, normalizedBody)) return null
+        // AI must obey the same code exclusions as the local engine.
+        if (PromoCodeExtractor.extractAll(normalizedBody).none { it.code.equals(code, ignoreCase = true) } &&
+            PromoCodeExtractor.indexOf(code, normalizedBody) >= 0) return null
 
         val lowerBody = normalizedBody.toLowerCase()
         val lowerSender = PromoValueParser.normalize(sender).toLowerCase()

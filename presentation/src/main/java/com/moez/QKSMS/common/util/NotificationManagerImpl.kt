@@ -100,6 +100,18 @@ class NotificationManagerImpl @Inject constructor(
     /**
      * Updates the notification for a particular conversation
      */
+    override fun markPromotionalMessagesRead(threadId: Long) {
+        val ids = messageRepo.getUnreadMessages(threadId).mapNotNull { message ->
+            if (message.type != "sms" || message.boxId != android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX ||
+                !com.moez.QKSMS.feature.smart.PromoMessageReader.confirmed(
+                    message.address, message.body, message.date, message.threadId)) return@mapNotNull null
+            SmartDataManager.addPromos(SmartSmsClassifier.extractPromos(
+                message.address, message.body, message.date, message.threadId))
+            message.id
+        }
+        com.moez.QKSMS.feature.smart.PromoMessageReader.markRead(context, ids)
+    }
+
     override fun update(threadId: Long) {
         // If notifications are disabled, don't do anything
         if (!prefs.notifications(threadId).get()) {

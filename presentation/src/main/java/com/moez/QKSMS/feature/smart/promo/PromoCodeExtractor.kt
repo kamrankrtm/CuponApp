@@ -31,7 +31,7 @@ object PromoCodeExtractor {
         "کد تخفیف اختصاصی" to 95, "کدهای تخفیف" to 95, "کد تخفیف" to 95, "کد هدیه" to 95,
         "کد کوپن" to 95, "کد شگفت انگیز" to 95, "کد اشتراک هدیه" to 95, "کد تبلیغاتی" to 92,
         "کوپن" to 92, "کد اختصاصی" to 90, "کد ویژه" to 90, "کد جایزه" to 90, "کد پاداش" to 90,
-        "کد اشتراک" to 85, "کد خرید" to 85,
+        "کد اشتراک" to 85, "کد خرید" to 85, "بن تخفیف" to 95, "کد هدیه شما" to 95,
         "promo code" to 95, "promocode" to 95, "discount code" to 95, "gift code" to 92,
         "voucher" to 92, "coupon" to 92,
         "کد معرف" to 80, "کد دعوت" to 80, "referral code" to 80, "invite code" to 80,
@@ -42,7 +42,7 @@ object PromoCodeExtractor {
     }.sortedByDescending { it.first.length }
 
     /** A label at or above this lends enough trust to accept a purely numeric code. */
-    private const val NUMERIC_LABEL_TRUST = 90
+    private const val NUMERIC_LABEL_TRUST = 85
 
     /** Words that may sit between a label and its code: "کد تخفیف ویژه شما: FOOD30". */
     private val FILLERS = setOf(
@@ -150,7 +150,7 @@ object PromoCodeExtractor {
     fun isVerificationMessage(normalizedBody: String): Boolean {
         val lower = normalizedBody.toLowerCase()
         if (VERIFICATION_SIGNALS.any { lower.contains(it) }) return true
-        return NUMERIC_CODE_INSTRUCTION.matcher(normalizedBody).find()
+        return !looksPromotional(normalizedBody) && NUMERIC_CODE_INSTRUCTION.matcher(normalizedBody).find()
     }
 
     /** Whether the message reports a code as used, applied or expired. */
@@ -284,16 +284,19 @@ object PromoCodeExtractor {
                     penalty += 4
                     continue
                 }
-                if (trust >= NUMERIC_LABEL_TRUST && penalty == 0 && token.length in 4..12 &&
+                // Dates, clocks and grouped amounts are not numeric coupons.
+                val tail = text.substring(end)
+                if (Regex("^[/:.,٬-][0-9]").containsMatchIn(tail)) return null
+                if (trust >= NUMERIC_LABEL_TRUST && penalty <= 4 && token.length in 4..8 &&
                     !token.startsWith("09") && !token.startsWith("98")
                 ) {
-                    return CodeCandidate(token, 70, start, end, note)
+                    return CodeCandidate(token, 85 - penalty, start, end, note)
                 }
                 penalty += 4
                 continue
             }
 
-            if (!isPlausible(token) || looksLikeSmsRetrieverHash(token)) {
+            if (!isPlausible(token, labelled = true)) {
                 penalty += 3
                 continue
             }
@@ -377,7 +380,18 @@ object PromoCodeExtractor {
     fun appearsIn(code: String, normalizedBody: String): Boolean {
         val needle = squash(code)
         if (needle.length < 3) return false
-        return squash(normalizedBody).contains(needle)
+        // Preserve token boundaries: FOOD30 must not validate inside FOOD300 or a URL.
+        val compactBody = normalizedBody.filter { it != '-' && it != '_' }
+        val pattern = Pattern.compile(
+            "(?<![A-Za-z0-9])" + needle.map { Pattern.quote(it.toString()) }.joinToString("\\s*") +
+                "(?![A-Za-z0-9])", Pattern.CASE_INSENSITIVE
+        )
+        val urls = urlSpans(compactBody)
+        val matcher = pattern.matcher(compactBody)
+        while (matcher.find()) {
+            if (!inside(urls, matcher.start(), matcher.end())) return true
+        }
+        return false
     }
 
     /** Where [code] sits in [normalizedBody], ignoring case; -1 when it is split up or absent. */
@@ -401,11 +415,11 @@ object PromoCodeExtractor {
      * not be a phone number or URL fragment, and must not be a brand name or one of the words
      * that shows up in every promotional text.
      */
-    private fun isPlausible(candidate: String): Boolean {
+    private fun isPlausible(candidate: String, labelled: Boolean = false): Boolean {
         if (candidate.length < 3 || candidate.length > 24) return false
         if (candidate.startsWith("09") || candidate.startsWith("+98") || candidate.startsWith("98")) return false
         if (!candidate.any { it in 'a'..'z' || it in 'A'..'Z' }) return false
-        if (candidate.all { it in 'a'..'z' || it in 'A'..'Z' } && candidate.length < 4) return false
+        if (candidate.all { it in 'a'..'z' || it in 'A'..'Z' } && candidate.length < 4 && !labelled) return false
         val lower = candidate.toLowerCase()
         if (STOP_WORDS.contains(lower)) return false
         if (BrandRegistry.isBrandWord(lower)) return false

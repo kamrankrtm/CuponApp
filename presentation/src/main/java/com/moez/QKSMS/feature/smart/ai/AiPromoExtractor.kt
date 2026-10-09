@@ -197,7 +197,7 @@ object AiPromoExtractor {
 
         executor.execute {
             try {
-                scan(prefs, mode, apiKey, baseUrl, model, callback)
+                scan(context.applicationContext, prefs, mode, apiKey, baseUrl, model, callback)
             } catch (t: Throwable) {
                 android.util.Log.e("AiPromoExtractor", "AI scan failed", t)
                 mainHandler.post { callback(false, "خطا در اجرای تحلیل: ${t.localizedMessage ?: t.javaClass.simpleName}", null) }
@@ -208,6 +208,7 @@ object AiPromoExtractor {
     }
 
     private fun scan(
+        context: Context,
         prefs: Preferences,
         mode: Mode,
         apiKey: String,
@@ -317,6 +318,11 @@ object AiPromoExtractor {
             }
             PromoStore.saveMemory()
             SmartDataManager.save()
+            val confirmedIds = (batch.flatMap { (campaign, candidate) -> listOf(candidate) + lookAlikes[campaign].orEmpty() }).filter { message ->
+                com.moez.QKSMS.feature.smart.PromoMessageReader.confirmed(
+                    message.sender, message.body, message.date, message.threadId)
+            }.map { it.messageId }
+            com.moez.QKSMS.feature.smart.PromoMessageReader.markRead(context, confirmedIds)
         }
 
         PromoStore.addAiScannedIds(scannedIds)
