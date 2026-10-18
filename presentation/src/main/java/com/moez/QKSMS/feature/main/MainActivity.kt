@@ -34,6 +34,7 @@ import android.view.ViewStub
 import android.widget.TextView
 import com.moez.QKSMS.feature.alarmguard.AlarmGuardManager
 import com.moez.QKSMS.util.AlarmGuardParser
+import com.moez.QKSMS.util.Preferences
 import android.widget.LinearLayout
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.core.app.ActivityCompat
@@ -1277,7 +1278,7 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
         val conversation = currentConversationsList.firstOrNull { it.isValid && it.id == threadId }
         if (conversation != null) {
             com.moez.QKSMS.feature.reminders.MessageReminderManager.showPicker(
-                this, threadId, conversation.getTitle(), conversation.lastMessage?.body ?: conversation.snippet
+                this, threadId, conversation.getTitle(), conversation.lastMessage?.body ?: conversation.snippet ?: ""
             )
         }
     }
