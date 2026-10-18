@@ -51,6 +51,7 @@ interface MainView : QkView<MainState> {
     fun showBlockingDialog(conversations: List<Long>, block: Boolean)
     fun showDeleteDialog(conversations: List<Long>)
     fun showChangelog(changelog: ChangelogManager.CumulativeChangelog)
+    fun showReminderPicker(threadId: Long)
     fun showArchivedSnackbar()
 
 }
