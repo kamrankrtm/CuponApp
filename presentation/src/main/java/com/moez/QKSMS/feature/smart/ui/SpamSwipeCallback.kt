@@ -19,8 +19,9 @@ import com.moez.QKSMS.R
  */
 class SpamSwipeCallback(
     context: Context,
-    private val onNotSpam: (conversationId: Long) -> Unit
-) : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.RIGHT) {
+    private val onNotSpam: (conversationId: Long) -> Unit,
+    private val onRemind: (conversationId: Long) -> Unit
+) : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.RIGHT or ItemTouchHelper.LEFT) {
 
     /** Lets the row slide back if the list could not remove it straight away. */
     var adapter: RecyclerView.Adapter<*>? = null
@@ -90,7 +91,7 @@ class SpamSwipeCallback(
     override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
         val id = viewHolder.itemId
         val position = viewHolder.adapterPosition
-        onNotSpam(id)
+        if (direction == ItemTouchHelper.LEFT) onRemind(id) else onNotSpam(id)
         // If the row is still there (the sender could not be read), let it slide back
         if (position != RecyclerView.NO_POSITION) {
             viewHolder.itemView.post {
