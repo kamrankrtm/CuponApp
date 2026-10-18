@@ -187,7 +187,9 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
     private val viewModel by lazy { ViewModelProviders.of(this, viewModelFactory)[MainViewModel::class.java] }
     private val toggle by lazy { ActionBarDrawerToggle(this, drawerLayout, toolbar, R.string.main_drawer_open_cd, 0) }
     private val itemTouchHelper by lazy { ItemTouchHelper(itemTouchCallback) }
-    private val spamSwipeCallback by lazy { SpamSwipeCallback(this) { id -> markNotSpam(id) } }
+    private val spamSwipeCallback by lazy {
+        SpamSwipeCallback(this, { id -> markNotSpam(id) }, { id -> showReminderPicker(id) })
+    }
     private val spamSwipeHelper by lazy { ItemTouchHelper(spamSwipeCallback) }
     private val progressAnimator by lazy { ObjectAnimator.ofInt(syncingProgress, "progress", 0, 0) }
     private val changelogDialog by lazy { ChangelogDialog(this) }
@@ -214,6 +216,14 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
         }
 
         toggle.syncState()
+        // Existing installs defaulted to Archive on both swipes.
+        // Keep any explicitly customized swipe and leave the right shortcut untouched.
+        if (!prefs.reminderSwipeMigrated.get()) {
+            if (prefs.swipeLeft.get() == Preferences.SWIPE_ACTION_ARCHIVE) {
+                prefs.swipeLeft.set(Preferences.SWIPE_ACTION_REMIND)
+            }
+            prefs.reminderSwipeMigrated.set(true)
+        }
         conversationsAdapter.onLongPress = { id -> showMoveSheet(id) }
         filteredConversationsAdapter.onLongPress = { id -> showMoveSheet(id) }
         try {
@@ -1198,6 +1208,15 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
         if (helper !== itemTouchHelper) itemTouchHelper.attachToRecyclerView(null)
         if (helper !== spamSwipeHelper) spamSwipeHelper.attachToRecyclerView(null)
         helper?.attachToRecyclerView(recyclerView)
+    }
+
+    override fun showReminderPicker(threadId: Long) {
+        val conversation = currentConversationsList.firstOrNull { it.isValid && it.id == threadId }
+        if (conversation != null) {
+            com.moez.QKSMS.feature.reminders.MessageReminderManager.showPicker(
+                this, threadId, conversation.getTitle(), conversation.lastMessage?.body ?: conversation.snippet
+            )
+        }
     }
 
     /** Swiping right in Spam: the sender goes to Personal and notifies normally from now on. */
