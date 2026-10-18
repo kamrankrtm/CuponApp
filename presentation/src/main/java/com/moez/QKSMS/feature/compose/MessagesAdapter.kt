@@ -22,6 +22,7 @@ import android.animation.ObjectAnimator
 import android.content.Context
 import android.graphics.Typeface
 import android.os.Build
+import android.os.SystemClock
 import android.text.Layout
 import android.text.Spannable
 import android.text.SpannableString
@@ -121,10 +122,42 @@ class MessagesAdapter @Inject constructor(
     var highlight: Long = -1L
         set(value) {
             if (field == value) return
-
             field = value
+            spotlightSince = SystemClock.uptimeMillis()
             notifyDataSetChanged()
         }
+
+    // Triggered only for a search result, not when opening an ordinary chat.
+    var searchSpotlight: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            spotlightSince = SystemClock.uptimeMillis()
+            notifyDataSetChanged()
+        }
+    private var spotlightSince: Long = 0L
+
+    /**
+     * True blur on Android 12+ via reflection (the app compiles with API 29).
+     * Older Android versions fall back to softened/dimmed surrounding messages.
+     */
+    private fun setSoftBlur(view: View, active: Boolean) {
+        if (Build.VERSION.SDK_INT < 31) return
+        try {
+            val cls = Class.forName("android.graphics.RenderEffect")
+            val setter = View::class.java.getMethod("setRenderEffect", cls)
+            if (!active) {
+                setter.invoke(view, null)
+                return
+            }
+            val tileCls = Class.forName("android.graphics.Shader\u0024TileMode")
+            val clamp = tileCls.enumConstants.first { (it as Enum<*>).name == "CLAMP" }
+            val create = cls.getMethod("createBlurEffect", java.lang.Float.TYPE, java.lang.Float.TYPE, tileCls)
+            setter.invoke(view, create.invoke(null, 7f, 7f, clamp))
+        } catch (_: Exception) {
+            // Never break message rendering for a visual flourish.
+        }
+    }
 
     private val contactCache = ContactCache()
     private val expanded = HashMap<Long, Boolean>()
@@ -195,6 +228,25 @@ class MessagesAdapter @Inject constructor(
 
         // Update the selected state
         holder.containerView.isActivated = isSelected(message.id) || highlight == message.id
+
+        // Keep the located message sharp and prominent; reveal other bubbles after a short pause.
+        val pulse = searchSpotlight && highlight >= 0L &&
+            highlight != message.id && SystemClock.uptimeMillis() - spotlightSince < 2500L
+        holder.itemView.animate().cancel()
+        holder.itemView.alpha = if (pulse) 0.24f else 1f
+        setSoftBlur(holder.itemView, pulse)
+        if (pulse) {
+            val originalMessageId = message.id
+            val selectedId = highlight
+            holder.itemView.postDelayed({
+                val positionNow = holder.adapterPosition
+                if (positionNow != RecyclerView.NO_POSITION &&
+                    getItem(positionNow)?.id == originalMessageId && highlight == selectedId) {
+                    setSoftBlur(holder.itemView, false)
+                    holder.itemView.animate().alpha(1f).setStartDelay(0).setDuration(900).start()
+                }
+            }, 1200L)
+        }
 
         // Bind the cancel view
         holder.cancel?.let { cancel ->
