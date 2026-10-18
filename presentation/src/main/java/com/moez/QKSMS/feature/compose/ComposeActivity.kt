@@ -304,6 +304,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
 
         messageList.setVisible(!state.editingMode || state.sendAsGroup || state.selectedChips.size == 1)
         messageAdapter.data = state.messages
+        messageAdapter.searchSpotlight = state.query.isNotEmpty() && state.searchSelectionId >= 0L
         messageAdapter.highlight = state.searchSelectionId
 
         scheduledGroup.isVisible = state.scheduled != 0L
@@ -551,7 +552,13 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         messageAdapter.data?.second
                 ?.indexOfLast { message -> message.id == id }
                 ?.takeIf { position -> position != -1 }
-                ?.let(messageList::scrollToPosition)
+                ?.let { position ->
+                    messageList.scrollToPosition(position)
+                    messageList.post { 
+                        (messageList.layoutManager as? androidx.recyclerview.widget.LinearLayoutManager)
+                            ?.scrollToPositionWithOffset(position, messageList.height / 3)
+                    }
+                }
     }
 
     override fun showQksmsPlusSnackbar(message: Int) {
