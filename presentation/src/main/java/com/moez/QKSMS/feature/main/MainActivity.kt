@@ -110,10 +110,13 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
         PromoCodesAdapter(
             context = this,
             onDataChanged = { rebuildPromoChips() },
-            onUndoAvailable = { message, undo -> showPromoUndo(message, undo) }
+            onUndoAvailable = { message, undo -> showPromoUndo(message, undo) },
+            onOpenOriginal = { id, code -> navigator.showConversation(id, code) }
         )
     }
-    private val otpCodesAdapter by lazy { OtpCodesAdapter(this) }
+    private val otpCodesAdapter by lazy {
+        OtpCodesAdapter(this, onOpenOriginal = { id, code -> navigator.showConversation(id, code) })
+    }
     private val filteredConversationsAdapter by lazy {
         FilteredConversationsAdapter(colors, this, dateFormatter, navigator, phoneNumberUtils)
     }
