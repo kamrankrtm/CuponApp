@@ -312,12 +312,12 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
             prefMediaAsCloudLink.checkbox.isChecked = newVal
         }
 
-        prefFilesIrToken?.summary = if (prefs.filesIrToken.get().isBlank()) "Not configured (public upload)" else "Configured (••••••••)"
+        prefFilesIrToken?.summary = if (prefs.filesIrToken.get().isBlank()) "Catbox عمومی (بدون توکن، حداکثر ۲۰۰ مگابایت)" else "Configured (••••••••)"
         prefFilesIrToken?.setOnClickListener {
             activity?.let { act ->
                 TextInputDialog(act, "Files.ir API Token") { text ->
                     prefs.filesIrToken.set(text.trim())
-                    prefFilesIrToken.summary = if (text.isBlank()) "Not configured (public upload)" else "Configured (••••••••)"
+                    prefFilesIrToken.summary = if (text.isBlank()) "Catbox عمومی (بدون توکن، حداکثر ۲۰۰ مگابایت)" else "Configured (••••••••)"
                 }.setText(prefs.filesIrToken.get()).show()
             }
         }
