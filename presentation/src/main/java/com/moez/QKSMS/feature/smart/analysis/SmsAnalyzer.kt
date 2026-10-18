@@ -71,6 +71,7 @@ object SmsAnalyzer {
                 serviceName = SmartSmsClassifier.serviceName(cleanSender, text, banking.issuer),
                 sender = cleanSender,
                 body = cleanBody,
+                threadId = threadId,
                 receivedAt = date,
                 sourceKey = key,
                 confidence = selected.score,
