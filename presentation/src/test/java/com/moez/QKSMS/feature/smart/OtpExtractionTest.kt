@@ -28,6 +28,20 @@ class OtpExtractionTest {
     // ------------------------------------------------------------ choosing the right number
 
     @Test
+    fun `MYGOV access codes are verification codes`() {
+        val body = "پنجره ملی خدمات دولت\nهشدار کد دسترسی به اطلاعات محرمانه!\n93650"
+        assertEquals("93650", code(body))
+        assertEquals(SmsKind.OTP, analyze(body, "MYGOV").kind)
+    }
+
+    @Test
+    fun `blu bank loan login code is an OTP`() {
+        val body = "کد ورود به سامانه تسهیلات بلوبانک سامان\ncode: 67761\nلغو11"
+        assertEquals("67761", code(body))
+        assertEquals(SmsKind.OTP, analyze(body, "+989999170772").kind)
+    }
+
+    @Test
     fun `a card number before the code is not the code`() {
         val result = OtpExtractor.extract("کارت 12345678؛ کد تایید شما: 482913")
         assertEquals("482913", result.selected?.code)
