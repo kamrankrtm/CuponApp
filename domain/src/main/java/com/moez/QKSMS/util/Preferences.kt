@@ -72,6 +72,7 @@ class Preferences @Inject constructor(
         const val SWIPE_ACTION_CALL = 4
         const val SWIPE_ACTION_READ = 5
         const val SWIPE_ACTION_UNREAD = 6
+        const val SWIPE_ACTION_REMIND = 7
 
         const val BLOCKING_MANAGER_QKSMS = 0
         const val BLOCKING_MANAGER_CC = 1
@@ -112,7 +113,8 @@ class Preferences @Inject constructor(
     val qkreplyTapDismiss = rxPrefs.getBoolean("qkreplyTapDismiss", true)
     val sendDelay = rxPrefs.getInteger("sendDelay", SEND_DELAY_NONE)
     val swipeRight = rxPrefs.getInteger("swipeRight", SWIPE_ACTION_ARCHIVE)
-    val swipeLeft = rxPrefs.getInteger("swipeLeft", SWIPE_ACTION_ARCHIVE)
+    val swipeLeft = rxPrefs.getInteger("swipeLeft", SWIPE_ACTION_REMIND)
+    val reminderSwipeMigrated = rxPrefs.getBoolean("reminderSwipeMigrated_1", false)
     val autoEmoji = rxPrefs.getBoolean("autoEmoji", true)
     val delivery = rxPrefs.getBoolean("delivery", false)
     val signature = rxPrefs.getString("signature", "")

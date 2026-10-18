@@ -31,6 +31,10 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewStub
+import android.widget.TextView
+import com.moez.QKSMS.feature.alarmguard.AlarmGuardManager
+import com.moez.QKSMS.util.AlarmGuardParser
+import com.moez.QKSMS.util.Preferences
 import android.widget.LinearLayout
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.core.app.ActivityCompat
@@ -107,10 +111,13 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
         PromoCodesAdapter(
             context = this,
             onDataChanged = { rebuildPromoChips() },
-            onUndoAvailable = { message, undo -> showPromoUndo(message, undo) }
+            onUndoAvailable = { message, undo -> showPromoUndo(message, undo) },
+            onOpenOriginal = { id, code -> navigator.showConversation(id, code) }
         )
     }
-    private val otpCodesAdapter by lazy { OtpCodesAdapter(this) }
+    private val otpCodesAdapter by lazy {
+        OtpCodesAdapter(this, onOpenOriginal = { id, code -> navigator.showConversation(id, code) })
+    }
     private val filteredConversationsAdapter by lazy {
         FilteredConversationsAdapter(colors, this, dateFormatter, navigator, phoneNumberUtils)
     }
@@ -187,7 +194,9 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
     private val viewModel by lazy { ViewModelProviders.of(this, viewModelFactory)[MainViewModel::class.java] }
     private val toggle by lazy { ActionBarDrawerToggle(this, drawerLayout, toolbar, R.string.main_drawer_open_cd, 0) }
     private val itemTouchHelper by lazy { ItemTouchHelper(itemTouchCallback) }
-    private val spamSwipeCallback by lazy { SpamSwipeCallback(this) { id -> markNotSpam(id) } }
+    private val spamSwipeCallback by lazy {
+        SpamSwipeCallback(this, { id -> markNotSpam(id) }, { id -> showReminderPicker(id) })
+    }
     private val spamSwipeHelper by lazy { ItemTouchHelper(spamSwipeCallback) }
     private val progressAnimator by lazy { ObjectAnimator.ofInt(syncingProgress, "progress", 0, 0) }
     private val changelogDialog by lazy { ChangelogDialog(this) }
@@ -214,6 +223,14 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
         }
 
         toggle.syncState()
+        // Existing installs defaulted to Archive on both swipes.
+        // Keep any explicitly customized swipe and leave the right shortcut untouched.
+        if (!prefs.reminderSwipeMigrated.get()) {
+            if (prefs.swipeLeft.get() == Preferences.SWIPE_ACTION_ARCHIVE) {
+                prefs.swipeLeft.set(Preferences.SWIPE_ACTION_REMIND)
+            }
+            prefs.reminderSwipeMigrated.set(true)
+        }
         conversationsAdapter.onLongPress = { id -> showMoveSheet(id) }
         filteredConversationsAdapter.onLongPress = { id -> showMoveSheet(id) }
         try {
@@ -234,6 +251,17 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
 
         // Don't allow clicks to pass through the drawer layout
         drawer.clicks().autoDisposable(scope()).subscribe()
+        val quickAlarm = findViewById<TextView>(R.id.quickAlarmControl)
+        quickAlarm.setOnClickListener { handleQuickAlarmToggle() }
+        quickAlarm.setOnLongClickListener {
+            navigator.showAlarmSettings()
+            true
+        }
+        prefs.alarmLastStatus.asObservable()
+            .observeOn(io.reactivex.android.schedulers.AndroidSchedulers.mainThread())
+            .autoDisposable(scope())
+            .subscribe({ updateQuickAlarmControl() }, { android.util.Log.w("MainActivity", "Alarm state observer failed", it) })
+        updateQuickAlarmControl()
         drawerAlarmGuard.setOnClickListener {
             drawerLayout.closeDrawer(GravityCompat.START)
             navigator.showAlarmSettings()
@@ -852,7 +880,7 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
                 fun read(message: com.moez.QKSMS.model.Message) = cache.analyze(message.address, message.body,
                     message.date, message.threadId, analyzer.sourceKeyOf(message.type, message.contentId))
 
-                val dayAgo = System.currentTimeMillis() - 24L * 60 * 60 * 1000
+                val dayAgo = System.currentTimeMillis() - 48L * 60 * 60 * 1000
                 realm.where(com.moez.QKSMS.model.Message::class.java)
                     .equalTo("type", "sms").equalTo("boxId", inboxType)
                     .greaterThan("date", dayAgo)
@@ -1198,6 +1226,61 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
         if (helper !== itemTouchHelper) itemTouchHelper.attachToRecyclerView(null)
         if (helper !== spamSwipeHelper) spamSwipeHelper.attachToRecyclerView(null)
         helper?.attachToRecyclerView(recyclerView)
+    }
+
+    private fun updateQuickAlarmControl() {
+        val quick = findViewById<TextView>(R.id.quickAlarmControl) ?: return
+        val status = try {
+            AlarmGuardParser.Status.valueOf(prefs.alarmLastStatus.get())
+        } catch (_: Exception) { AlarmGuardParser.Status.UNKNOWN }
+        val (title, color) = when (status) {
+            AlarmGuardParser.Status.ARMED -> "● دزدگیر روشن" to 0xFF15803D.toInt()
+            AlarmGuardParser.Status.DISARMED -> "○ دزدگیر خاموش" to 0xFF64748B.toInt()
+            AlarmGuardParser.Status.PENDING_ARM -> "◌ در حال روشن‌شدن" to 0xFFB45309.toInt()
+            AlarmGuardParser.Status.PENDING_DISARM -> "◌ در حال خاموش‌شدن" to 0xFFB45309.toInt()
+            AlarmGuardParser.Status.UNKNOWN -> "دزدگیر · نامشخص" to 0xFF475569.toInt()
+        }
+        quick.text = title
+        quick.backgroundTintList = ColorStateList.valueOf(color)
+        quick.isEnabled = status != AlarmGuardParser.Status.PENDING_ARM &&
+            status != AlarmGuardParser.Status.PENDING_DISARM
+        quick.contentDescription = "$title؛ لمس برای تغییر وضعیت، نگه‌داشتن برای تنظیمات"
+    }
+
+    private fun handleQuickAlarmToggle() {
+        if (prefs.alarmPhoneNumber.get().isBlank()) {
+            navigator.showAlarmSettings()
+            return
+        }
+        val status = try {
+            AlarmGuardParser.Status.valueOf(prefs.alarmLastStatus.get())
+        } catch (_: Exception) { AlarmGuardParser.Status.UNKNOWN }
+        when (status) {
+            AlarmGuardParser.Status.ARMED -> AlarmGuardManager.sendDisarm(this, prefs)
+            AlarmGuardParser.Status.DISARMED -> AlarmGuardManager.sendArm(this, prefs)
+            AlarmGuardParser.Status.UNKNOWN ->
+                androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("وضعیت دزدگیر مشخص نیست")
+                    .setItems(arrayOf("روشن کردن دزدگیر", "خاموش کردن دزدگیر", "تنظیمات")) { _, index ->
+                        when (index) {
+                            0 -> AlarmGuardManager.sendArm(this, prefs)
+                            1 -> AlarmGuardManager.sendDisarm(this, prefs)
+                            else -> navigator.showAlarmSettings()
+                        }
+                        updateQuickAlarmControl()
+                    }.show()
+            else -> return
+        }
+        updateQuickAlarmControl()
+    }
+
+    override fun showReminderPicker(threadId: Long) {
+        val conversation = currentConversationsList.firstOrNull { it.isValid && it.id == threadId }
+        if (conversation != null) {
+            com.moez.QKSMS.feature.reminders.MessageReminderManager.showPicker(
+                this, threadId, conversation.getTitle(), conversation.lastMessage?.body ?: conversation.snippet ?: ""
+            )
+        }
     }
 
     /** Swiping right in Spam: the sender goes to Personal and notifies normally from now on. */

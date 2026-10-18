@@ -29,6 +29,7 @@ import java.util.Calendar
  */
 class OtpCodesAdapter(
     private val context: Context,
+    private val onOpenOriginal: (Long, String) -> Unit = { _, _ -> },
     private var otps: MutableList<OtpItem> = mutableListOf()
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
@@ -166,6 +167,9 @@ class OtpCodesAdapter(
         fun bind(item: OtpItem) {
             val time = timeOf(item.receivedAt)
             service.text = item.serviceName
+            itemView.setOnClickListener {
+                if (item.threadId > 0L) onOpenOriginal(item.threadId, item.code)
+            }
             sender.text = item.sender
             date.text = time
             code.text = spaced(item.code)
@@ -211,8 +215,14 @@ class OtpCodesAdapter(
             val expired = item.isExpired() || !today
             state.text = validityOf(item) ?: if (today) "" else "قدیمی"
             state.visibility = if (state.text.isNullOrEmpty()) View.GONE else View.VISIBLE
-            itemView.isClickable = !expired
-            itemView.setOnClickListener(if (!expired) View.OnClickListener { copy(item.code) } else null)
+            itemView.isClickable = item.threadId > 0L || !expired
+            itemView.setOnClickListener {
+                if (item.threadId > 0L) onOpenOriginal(item.threadId, item.code)
+                else if (!expired) copy(item.code)
+            }
+            itemView.setOnLongClickListener {
+                if (!expired) { copy(item.code); true } else false
+            }
 
             itemView.setBackgroundResource(when {
                 row.first && row.last -> R.drawable.group_single
