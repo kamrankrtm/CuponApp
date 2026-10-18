@@ -42,7 +42,8 @@ import com.moez.QKSMS.feature.smart.promo.PromoValueParser
 class PromoCodesAdapter(
     private val context: Context,
     private val onDataChanged: () -> Unit = {},
-    private val onUndoAvailable: (String, () -> Unit) -> Unit = { _, _ -> }
+    private val onUndoAvailable: (String, () -> Unit) -> Unit = { _, _ -> },
+    private val onOpenOriginal: (Long, String) -> Unit = { _, _ -> }
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     private companion object {
@@ -238,6 +239,10 @@ class PromoCodesAdapter(
         private val btnViewOriginal: Button = itemView.findViewById(R.id.btnViewOriginal)
 
         fun bind(item: PromoItem) {
+            itemView.setOnClickListener {
+                if (item.threadId > 0L) onOpenOriginal(item.threadId, item.code)
+                else showOriginalMessage(item)
+            }
             promoBrand.text = item.brand
             promoCategory.text = item.category
             // "از طرف دیجی‌پی · پرداخت با دیجی‌پی": who sponsors the code and how to pay
