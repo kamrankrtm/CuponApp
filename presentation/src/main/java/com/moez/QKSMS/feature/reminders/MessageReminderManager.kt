@@ -30,6 +30,7 @@ object MessageReminderManager {
 
     fun showPicker(context: Context, threadId: Long, sender: String, preview: String) {
         if (threadId <= 0L) return
+        ensureChannel(context)
         val now = Calendar.getInstance()
         val options = arrayOf("یک ساعت دیگر", "امشب، ساعت ۲۰", "فردا صبح، ساعت ۹", "فردا عصر، ساعت ۱۸", "انتخاب تاریخ و ساعت")
         val old = read(context, threadId)
@@ -73,6 +74,16 @@ object MessageReminderManager {
                     saveOrWarn(context, threadId, sender, preview, at.timeInMillis)
                 }
             }.setNegativeButton("انصراف", null).show()
+    }
+
+    private fun ensureChannel(context: Context) {
+        // Android 13 (targetSdk <= 32) prompts for notification permission only after
+        // a channel is created while an Activity is in the foreground.
+        if (Build.VERSION.SDK_INT >= 26) {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.createNotificationChannel(NotificationChannel(
+                CHANNEL, "یادآوری پیامک‌ها", NotificationManager.IMPORTANCE_HIGH))
+        }
     }
 
     private fun saveOrWarn(context: Context, threadId: Long, sender: String, preview: String, whenAt: Long) {
@@ -140,10 +151,7 @@ object MessageReminderManager {
         val record = read(context, threadId) ?: return
         store(context).edit().remove(threadId.toString()).apply()
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= 26) {
-            manager.createNotificationChannel(NotificationChannel(
-                CHANNEL, "یادآوری پیامک‌ها", NotificationManager.IMPORTANCE_HIGH))
-        }
+        ensureChannel(context)
         val sender = record.optString("sender", "پیامک")
         val preview = record.optString("text", "پیام موردنظر")
         val open = Intent(context, ComposeActivity::class.java).apply {
