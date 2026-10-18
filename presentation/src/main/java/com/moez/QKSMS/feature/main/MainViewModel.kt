@@ -452,6 +452,7 @@ class MainViewModel @Inject constructor(
                                 conversationRepo.updateConversations(threadId)
                             }
                         }
+                        Preferences.SWIPE_ACTION_REMIND -> view.showReminderPicker(threadId)
                         Preferences.SWIPE_ACTION_UNREAD -> {
                             markUnread.execute(listOf(threadId)) {
                                 conversationRepo.updateConversations(threadId)
