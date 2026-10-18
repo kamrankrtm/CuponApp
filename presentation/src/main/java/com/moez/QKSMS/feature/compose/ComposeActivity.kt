@@ -89,6 +89,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         private const val SelectContactRequestCode = 0
         private const val TakePhotoRequestCode = 1
         private const val AttachPhotoRequestCode = 2
+        private const val AttachFileRequestCode = 4
         private const val AttachContactRequestCode = 3
 
         private const val CameraDestinationKey = "camera_destination"
@@ -135,7 +136,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
                     else -> null
                 }
                 if (uri != null) {
-                    uploadCloudMedia(uri)
+                    uploadCloudMedia(uri, clearAttachments = true)
                     return@filter false
                 }
             }
@@ -534,13 +535,24 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
     }
 
     override fun requestGallery() {
-        val intent = Intent(Intent.ACTION_PICK)
-                .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                .addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
-                .putExtra(Intent.EXTRA_LOCAL_ONLY, false)
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                .setType("image/*")
-        startActivityForResult(Intent.createChooser(intent, null), AttachPhotoRequestCode)
+        AlertDialog.Builder(this)
+            .setTitle("پیوست پیام")
+            .setItems(arrayOf("انتخاب عکس", "آپلود فایل، ویدئو، PDF، ZIP یا سایر فرمت‌ها")) { _, choice ->
+                if (choice == 0) {
+                    val intent = Intent(Intent.ACTION_GET_CONTENT)
+                        .addCategory(Intent.CATEGORY_OPENABLE)
+                        .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                        .setType("image/*")
+                    startActivityForResult(Intent.createChooser(intent, "انتخاب عکس"), AttachPhotoRequestCode)
+                } else {
+                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+                        .addCategory(Intent.CATEGORY_OPENABLE)
+                        .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        .setType("*/*")
+                    startActivityForResult(intent, AttachFileRequestCode)
+                }
+            }.show()
     }
 
     override fun setDraft(draft: String) {
@@ -615,19 +627,16 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
                     cameraDestination?.let(attachmentSelectedIntent::onNext)
                 }
             }
-            requestCode == AttachPhotoRequestCode && resultCode == Activity.RESULT_OK -> {
-                if (prefs.mediaAsCloudLink.get()) {
-                    val uris = data?.clipData?.itemCount
-                        ?.let { count -> 0 until count }
-                        ?.mapNotNull { i -> data.clipData?.getItemAt(i)?.uri }
-                        ?: listOfNotNull(data?.data)
-                    uris.forEach { uploadCloudMedia(it) }
+            (requestCode == AttachPhotoRequestCode || requestCode == AttachFileRequestCode) &&
+                resultCode == Activity.RESULT_OK -> {
+                val uris = (0 until (data?.clipData?.itemCount ?: 0))
+                    .mapNotNull { index -> data?.clipData?.getItemAt(index)?.uri }
+                    .ifEmpty { listOfNotNull(data?.data) }
+                    .distinct()
+                if (requestCode == AttachFileRequestCode || prefs.mediaAsCloudLink.get()) {
+                    uploadCloudFiles(uris)
                 } else {
-                    data?.clipData?.itemCount
-                            ?.let { count -> 0 until count }
-                            ?.mapNotNull { i -> data.clipData?.getItemAt(i)?.uri }
-                            ?.forEach(attachmentSelectedIntent::onNext)
-                            ?: data?.data?.let(attachmentSelectedIntent::onNext)
+                    uris.forEach(attachmentSelectedIntent::onNext)
                 }
             }
             requestCode == AttachContactRequestCode && resultCode == Activity.RESULT_OK -> {
@@ -671,55 +680,89 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         }
     }
 
-    private fun uploadCloudMedia(uri: Uri) {
-        val dialogView = layoutInflater.inflate(R.layout.cloud_upload_dialog, null)
-        val status = dialogView.findViewById<TextView>(R.id.uploadStatus)
-        val progressBar = dialogView.findViewById<ProgressBar>(R.id.uploadProgressBar)
-        val percent = dialogView.findViewById<TextView>(R.id.uploadPercent)
-        val cancelBtn = dialogView.findViewById<Button>(R.id.uploadCancelButton)
+    private fun uploadCloudMedia(uri: Uri, clearAttachments: Boolean = false) =
+        uploadCloudFiles(listOf(uri), clearAttachments)
 
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .setCancelable(false)
-            .create()
+    private fun uploadCloudFiles(uris: List<Uri>, clearAttachments: Boolean = false) {
+        if (uris.isEmpty()) return
+        if (prefs.filesIrToken.get().isBlank()) {
+            AlertDialog.Builder(this)
+                .setTitle("آپلود عمومی")
+                .setMessage("فایل در Catbox ذخیره می‌شود و هرکسی با لینک به آن دسترسی دارد. هر فایل حداکثر ۲۰۰ مگابایت؛ بعضی پسوندها پذیرفته نمی‌شوند. برای مدارک خصوصی از Files.ir استفاده کنید.")
+                .setNegativeButton("انصراف", null)
+                .setPositiveButton("ادامه آپلود") { _, _ -> performCloudUploadBatch(uris, clearAttachments) }
+                .show()
+        } else performCloudUploadBatch(uris, clearAttachments)
+    }
 
-        var cancellable: CloudUploadManager.UploadCancellable? = null
-
-        cancelBtn.setOnClickListener {
-            cancellable?.cancel()
-            dialog.dismiss()
+    private fun performCloudUploadBatch(uris: List<Uri>, clearAttachments: Boolean) {
+        val panel = layoutInflater.inflate(R.layout.cloud_upload_dialog, null)
+        val status = panel.findViewById<TextView>(R.id.uploadStatus)
+        val progressBar = panel.findViewById<ProgressBar>(R.id.uploadProgressBar)
+        val percent = panel.findViewById<TextView>(R.id.uploadPercent)
+        val cancel = panel.findViewById<Button>(R.id.uploadCancelButton)
+        val dialog = AlertDialog.Builder(this).setView(panel).setCancelable(false).create()
+        var cancelled = false
+        var current: CloudUploadManager.UploadCancellable? = null
+        var index = 0
+        val links = mutableListOf<String>()
+        fun appendLinks() {
+            val existing = message.text?.toString() ?: ""
+            val added = links.joinToString("\n")
+            val result = if (existing.isBlank()) added else "$existing\n$added"
+            message.setText(result)
+            message.setSelection(result.length)
         }
-
-        dialog.show()
-
-        cancellable = cloudUploadManager.upload(
-            context = this,
-            uri = uri,
-            onProgress = { p ->
-                progressBar.isIndeterminate = false
-                progressBar.progress = p
-                percent.visibility = View.VISIBLE
-                percent.text = "$p%"
-                status.text = "در حال بارگذاری فایل... ($p%)"
-            },
-            onSuccess = { linkText ->
+        fun nextFile() {
+            if (cancelled) return
+            if (index >= uris.size) {
                 dialog.dismiss()
-                lastRenderedState?.attachments?.forEach { attachmentDeletedIntent.onNext(it) }
-                val currentText = message.text?.toString() ?: ""
-                val newText = if (currentText.isBlank()) linkText else "$currentText\n$linkText"
-                message.setText(newText)
-                message.setSelection(newText.length)
-                Toast.makeText(this, "لینک فایل با موفقیت اضافه شد", Toast.LENGTH_SHORT).show()
-            },
-            onError = { error ->
-                dialog.dismiss()
-                AlertDialog.Builder(this)
-                    .setTitle("خطا در ارسال فایل")
-                    .setMessage(error)
-                    .setPositiveButton("بستن", null)
-                    .show()
+                if (clearAttachments) lastRenderedState?.attachments?.forEach { attachmentDeletedIntent.onNext(it) }
+                appendLinks()
+                Toast.makeText(this, "${links.size} لینک فایل اضافه شد", Toast.LENGTH_SHORT).show()
+                return
             }
-        )
+            status.text = "در حال آپلود فایل ${index + 1} از ${uris.size}"
+            progressBar.progress = 0
+            percent.text = "۰٪"
+            current = cloudUploadManager.upload(
+                context = this,
+                uri = uris[index],
+                onProgress = { p ->
+                    if (!cancelled && !isFinishing) {
+                        progressBar.isIndeterminate = false
+                        progressBar.progress = p
+                        percent.visibility = View.VISIBLE
+                        percent.text = "$p%"
+                    }
+                },
+                onSuccess = { link ->
+                    if (!cancelled && !isFinishing) {
+                        links.add(link)
+                        index += 1
+                        nextFile()
+                    }
+                },
+                onError = { error ->
+                    if (!cancelled && !isFinishing) {
+                        dialog.dismiss()
+                        if (links.isNotEmpty()) appendLinks()
+                        AlertDialog.Builder(this)
+                            .setTitle("آپلود فایل ${index + 1} ناموفق بود")
+                            .setMessage(error + if (links.isNotEmpty()) "\nلینک فایل‌های موفق به پیام افزوده شد." else "")
+                            .setPositiveButton("بستن", null).show()
+                    }
+                }
+            )
+        }
+        cancel.setOnClickListener {
+            cancelled = true
+            current?.cancel()
+            dialog.dismiss()
+            if (links.isNotEmpty()) appendLinks()
+        }
+        dialog.show()
+        nextFile()
     }
 
     private fun showScheduleOptionsDialog() {
