@@ -852,7 +852,7 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
                 fun read(message: com.moez.QKSMS.model.Message) = cache.analyze(message.address, message.body,
                     message.date, message.threadId, analyzer.sourceKeyOf(message.type, message.contentId))
 
-                val dayAgo = System.currentTimeMillis() - 24L * 60 * 60 * 1000
+                val dayAgo = System.currentTimeMillis() - 48L * 60 * 60 * 1000
                 realm.where(com.moez.QKSMS.model.Message::class.java)
                     .equalTo("type", "sms").equalTo("boxId", inboxType)
                     .greaterThan("date", dayAgo)
