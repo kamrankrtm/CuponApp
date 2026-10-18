@@ -151,7 +151,7 @@ class MessagesAdapter @Inject constructor(
                 return
             }
             val tileCls = Class.forName("android.graphics.Shader\u0024TileMode")
-            val clamp = tileCls.enumConstants.first { (it as Enum<*>).name == "CLAMP" }
+            val clamp = tileCls.enumConstants?.firstOrNull { (it as Enum<*>).name == "CLAMP" } ?: return
             val create = cls.getMethod("createBlurEffect", java.lang.Float.TYPE, java.lang.Float.TYPE, tileCls)
             setter.invoke(view, create.invoke(null, 7f, 7f, clamp))
         } catch (_: Exception) {
