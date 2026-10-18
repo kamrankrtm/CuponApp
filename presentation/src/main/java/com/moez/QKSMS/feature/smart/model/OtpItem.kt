@@ -6,6 +6,7 @@ data class OtpItem(
     val serviceName: String,
     val sender: String,
     val body: String,
+    val threadId: Long = 0L,
     val receivedAt: Long = System.currentTimeMillis(),
     /** The message the code came from ("sms:<provider id>"), so a re-read replaces, not duplicates. */
     val sourceKey: String = "",
