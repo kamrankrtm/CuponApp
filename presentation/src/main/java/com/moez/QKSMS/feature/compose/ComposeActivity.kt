@@ -206,6 +206,9 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         messageAdapter.autoScrollToStart(messageList)
         messageAdapter.emptyView = messagesEmpty
 
+        // Avoid tmp-detached holder recycling during change animations (Android 16).
+        // The search spotlight has an independent fade effect.
+        messageList.itemAnimator = null
         messageList.setHasFixedSize(true)
         messageList.adapter = messageAdapter
 
