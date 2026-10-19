@@ -186,7 +186,11 @@ class FilteredConversationsAdapter(
         if (position == RecyclerView.NO_POSITION || position !in 0 until itemCount) return
         if (hasHeader && position == 0) return
         val id = getItemId(position)
-        if (id >= 0) navigator.showConversation(id)
+        if (id >= 0) {
+            // Banking rows summarize one latest transaction; focus that exact SMS when opened.
+            val messageId = if (bankingMode) getItem(position).takeIf { it.isValid }?.lastMessage?.id ?: -1L else -1L
+            navigator.showConversation(id, spotlightMessageId = messageId)
+        }
     }
 
     /** Hands a long-pressed row to [onLongPress]; false lets the press fall through. */

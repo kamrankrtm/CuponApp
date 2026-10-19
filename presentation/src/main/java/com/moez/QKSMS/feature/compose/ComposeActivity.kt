@@ -159,11 +159,14 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
     private var headerRecipientsKey: String? = null
     /** Re-centre a result once the conversation messages are actually loaded. */
     private var lastCentredSpotlightId: Long = -1L
+    /** A specific SMS chosen from a Banking transaction row (independent of text search). */
+    private var directSpotlightMessageId: Long = -1L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AndroidInjection.inject(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.compose_activity)
+        directSpotlightMessageId = intent.getLongExtra("spotlightMessageId", -1L)
         showBackButton(true)
         viewModel.bindView(this)
 
@@ -307,20 +310,19 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
 
         messageList.setVisible(!state.editingMode || state.sendAsGroup || state.selectedChips.size == 1)
         messageAdapter.data = state.messages
-        messageAdapter.searchSpotlight = state.query.isNotEmpty() && state.searchSelectionId >= 0L
-        messageAdapter.highlight = state.searchSelectionId
-        // ViewModel can select a search match before Realm has loaded its message list.
-        // Centre the actual bubble once it exists, and again when Next/Previous changes it.
-        if (state.query.isEmpty()) {
+        val selectedSpotlightId = if (state.query.isNotEmpty()) state.searchSelectionId else directSpotlightMessageId
+        messageAdapter.searchSpotlight = selectedSpotlightId >= 0L
+        messageAdapter.highlight = selectedSpotlightId
+        // Both search matches and Banking row taps centre their exact SMS, after Realm loads.
+        if (selectedSpotlightId < 0L) {
             lastCentredSpotlightId = -1L
-        } else if (state.searchSelectionId >= 0L && lastCentredSpotlightId != state.searchSelectionId) {
-            val selectedId = state.searchSelectionId
-            val found = state.messages?.second?.indexOfLast { it.id == selectedId } ?: -1
+        } else if (lastCentredSpotlightId != selectedSpotlightId) {
+            val found = state.messages?.second?.indexOfLast { it.id == selectedSpotlightId } ?: -1
             if (found >= 0) {
-                lastCentredSpotlightId = selectedId
+                lastCentredSpotlightId = selectedSpotlightId
                 messageList.post {
-                    if (!isFinishing && messageAdapter.highlight == selectedId) {
-                        scrollToMessage(selectedId)
+                    if (!isFinishing && messageAdapter.highlight == selectedSpotlightId) {
+                        scrollToMessage(selectedSpotlightId)
                     }
                 }
             }
