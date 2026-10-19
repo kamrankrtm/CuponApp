@@ -48,7 +48,7 @@ android {
         targetSdkVersion 29
         versionCode computedVersionCode
         versionName buildNumber ? "${appVersion}.${buildNumber}" : appVersion
-        setProperty("archivesBaseName", "smsPRO-v${versionName}")
+        setProperty("archivesBaseName", "MessagePlus-v${versionName}")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

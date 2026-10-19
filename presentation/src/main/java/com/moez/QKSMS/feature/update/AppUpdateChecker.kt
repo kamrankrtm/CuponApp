@@ -66,7 +66,7 @@ object AppUpdateChecker {
                 val url = URL(GITHUB_LATEST_RELEASE_URL)
                 val conn = url.openConnection() as HttpURLConnection
                 conn.requestMethod = "GET"
-                conn.setRequestProperty("User-Agent", "smsPRO-Android-App")
+                conn.setRequestProperty("User-Agent", "Message+-Android-App")
                 conn.setRequestProperty("Accept", "application/vnd.github.v3+json")
                 conn.connectTimeout = 8000
                 conn.readTimeout = 8000
@@ -82,7 +82,7 @@ object AppUpdateChecker {
                     val body = json.optString("body", "")
                     val htmlUrl = json.optString("html_url", "https://github.com/kamrankrtm/CuponApp/releases")
 
-                    // The versioned APK (smsPRO-3.0.9.83.apk) when the release has one, else any APK
+                    // Prefer the versioned MessagePlus APK, then any other APK from the release. when the release has one, else any APK
                     var downloadUrl = htmlUrl
                     var sizeBytes = 0L
                     var isApk = false
@@ -90,7 +90,7 @@ object AppUpdateChecker {
                     if (assets != null && assets.length() > 0) {
                         val apks = (0 until assets.length()).map { assets.getJSONObject(it) }
                                 .filter { it.optString("name", "").endsWith(".apk") }
-                        val asset = apks.firstOrNull { Regex("^smsPRO-\\d.*\\.apk$").matches(it.optString("name", "")) }
+                        val asset = apks.firstOrNull { Regex("^MessagePlus-\\d.*\\.apk$").matches(it.optString("name", "")) }
                                 ?: apks.firstOrNull()
                         if (asset != null) {
                             downloadUrl = asset.optString("browser_download_url", htmlUrl)
@@ -115,7 +115,7 @@ object AppUpdateChecker {
                     } else if (manualCheck) {
                         activity.runOnUiThread {
                             AlertDialog.Builder(activity)
-                                .setTitle("smsPRO به‌روز است")
+                                .setTitle("Message+ به‌روز است")
                                 .setMessage("شما در حال استفاده از آخرین نسخه موجود ($currentVersion) هستید.")
                                 .setPositiveButton("باشه", null)
                                 .show()
@@ -172,10 +172,10 @@ object AppUpdateChecker {
             "\n\nتغییرات:\n" + release.notes.take(500)
         } else ""
 
-        val message = "نسخه جدید ${release.tagName} برای smsPRO آماده دانلود است.$cleanNotes"
+        val message = "نسخه جدید ${release.tagName} برای Message+ آماده دانلود است.$cleanNotes"
 
         AlertDialog.Builder(activity)
-            .setTitle("🚀 نسخه جدید smsPRO آماده است!")
+            .setTitle("🚀 نسخه جدید Message+ آماده است!")
             .setMessage(message)
             .setPositiveButton(if (release.isApk) "به‌روزرسانی" else "دانلود نسخه جدید") { _, _ ->
                 if (release.isApk) {

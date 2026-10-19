@@ -1,4 +1,4 @@
-name: Build CuponApp APK
+name: Build Message+ APK
 
 on:
   push:
@@ -62,14 +62,14 @@ jobs:
         run: |
           mkdir -p build-output
           find presentation/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/CuponApp-debug.apk \;
-          cp build-output/CuponApp-debug.apk build-output/smsPRO-debug.apk
-          cp build-output/CuponApp-debug.apk "build-output/smsPRO-${{ steps.version.outputs.name }}.apk"
+          cp build-output/CuponApp-debug.apk build-output/MessagePlus-debug.apk
+          cp build-output/CuponApp-debug.apk "build-output/MessagePlus-${{ steps.version.outputs.name }}.apk"
           ls -la build-output/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: smsPRO-debug-apk
+          name: MessagePlus-debug-apk
           path: build-output/CuponApp-debug.apk
           retention-days: 30
 
@@ -86,7 +86,7 @@ jobs:
             printf '%s\n' "$COMMIT_MSG" \
               | sed -E '/^(Co-Authored-By|Claude-Session|Signed-off-by):/d; s/ *\[(shots|skip ci)\]//g'
             echo
-            echo "نصب: فایل CuponApp-debug.apk را دانلود و روی گوشی نصب کنید."
+            echo "نصب: فایل MessagePlus-debug.apk را دانلود و روی گوشی نصب کنید."
           } | cat -s > release-notes.txt
           cat release-notes.txt
 
@@ -97,11 +97,11 @@ jobs:
           # The app reads this tag from releases/latest and offers the update when it is
           # higher than its own version name
           tag_name: v${{ steps.version.outputs.name }}
-          name: smsPRO ${{ steps.version.outputs.name }}
+          name: Message+ ${{ steps.version.outputs.name }}
           body_path: release-notes.txt
           files: |
             build-output/CuponApp-debug.apk
-            build-output/smsPRO-debug.apk
-            build-output/smsPRO-${{ steps.version.outputs.name }}.apk
+            build-output/MessagePlus-debug.apk
+            build-output/MessagePlus-${{ steps.version.outputs.name }}.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

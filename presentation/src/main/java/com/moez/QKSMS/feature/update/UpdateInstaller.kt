@@ -68,7 +68,7 @@ object UpdateInstaller {
 
         val app = activity.applicationContext
         val dir = File(app.cacheDir, "updates").apply { mkdirs() }
-        val target = File(dir, "smsPRO-${release.tagName.removePrefix("v")}.apk")
+        val target = File(dir, "MessagePlus-${release.tagName.removePrefix("v")}.apk")
         // Older downloads are never needed again
         dir.listFiles()?.filter { it != target }?.forEach { it.delete() }
 
@@ -100,7 +100,7 @@ object UpdateInstaller {
         return try {
             conn = (URL(release.downloadUrl).openConnection() as HttpURLConnection).apply {
                 instanceFollowRedirects = true
-                setRequestProperty("User-Agent", "smsPRO-Android-App")
+                setRequestProperty("User-Agent", "Message+-Android-App")
                 connectTimeout = 15_000
                 readTimeout = 30_000
             }
@@ -148,7 +148,7 @@ object UpdateInstaller {
     fun install(activity: Activity, file: File, tag: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
             publish(State.NeedsPermission(tag, file))
-            Toast.makeText(activity, "اجازه‌ی نصب از smsPRO را روشن کنید؛ سپس نصب خودش ادامه پیدا می‌کند", Toast.LENGTH_LONG).show()
+            Toast.makeText(activity, "اجازه‌ی نصب از Message+ را روشن کنید؛ سپس نصب خودش ادامه پیدا می‌کند", Toast.LENGTH_LONG).show()
             try {
                 activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                     Uri.parse("package:${activity.packageName}")))

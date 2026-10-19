@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Launcher background: the brand blue, lighter at the top. The gradient spans the visible
-     72dp of the 108dp layer so masks of any shape see the full range. -->
+<!-- Deep navy background to match Message+ icon option 12. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
@@ -9,14 +8,11 @@
     android:viewportHeight="108">
     <path android:pathData="M0,0h108v108h-108Z">
         <aapt:attr name="android:fillColor">
-            <gradient
-                android:endColor="#0A5CE0"
-                android:endX="54"
-                android:endY="90"
-                android:startColor="#3B93FF"
-                android:startX="54"
-                android:startY="18"
-                android:type="linear" />
+            <gradient android:type="linear"
+                android:startColor="#152B49"
+                android:endColor="#060A15"
+                android:startX="0" android:startY="0"
+                android:endX="108" android:endY="108" />
         </aapt:attr>
     </path>
 </vector>
