@@ -1237,31 +1237,63 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
         filteredConversationsAdapter.refreshAlarmShortcut()
     }
 
+    /**
+     * The frequent-contacts shortcut must never send a security command on the first tap.
+     * Always require an explicit second confirmation for both arming and disarming.
+     */
     private fun handleQuickAlarmToggle() {
         if (prefs.alarmPhoneNumber.get().isBlank()) {
             navigator.showAlarmSettings()
             return
         }
-        val status = try {
-            AlarmGuardParser.Status.valueOf(prefs.alarmLastStatus.get())
-        } catch (_: Exception) { AlarmGuardParser.Status.UNKNOWN }
+        val status = currentAlarmStatus()
         when (status) {
-            AlarmGuardParser.Status.ARMED -> AlarmGuardManager.sendDisarm(this, prefs)
-            AlarmGuardParser.Status.DISARMED -> AlarmGuardManager.sendArm(this, prefs)
+            AlarmGuardParser.Status.ARMED -> confirmQuickAlarmCommand(arm = false)
+            AlarmGuardParser.Status.DISARMED -> confirmQuickAlarmCommand(arm = true)
             AlarmGuardParser.Status.UNKNOWN ->
                 androidx.appcompat.app.AlertDialog.Builder(this)
                     .setTitle("وضعیت دزدگیر مشخص نیست")
+                    .setMessage("برای روشن یا خاموش کردن دزدگیر، ابتدا دستور موردنظر را انتخاب کنید. بدون تأیید نهایی هیچ پیامکی ارسال نمی‌شود.")
                     .setItems(arrayOf("روشن کردن دزدگیر", "خاموش کردن دزدگیر", "تنظیمات")) { _, index ->
                         when (index) {
-                            0 -> AlarmGuardManager.sendArm(this, prefs)
-                            1 -> AlarmGuardManager.sendDisarm(this, prefs)
+                            0 -> confirmQuickAlarmCommand(arm = true)
+                            1 -> confirmQuickAlarmCommand(arm = false)
                             else -> navigator.showAlarmSettings()
                         }
-                        updateQuickAlarmControl()
-                    }.show()
-            else -> return
+                    }
+                    .setNegativeButton("انصراف", null)
+                    .show()
+            else -> Unit // Never send a second command while a reply is pending.
         }
-        updateQuickAlarmControl()
+    }
+
+    private fun currentAlarmStatus(): AlarmGuardParser.Status = try {
+        AlarmGuardParser.Status.valueOf(prefs.alarmLastStatus.get())
+    } catch (_: Exception) {
+        AlarmGuardParser.Status.UNKNOWN
+    }
+
+    private fun confirmQuickAlarmCommand(arm: Boolean) {
+        val action = if (arm) "روشن" else "خاموش"
+        val other = if (arm) AlarmGuardParser.Status.ARMED else AlarmGuardParser.Status.DISARMED
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("تأیید $action کردن دزدگیر")
+            .setMessage("آیا مطمئن هستید می‌خواهید دزدگیر را $action کنید؟\n\nفقط با انتخاب «بله، $action شود» دستور پیامکی ارسال می‌شود.")
+            .setNegativeButton("انصراف", null)
+            .setPositiveButton("بله، $action شود") { _, _ ->
+                // The actual status may change while the confirmation dialog is open.
+                val latest = currentAlarmStatus()
+                if (latest == AlarmGuardParser.Status.PENDING_ARM ||
+                    latest == AlarmGuardParser.Status.PENDING_DISARM ||
+                    latest == other) {
+                    android.widget.Toast.makeText(this, "وضعیت دزدگیر تغییر کرده است؛ دوباره بررسی کنید.", android.widget.Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                if (arm) AlarmGuardManager.sendArm(this, prefs)
+                else AlarmGuardManager.sendDisarm(this, prefs)
+                filteredConversationsAdapter.refreshAlarmShortcut()
+            }
+            .show()
     }
 
     override fun showReminderPicker(threadId: Long) {
