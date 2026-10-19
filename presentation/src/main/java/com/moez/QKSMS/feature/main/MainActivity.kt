@@ -31,7 +31,6 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewStub
-import android.widget.TextView
 import com.moez.QKSMS.feature.alarmguard.AlarmGuardManager
 import com.moez.QKSMS.util.AlarmGuardParser
 import com.moez.QKSMS.util.Preferences
@@ -119,7 +118,15 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
         OtpCodesAdapter(this, onOpenOriginal = { id, code -> navigator.showConversation(id, code) })
     }
     private val filteredConversationsAdapter by lazy {
-        FilteredConversationsAdapter(colors, this, dateFormatter, navigator, phoneNumberUtils)
+        FilteredConversationsAdapter(colors, this, dateFormatter, navigator, phoneNumberUtils).apply {
+            // Alarm shortcut is a dedicated first tile in Frequent Contacts, not a regular contact.
+            alarmStatus = {
+                try { AlarmGuardParser.Status.valueOf(prefs.alarmLastStatus.get()) }
+                catch (_: Exception) { AlarmGuardParser.Status.UNKNOWN }
+            }
+            onAlarmToggle = { handleQuickAlarmToggle() }
+            onAlarmSettings = { navigator.showAlarmSettings() }
+        }
     }
     private var currentTabPosition = 0
     private var currentConversationsList: List<Conversation> = emptyList()
@@ -251,12 +258,7 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
 
         // Don't allow clicks to pass through the drawer layout
         drawer.clicks().autoDisposable(scope()).subscribe()
-        val quickAlarm = findViewById<TextView>(R.id.quickAlarmControl)
-        quickAlarm.setOnClickListener { handleQuickAlarmToggle() }
-        quickAlarm.setOnLongClickListener {
-            navigator.showAlarmSettings()
-            true
-        }
+        // The one-tap alarm tile lives in the Frequent Contacts strip.
         prefs.alarmLastStatus.asObservable()
             .observeOn(io.reactivex.android.schedulers.AndroidSchedulers.mainThread())
             .autoDisposable(scope())
@@ -1126,6 +1128,7 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
             recyclerView.setPadding(0, recyclerView.paddingTop, 0, dp(if (conversationList) 104 else 24))
             applySurface(grouped = currentTabPosition in 2..4)
             filteredConversationsAdapter.bankingMode = currentTabPosition == 2
+            filteredConversationsAdapter.showAlarmShortcut = currentTabPosition == 1
             setEmptyIcon(when (currentTabPosition) {
                 1 -> R.drawable.ic_lc_user
                 2 -> R.drawable.ic_lc_landmark
@@ -1160,6 +1163,7 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
                             SmartSmsClassifier.isPersonalNumber(sender) || conv.recipients.any { it.contact != null }
                         }
                     }
+                    filteredConversationsAdapter.showAlarmShortcut = true
                     filteredConversationsAdapter.frequentContacts = getFrequentContacts(list)
                     filteredConversationsAdapter.data = list
                     if (recyclerView.adapter !== filteredConversationsAdapter) recyclerView.adapter = filteredConversationsAdapter
@@ -1229,22 +1233,8 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
     }
 
     private fun updateQuickAlarmControl() {
-        val quick = findViewById<TextView>(R.id.quickAlarmControl) ?: return
-        val status = try {
-            AlarmGuardParser.Status.valueOf(prefs.alarmLastStatus.get())
-        } catch (_: Exception) { AlarmGuardParser.Status.UNKNOWN }
-        val (title, color) = when (status) {
-            AlarmGuardParser.Status.ARMED -> "● دزدگیر روشن" to 0xFF15803D.toInt()
-            AlarmGuardParser.Status.DISARMED -> "○ دزدگیر خاموش" to 0xFF64748B.toInt()
-            AlarmGuardParser.Status.PENDING_ARM -> "◌ در حال روشن‌شدن" to 0xFFB45309.toInt()
-            AlarmGuardParser.Status.PENDING_DISARM -> "◌ در حال خاموش‌شدن" to 0xFFB45309.toInt()
-            AlarmGuardParser.Status.UNKNOWN -> "دزدگیر · نامشخص" to 0xFF475569.toInt()
-        }
-        quick.text = title
-        quick.backgroundTintList = ColorStateList.valueOf(color)
-        quick.isEnabled = status != AlarmGuardParser.Status.PENDING_ARM &&
-            status != AlarmGuardParser.Status.PENDING_DISARM
-        quick.contentDescription = "$title؛ لمس برای تغییر وضعیت، نگه‌داشتن برای تنظیمات"
+        // Reflect status changes in the pinned tile; don't add another control in the toolbar.
+        filteredConversationsAdapter.refreshAlarmShortcut()
     }
 
     private fun handleQuickAlarmToggle() {
@@ -1405,6 +1395,7 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
         val eligible = personalList
             .filter { conv ->
                 conv.isValid &&
+                !AlarmGuardManager.isAlarmConversation(conv, prefs) &&
                 conv.recipients.size == 1 &&
                 (conv.recipients.firstOrNull()?.contact != null || SmartSmsClassifier.isPersonalNumber(conv.recipients.firstOrNull()?.address ?: ""))
             }

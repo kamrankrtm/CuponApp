@@ -1,11 +1,13 @@
 package com.moez.QKSMS.feature.smart.ui
 
 import android.content.Context
+import android.content.res.ColorStateList
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import com.moez.QKSMS.util.AlarmGuardParser
 import androidx.core.text.buildSpannedString
 import androidx.core.text.color
 import androidx.core.view.isVisible
@@ -73,11 +75,29 @@ class FilteredConversationsAdapter(
     var frequentContacts: List<Conversation> = emptyList()
         set(value) {
             field = value.filter { it.isValid }
+            headerWithData = hasHeader
             notifyDataSetChanged()
         }
 
+    /** The alarm is always first on Personal, even if no ordinary frequent contacts exist. */
+    var showAlarmShortcut: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            headerWithData = hasHeader
+            notifyDataSetChanged()
+        }
+
+    var alarmStatus: () -> AlarmGuardParser.Status = { AlarmGuardParser.Status.UNKNOWN }
+    var onAlarmToggle: () -> Unit = {}
+    var onAlarmSettings: () -> Unit = {}
+
+    fun refreshAlarmShortcut() {
+        if (showAlarmShortcut && hasHeader) notifyItemChanged(0)
+    }
+
     private val hasHeader: Boolean
-        get() = frequentContacts.isNotEmpty()
+        get() = showAlarmShortcut || frequentContacts.isNotEmpty()
 
     /**
      * The conversations are live Realm objects, and a sync can delete them while this list still
@@ -285,6 +305,31 @@ class FilteredConversationsAdapter(
         fun bind(contacts: List<Conversation>, navigator: Navigator) {
             container.removeAllViews()
             val inflater = LayoutInflater.from(itemView.context)
+            if (showAlarmShortcut) {
+                val alarm = inflater.inflate(R.layout.frequent_alarm_item, container, false)
+                val circle = alarm.findViewById<View>(R.id.frequentAlarmCircle)
+                val dot = alarm.findViewById<View>(R.id.frequentAlarmDot)
+                val subtitle = alarm.findViewById<TextView>(R.id.frequentAlarmStatus)
+                val status = alarmStatus()
+                val (label, color) = when (status) {
+                    AlarmGuardParser.Status.ARMED -> "روشن" to 0xFF15803D.toInt()
+                    AlarmGuardParser.Status.DISARMED -> "خاموش" to 0xFF64748B.toInt()
+                    AlarmGuardParser.Status.PENDING_ARM -> "در حال روشن شدن" to 0xFFD97706.toInt()
+                    AlarmGuardParser.Status.PENDING_DISARM -> "در حال خاموش شدن" to 0xFFD97706.toInt()
+                    AlarmGuardParser.Status.UNKNOWN -> "نامشخص" to 0xFF64748B.toInt()
+                }
+                circle.backgroundTintList = ColorStateList.valueOf(color)
+                dot.backgroundTintList = ColorStateList.valueOf(color)
+                subtitle.text = label
+                subtitle.setTextColor(color)
+                val pending = status == AlarmGuardParser.Status.PENDING_ARM ||
+                    status == AlarmGuardParser.Status.PENDING_DISARM
+                alarm.isEnabled = !pending
+                alarm.contentDescription = "دزدگیر: $label؛ لمس برای تغییر وضعیت، نگه داشتن برای تنظیمات"
+                alarm.setOnClickListener { onAlarmToggle() }
+                alarm.setOnLongClickListener { onAlarmSettings(); true }
+                container.addView(alarm, 0)
+            }
             for (conv in contacts) {
                 if (!conv.isValid) continue
                 val recipient = conv.recipients.firstOrNull() ?: continue

@@ -157,6 +157,8 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
     private var cameraDestination: Uri? = null
     private var lastRenderedState: ComposeState? = null
     private var headerRecipientsKey: String? = null
+    /** Re-centre a result once the conversation messages are actually loaded. */
+    private var lastCentredSpotlightId: Long = -1L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AndroidInjection.inject(this)
@@ -307,6 +309,22 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         messageAdapter.data = state.messages
         messageAdapter.searchSpotlight = state.query.isNotEmpty() && state.searchSelectionId >= 0L
         messageAdapter.highlight = state.searchSelectionId
+        // ViewModel can select a search match before Realm has loaded its message list.
+        // Centre the actual bubble once it exists, and again when Next/Previous changes it.
+        if (state.query.isEmpty()) {
+            lastCentredSpotlightId = -1L
+        } else if (state.searchSelectionId >= 0L && lastCentredSpotlightId != state.searchSelectionId) {
+            val selectedId = state.searchSelectionId
+            val found = state.messages?.second?.indexOfLast { it.id == selectedId } ?: -1
+            if (found >= 0) {
+                lastCentredSpotlightId = selectedId
+                messageList.post {
+                    if (!isFinishing && messageAdapter.highlight == selectedId) {
+                        scrollToMessage(selectedId)
+                    }
+                }
+            }
+        }
 
         scheduledGroup.isVisible = state.scheduled != 0L
         scheduledTime.text = dateFormatter.getScheduledTimestamp(state.scheduled)

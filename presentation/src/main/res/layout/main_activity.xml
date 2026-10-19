@@ -46,26 +46,6 @@
                 android:layout_marginStart="8dp"
                 android:visibility="gone" />
 
-            <!-- Always-visible one-tap alarm control, independent from the drawer. -->
-            <TextView
-                android:id="@+id/quickAlarmControl"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_gravity="end|center_vertical"
-                android:layout_marginEnd="16dp"
-                android:background="@drawable/rounded_rectangle_22dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:contentDescription="کنترل سریع دزدگیر"
-                android:minWidth="100dp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:text="دزدگیر"
-                android:textColor="@android:color/white"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
         </androidx.appcompat.widget.Toolbar>
 
         <androidx.coordinatorlayout.widget.CoordinatorLayout
