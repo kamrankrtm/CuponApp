@@ -711,7 +711,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         if (prefs.filesIrToken.get().isBlank()) {
             AlertDialog.Builder(this)
                 .setTitle("آپلود عمومی")
-                .setMessage("فایل در Catbox ذخیره می‌شود و هرکسی با لینک به آن دسترسی دارد. هر فایل حداکثر ۲۰۰ مگابایت؛ بعضی پسوندها پذیرفته نمی‌شوند. برای مدارک خصوصی از Files.ir استفاده کنید.")
+                .setMessage("فایل ابتدا در Catbox عمومی آپلود می‌شود. اگر سرویس در دسترس نباشد، Gofile به‌عنوان پشتیبان استفاده می‌شود؛ لینک Gofile موقت است و ممکن است پس از مدتی حذف شود. هر فردی که لینک را داشته باشد به فایل دسترسی دارد. برای فایل‌های خصوصی یا نگهداری مطمئن‌تر، توکن Files.ir را در تنظیمات وارد کنید.")
                 .setNegativeButton("انصراف", null)
                 .setPositiveButton("ادامه آپلود") { _, _ -> performCloudUploadBatch(uris, clearAttachments) }
                 .show()
