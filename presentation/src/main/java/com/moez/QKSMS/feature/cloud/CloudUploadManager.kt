@@ -18,6 +18,12 @@ import timber.log.Timber
 import java.io.*
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.ConnectException
+import java.net.SocketException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLException
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,6 +32,10 @@ class CloudUploadManager @Inject constructor(
     private val prefs: Preferences
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    /** A Catbox rate-limit/server error can be retried on a backup provider. */
+    private class HostUnavailableException(message: String) : IOException(message)
+
 
     interface UploadCancellable {
         fun cancel()
@@ -42,6 +52,7 @@ class CloudUploadManager @Inject constructor(
         onError: (String) -> Unit
     ): UploadCancellable {
         val isCancelled = AtomicBoolean(false)
+        val activeConnection = AtomicReference<HttpURLConnection?>()
 
         val thread = Thread {
             try {
@@ -55,14 +66,37 @@ class CloudUploadManager @Inject constructor(
                 val filesToken = prefs.filesIrToken.get().trim()
                 val endpoint = prefs.filesIrEndpoint.get().trim().ifBlank { "https://my.files.ir" }
 
+                var temporaryLink = false
                 val rawUrl: String = if (filesToken.isNotEmpty()) {
                     uploadToFilesIr(context, uri, endpoint, filesToken, fileName, mimeType) { p ->
                         if (!isCancelled.get()) postProgress(onProgress, 10 + (p * 0.7).toInt())
                     }
                 } else {
-                    // No expiring tmpfiles links: public links must remain shareable.
-                    uploadToCatbox(context, uri, fileName, mimeType, isCancelled) { p ->
-                        if (!isCancelled.get()) postProgress(onProgress, 10 + (p * 0.7).toInt())
+                    try {
+                        uploadToCatbox(context, uri, fileName, mimeType, isCancelled, activeConnection) { p ->
+                            if (!isCancelled.get()) postProgress(onProgress, 10 + (p * 0.7).toInt())
+                        }
+                    } catch (catboxError: IOException) {
+                        if (isCancelled.get() || !shouldUseFallback(catboxError)) throw catboxError
+                        Timber.w(catboxError, "Catbox unavailable; trying Gofile temporary guest upload")
+                        postProgress(onProgress, 10)
+                        try {
+                            val backupUrl = uploadToGofile(
+                                context, uri, fileName, mimeType, isCancelled, activeConnection
+                            ) { p ->
+                                if (!isCancelled.get()) postProgress(onProgress, 10 + (p * 0.7).toInt())
+                            }
+                            temporaryLink = true
+                            backupUrl
+                        } catch (backupError: Exception) {
+                            if (isCancelled.get()) return@Thread
+                            Timber.w(backupError, "Gofile backup also unavailable")
+                            throw IOException(
+                                "اتصال به هر دو سرویس آپلود عمومی ناموفق بود (Catbox و Gofile). " +
+                                "اینترنت، VPN و DNS را بررسی کنید یا در تنظیمات برنامه توکن Files.ir را وارد کنید.",
+                                backupError
+                            )
+                        }
                     }
                 }
 
@@ -91,7 +125,11 @@ class CloudUploadManager @Inject constructor(
                     else -> "📎 فایل ($fileName): $finalUrl"
                 }
 
-                mainHandler.post { onSuccess(label) }
+                mainHandler.post {
+                    if (!isCancelled.get()) {
+                        onSuccess(if (temporaryLink) "⏳ لینک موقت Gofile (امکان حذف پس از مدتی): $label" else label)
+                    }
+                }
 
             } catch (e: Exception) {
                 Timber.e(e, "Upload failed")
@@ -106,6 +144,7 @@ class CloudUploadManager @Inject constructor(
         return object : UploadCancellable {
             override fun cancel() {
                 isCancelled.set(true)
+                activeConnection.getAndSet(null)?.disconnect()
                 thread.interrupt()
             }
         }
@@ -230,7 +269,9 @@ class CloudUploadManager @Inject constructor(
     /** Catbox: public anonymous uploads, 200 MB max and some extensions restricted. */
     private fun uploadToCatbox(
         context: Context, uri: Uri, filename: String, mime: String,
-        cancelled: AtomicBoolean, progress: (Int) -> Unit
+        cancelled: AtomicBoolean,
+        activeConnection: AtomicReference<HttpURLConnection?>,
+        progress: (Int) -> Unit
     ): String {
         val length = contentLength(context, uri)
         if (length > 200L * 1024L * 1024L) {
@@ -247,6 +288,7 @@ class CloudUploadManager @Inject constructor(
             setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
             setRequestProperty("Accept", "text/plain")
         }
+        activeConnection.set(conn)
         try {
             DataOutputStream(conn.outputStream).use { output ->
                 output.writeBytes("--$boundary\r\n")
@@ -259,6 +301,9 @@ class CloudUploadManager @Inject constructor(
             }
             val status = conn.responseCode
             val value = readResponse(conn).trim()
+            if (status == 429 || status >= 500) {
+                throw HostUnavailableException("Catbox HTTP $status")
+            }
             if (status !in 200..299 || !value.startsWith("https://files.catbox.moe/")) {
                 throw IOException(
                     "سرور آپلود عمومی فایل را نپذیرفت ($status): ${value.take(160)}. " +
@@ -267,9 +312,67 @@ class CloudUploadManager @Inject constructor(
             }
             return value
         } finally {
+            activeConnection.compareAndSet(conn, null)
             conn.disconnect()
         }
     }
+
+    /** Public guest links from Gofile can expire after inactivity. */
+    private fun uploadToGofile(
+        context: Context,
+        uri: Uri,
+        filename: String,
+        mime: String,
+        cancelled: AtomicBoolean,
+        activeConnection: AtomicReference<HttpURLConnection?>,
+        progress: (Int) -> Unit
+    ): String {
+        val boundary = "MessagePlus-" + java.util.UUID.randomUUID().toString()
+        val conn = (URL("https://upload.gofile.io/uploadfile").openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            doOutput = true
+            useCaches = false
+            connectTimeout = 30_000
+            readTimeout = 120_000
+            setChunkedStreamingMode(64 * 1024)
+            setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+            setRequestProperty("Accept", "application/json")
+        }
+        activeConnection.set(conn)
+        try {
+            DataOutputStream(conn.outputStream).use { output ->
+                output.writeBytes("--$boundary\r\n")
+                output.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"${asciiUploadName(filename)}\"\r\n")
+                output.writeBytes("Content-Type: $mime\r\n\r\n")
+                copyDocument(context, uri, output, contentLength(context, uri), progress, cancelled)
+                output.writeBytes("\r\n--$boundary--\r\n")
+            }
+            val status = conn.responseCode
+            val body = readResponse(conn)
+            if (status !in 200..299) throw IOException("Gofile HTTP $status")
+            val json = JSONObject(body)
+            val link = json.optJSONObject("data")?.optString("downloadPage").orEmpty()
+            if (json.optString("status") != "ok" || !link.startsWith("https://gofile.io/d/")) {
+                throw IOException("پاسخ نامعتبر از سرور پشتیبان Gofile")
+            }
+            return link
+        } finally {
+            activeConnection.compareAndSet(conn, null)
+            conn.disconnect()
+        }
+    }
+
+    private fun asciiUploadName(filename: String): String =
+        filename.replace(Regex("[^A-Za-z0-9._-]"), "_").take(120).ifBlank { "upload.bin" }
+
+    private fun shouldUseFallback(error: IOException): Boolean =
+        error is HostUnavailableException ||
+        error is UnknownHostException ||
+        error is ConnectException ||
+        error is SocketTimeoutException ||
+        error is SocketException ||
+        error is SSLException ||
+        error is EOFException
 
     private fun contentLength(context: Context, uri: Uri): Long {
         try {
@@ -403,7 +506,33 @@ class CloudUploadManager @Inject constructor(
 
             // 1. Files.ir
             if (filesToken.isBlank()) {
-                sb.append("• فضای ابری Files.ir: توکن وارد نشده (آپلود عمومی رایگان فعال است)\n")
+                sb.append("• Files.ir: توکن تنظیم نشده (آپلود عمومی استفاده می‌شود)\n")
+                for ((name, address) in listOf(
+                    "Catbox اصلی" to "https://catbox.moe/user/api.php",
+                    "Gofile پشتیبان موقت" to "https://upload.gofile.io/"
+                )) {
+                    try {
+                        val conn = URL(address).openConnection() as HttpURLConnection
+                        conn.connectTimeout = 10_000
+                        conn.readTimeout = 10_000
+                        conn.instanceFollowRedirects = false
+                        try {
+                            val code = conn.responseCode
+                            if (code in 200..499 && code != 429) {
+                                sb.append("• $name: سرور پاسخ می‌دهد (HTTP $code)\n")
+                            } else {
+                                sb.append("• $name: پاسخ نامناسب (HTTP $code)\n")
+                                overallSuccess = false
+                            }
+                        } finally {
+                            conn.disconnect()
+                        }
+                    } catch (e: Exception) {
+                        Timber.w(e, "Upload connectivity check failed: $name")
+                        sb.append("• $name: اتصال شبکه برقرار نشد\n")
+                        overallSuccess = false
+                    }
+                }
             } else {
                 try {
                     val conn = URL("${endpoint.trimEnd('/')}/api/v1/user").openConnection() as HttpURLConnection
