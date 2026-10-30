@@ -1,49 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Message+ adaptive foreground. Keep the artwork in the 72dp central safe zone. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <group
-        android:scaleX="0.72"
-        android:scaleY="0.72"
-        android:translateX="18"
-        android:translateY="18">
-    <!-- Soft cyan halo enhances legibility against the dark navy tile. -->
-    <path
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="#334EAA"
-        android:strokeWidth="10"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M28,25 C20,25 15,33 15,44 L15,58 C15,68 21,75 32,75 L31,86 L45,75 L69,75 C80,75 86,68 86,57 L86,44 C86,33 79,25 69,25 Z" />
-    <path
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="#27BEFF"
-        android:strokeWidth="6.3"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M28,25 C20,25 15,33 15,44 L15,58 C15,68 21,75 32,75 L31,86 L45,75 L69,75 C80,75 86,68 86,57 L86,44 C86,33 79,25 69,25 Z" />
-    <!-- Royal-blue edge creates the duotone outline of option 12. -->
-    <path
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="#2370F4"
-        android:strokeWidth="5.2"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M86,47 L86,57 C86,68 80,75 69,75 L45,75 L31,86" />
-    <!-- Message dots -->
-    <path android:fillColor="#2E9BFF"
-        android:pathData="M29,50 m-4.5,0 a4.5,4.5 0,1 0,9 0 a4.5,4.5 0,1 0,-9 0Z" />
-    <path android:fillColor="#2E9BFF"
-        android:pathData="M49,50 m-4.5,0 a4.5,4.5 0,1 0,9 0 a4.5,4.5 0,1 0,-9 0Z" />
-    <path android:fillColor="#2E9BFF"
-        android:pathData="M69,50 m-4.5,0 a4.5,4.5 0,1 0,9 0 a4.5,4.5 0,1 0,-9 0Z" />
-    <!-- Intelligent messaging sparkles -->
-    <path android:fillColor="#2B83FF"
-        android:pathData="M87,9 L89.4,16.6 L97,19 L89.4,21.4 L87,29 L84.6,21.4 L77,19 L84.6,16.6 Z" />
-    <path android:fillColor="#25D1FF"
-        android:pathData="M94,32 L95.4,36.6 L100,38 L95.4,39.4 L94,44 L92.6,39.4 L88,38 L92.6,36.6 Z" />
-    </group>
-</vector>
+<!-- Android adaptive launcher: mask/crop the approved glossy tile to the system icon shape. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/messageplus_ios" android:gravity="fill"/>
+</layer-list>

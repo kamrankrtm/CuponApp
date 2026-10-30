@@ -46,6 +46,13 @@ jobs:
           base=$(sed -n 's/^appVersionName=//p' gradle.properties | tr -d '[:space:]')
           echo "name=${base}.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
+      - name: Install new Message+ launcher artwork
+        run: |
+          mkdir -p presentation/src/main/res/drawable-nodpi
+          base64 --decode assets/branding/messageplus_ios.webp.b64 > presentation/src/main/res/drawable-nodpi/messageplus_ios.webp
+          file presentation/src/main/res/drawable-nodpi/messageplus_ios.webp
+          test "$(file --mime-type -b presentation/src/main/res/drawable-nodpi/messageplus_ios.webp)" = "image/webp"
+
       - name: Test discount detection and read policy
         run: ./gradlew testNoAnalyticsDebugUnitTest --stacktrace --no-daemon
         env:

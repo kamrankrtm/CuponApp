@@ -1,16 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Backwards-compatible launcher drawable for Android 5-7, and in-app branding. -->
+<!-- iPhone-inspired glossy Message+ icon generated from the approved design. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="rectangle">
-            <corners android:radius="13dp" />
-            <gradient android:angle="315"
-                android:startColor="#152B49"
-                android:endColor="#060A15" />
-        </shape>
-    </item>
-    <item android:drawable="@drawable/app_icon_glyph"
-        android:gravity="center"
-        android:width="45dp"
-        android:height="45dp" />
+    <item android:drawable="@drawable/messageplus_ios" android:gravity="fill"/>
 </layer-list>

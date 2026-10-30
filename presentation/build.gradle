@@ -104,7 +104,23 @@ android {
     }
 }
 
+// Materialize the optimized iPhone-style launcher artwork before AAPT merges resources.
+// Keeping the source as Base64 text lets GitHub's text-only integration version it safely.
+def brandedIconSource = file('../assets/branding/messageplus_ios.webp.b64')
+def brandedIconTarget = file('src/main/res/drawable-nodpi/messageplus_ios.webp')
+task prepareMessagePlusIcon {
+    inputs.file brandedIconSource
+    outputs.file brandedIconTarget
+    doLast {
+        brandedIconTarget.parentFile.mkdirs()
+        brandedIconTarget.bytes = java.util.Base64.getMimeDecoder().decode(brandedIconSource.text.trim())
+    }
+}
+
 tasks.whenTaskAdded { task ->
+    if (task.name.startsWith('merge') && task.name.endsWith('Resources')) {
+        task.dependsOn prepareMessagePlusIcon
+    }
     if (task.name.startsWith("strip")) {
         task.enabled = false
     }
