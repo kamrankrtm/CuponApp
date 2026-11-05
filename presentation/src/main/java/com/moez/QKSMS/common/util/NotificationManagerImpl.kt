@@ -456,15 +456,16 @@ class NotificationManagerImpl @Inject constructor(
 
                 // The code is the headline: large, spaced like people read it aloud
                 val code = spacedCode(otp.code)
-                val small = RemoteViews(context.packageName, R.layout.notification_otp).apply {
+                val small = RemoteViews(context.packageName, com.moez.QKSMS.feature.design.ExperienceNotification.otpLayout(context, false)).apply {
                     setTextViewText(R.id.otpCode, code)
                     setTextViewText(R.id.otpService, otp.serviceName)
                 }
-                val big = RemoteViews(context.packageName, R.layout.notification_otp_expanded).apply {
+                val big = RemoteViews(context.packageName, com.moez.QKSMS.feature.design.ExperienceNotification.otpLayout(context, true)).apply {
                     setTextViewText(R.id.otpService, otp.serviceName)
                     setTextViewText(R.id.otpCode, code)
                     setTextViewText(R.id.otpNote, note)
                 }
+                com.moez.QKSMS.feature.design.ExperienceNotification.tintOtp(context, small, big)
                 notification.setStyle(NotificationCompat.DecoratedCustomViewStyle())
                 notification.setCustomContentView(small)
                 notification.setCustomBigContentView(big)
@@ -528,6 +529,15 @@ class NotificationManagerImpl @Inject constructor(
             else -> Unit
         }
 
+
+        val designNotice = when (smartCategory) {
+            is SmsCategory.Promo -> com.moez.QKSMS.feature.design.ExperienceNotice.PROMO
+            is SmsCategory.Otp -> com.moez.QKSMS.feature.design.ExperienceNotice.OTP
+            is SmsCategory.Banking -> com.moez.QKSMS.feature.design.ExperienceNotice.BANKING
+            is SmsCategory.Spam -> com.moez.QKSMS.feature.design.ExperienceNotice.SPAM
+            else -> com.moez.QKSMS.feature.design.ExperienceNotice.MESSAGE
+        }
+        com.moez.QKSMS.feature.design.ExperienceNotification.decorate(context, notification, designNotice)
 
         if (prefs.qkreply.get()) {
             notification.priority = NotificationCompat.PRIORITY_DEFAULT
@@ -662,6 +672,9 @@ class NotificationManagerImpl @Inject constructor(
             )
         }
 
+        com.moez.QKSMS.feature.design.ExperienceNotification.decorate(
+            context, notification, com.moez.QKSMS.feature.design.ExperienceNotice.ALARM
+        )
         notificationManager.notify(threadId.toInt(), notification.build())
 
         if (prefs.wakeScreen(threadId).get()) {
