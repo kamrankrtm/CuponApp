@@ -128,6 +128,7 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
             onAlarmSettings = { navigator.showAlarmSettings() }
         }
     }
+    private var experienceUi: com.moez.QKSMS.feature.design.ExperienceInbox? = null
     private var currentTabPosition = 0
     private var currentConversationsList: List<Conversation> = emptyList()
     private var cachedPersonalIds = HashSet<Long>()
@@ -245,6 +246,7 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
             SmartDataManager.init(this)
             setupSmartTabs()
             setupDiscountsFilterBar()
+            experienceUi = com.moez.QKSMS.feature.design.ExperienceInbox(this).also { it.install() }
         } catch (t: Throwable) {
             android.util.Log.e("MainActivity", "Error setting up smart tabs", t)
         }
@@ -471,10 +473,15 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
                 snackbarButton?.setText(R.string.main_permission_allow)
             }
         }
+        experienceUi?.refresh(currentTabPosition, plainInbox)
     }
 
     override fun onResume() {
         super.onResume()
+        if (experienceUi?.experience != com.moez.QKSMS.feature.design.ExperienceStore.get(this)) {
+            recreate()
+            return
+        }
         activityResumedIntent.onNext(true)
 
         // A background AI pass that corrected a code refreshes the discounts tab in place
@@ -682,6 +689,7 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
 
         bar.onCategorySelected = { position, _ ->
             currentTabPosition = position
+            experienceUi?.refresh(position, true)
             applyTabFilter()
             mainAppBar?.setExpanded(true, false)
             recyclerView.post { recyclerView.scrollToPosition(0) }
