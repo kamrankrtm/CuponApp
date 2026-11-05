@@ -507,6 +507,17 @@
 
 
     <!-- AlarmGuard (دزدگیر) strings -->
+    <string name="alarm_guard_notification_channel">امنیت و دزدگیر</string>
+    <string name="alarm_guard_notification_channel_desc">اعلان اختصاصی فعال و غیرفعال شدن دزدگیر</string>
+    <string name="alarm_guard_notification_armed">دزدگیر فعال شد</string>
+    <string name="alarm_guard_notification_disarmed">دزدگیر غیرفعال شد</string>
+    <string name="alarm_guard_notification_summary">وضعیت سیستم امنیتی تغییر کرد</string>
+    <string name="alarm_guard_notification_method">روش: %1$s</string>
+    <string name="alarm_guard_notification_warning">هشدار: %1$s</string>
+    <string name="alarm_guard_notification_credit">اعتبار سیم‌کارت: %1$s</string>
+    <string name="alarm_guard_notification_original_message">متن پیام دزدگیر:</string>
+    <string name="alarm_guard_notification_private_title">سیستم امنیتی</string>
+    <string name="alarm_guard_notification_private_text">برای مشاهده جزئیات، قفل گوشی را باز کنید</string>
     <string name="alarm_guard_title">دزدگیر (AlarmGuard)</string>
     <string name="alarm_guard_desc">کنترل و نمایش هوشمند وضعیت دزدگیر از پیامک‌ها</string>
     <string name="alarm_guard_enable_title">فعال‌سازی دزدگیر اماکن (AlarmGuard)</string>

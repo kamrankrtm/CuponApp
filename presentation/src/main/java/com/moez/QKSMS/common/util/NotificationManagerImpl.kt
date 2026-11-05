@@ -59,6 +59,8 @@ import com.moez.QKSMS.repository.MessageRepository
 import com.moez.QKSMS.util.GlideApp
 import com.moez.QKSMS.util.PhoneNumberUtils
 import com.moez.QKSMS.util.Preferences
+import com.moez.QKSMS.util.AlarmGuardNotification
+import com.moez.QKSMS.util.AlarmGuardParser
 import com.moez.QKSMS.feature.smart.OtpCopyTracker
 import com.moez.QKSMS.feature.smart.SmartAnalysisCache
 import com.moez.QKSMS.feature.smart.SmartSmsClassifier
@@ -88,6 +90,7 @@ class NotificationManagerImpl @Inject constructor(
         const val DISCOUNT_CHANNEL_ID = "notifications_discounts"
         const val OTP_CHANNEL_ID = "notifications_otp"
         const val SPAM_CHANNEL_ID = "notifications_spam"
+        const val ALARM_GUARD_CHANNEL_ID = "notifications_alarm_guard"
         const val BACKUP_RESTORE_CHANNEL_ID = "notifications_backup_restore"
 
         val VIBRATE_PATTERN = longArrayOf(0, 200, 0, 200)
@@ -144,6 +147,24 @@ class NotificationManagerImpl @Inject constructor(
 
         val lastMessage = conversation.lastMessage
         val body = lastMessage?.body ?: ""
+
+        // A trusted alarm reply is a security status event, not a chat conversation.
+        // Reuse the same thread notification ID so the user never sees two alerts.
+        val alarmEvent = lastMessage?.let { message ->
+            AlarmGuardNotification.fromSms(
+                enabled = prefs.alarmGuardEnabled.get(),
+                sender = message.address,
+                configuredNumber = prefs.alarmPhoneNumber.get(),
+                body = message.body,
+                armKeywords = prefs.alarmArmKeywords.get(),
+                disarmKeywords = prefs.alarmDisarmKeywords.get()
+            )
+        }
+        if (alarmEvent != null) {
+            showAlarmGuardNotification(threadId, lastMessage?.date ?: System.currentTimeMillis(), alarmEvent)
+            return
+        }
+
         // The reading the receive pipeline already made: a refresh of this notification never
         // reads, lists or copies anything again. The user's "Move to …" choice for the sender
         // decides, except for verification codes.
@@ -527,6 +548,127 @@ class NotificationManagerImpl @Inject constructor(
                     val flags = PowerManager.SCREEN_DIM_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP
                     val wakeLock = powerManager.newWakeLock(flags, context.packageName)
                     wakeLock.acquire(5000)
+                }
+            }
+        }
+    }
+
+
+    /** Dedicated status alert. Never use MessagingStyle or Reply for arm/disarm events. */
+    private fun showAlarmGuardNotification(
+        threadId: Long,
+        timestamp: Long,
+        event: AlarmGuardNotification.Event
+    ) {
+        // Created here too: older installations already have the default channel, so
+        // createNotificationChannel() may have returned before newer channels existed.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            notificationManager.createNotificationChannel(
+                NotificationChannel(
+                    ALARM_GUARD_CHANNEL_ID,
+                    context.getString(R.string.alarm_guard_notification_channel),
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = context.getString(R.string.alarm_guard_notification_channel_desc)
+                    enableLights(true)
+                    lightColor = Color.GREEN
+                    enableVibration(true)
+                    vibrationPattern = VIBRATE_PATTERN
+                    lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+                }
+            )
+        }
+
+        val armed = event.status == AlarmGuardParser.Status.ARMED
+        val color = if (armed) Color.rgb(22, 163, 74) else Color.rgb(217, 119, 6)
+        val statusTitle = context.getString(if (armed) {
+            R.string.alarm_guard_notification_armed
+        } else {
+            R.string.alarm_guard_notification_disarmed
+        })
+        val preview = prefs.notificationPreviews(threadId).get()
+        val fullPreview = preview == Preferences.NOTIFICATION_PREVIEWS_ALL
+        val title = if (preview == Preferences.NOTIFICATION_PREVIEWS_NONE) {
+            context.getString(R.string.alarm_guard_notification_private_title)
+        } else {
+            statusTitle
+        }
+        val details = listOfNotNull(
+            event.detail?.takeIf { it.isNotBlank() }?.let {
+                context.getString(R.string.alarm_guard_notification_method, it)
+            },
+            event.warning?.takeIf { it.isNotBlank() }?.let {
+                context.getString(R.string.alarm_guard_notification_warning, it)
+            },
+            event.credit?.takeIf { it.isNotBlank() }?.let {
+                context.getString(R.string.alarm_guard_notification_credit, it)
+            }
+        )
+        val summary = details.joinToString(" · ")
+            .ifEmpty { context.getString(R.string.alarm_guard_notification_summary) }
+
+        val openIntent = Intent(context, ComposeActivity::class.java)
+            .putExtra("threadId", threadId)
+        val immutable = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PendingIntent.FLAG_IMMUTABLE
+        } else {
+            0
+        }
+        val contentPI = PendingIntent.getActivity(
+            context, threadId.toInt(), openIntent, PendingIntent.FLAG_UPDATE_CURRENT or immutable
+        )
+        val seenPI = PendingIntent.getBroadcast(
+            context, threadId.toInt(),
+            Intent(context, MarkSeenReceiver::class.java).putExtra("threadId", threadId),
+            PendingIntent.FLAG_UPDATE_CURRENT or immutable
+        )
+        val publicVersion = NotificationCompat.Builder(context, ALARM_GUARD_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification_alarm_guard)
+            .setContentTitle(context.getString(R.string.alarm_guard_notification_private_title))
+            .setContentText(context.getString(R.string.alarm_guard_notification_private_text))
+            .build()
+
+        val notification = NotificationCompat.Builder(context, ALARM_GUARD_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification_alarm_guard)
+            .setLargeIcon(NotificationArt.glyphTile(context, color, R.drawable.ic_lc_shield))
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setColor(color)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentTitle(title)
+            .setContentText(if (fullPreview) summary else {
+                context.getString(R.string.alarm_guard_notification_private_text)
+            })
+            .setAutoCancel(true)
+            .setContentIntent(contentPI)
+            .setDeleteIntent(seenPI)
+            .setWhen(timestamp)
+            .setShowWhen(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
+            .setVibrate(if (prefs.vibration(threadId).get()) VIBRATE_PATTERN else longArrayOf(0))
+
+        if (fullPreview) {
+            val expandedText = buildString {
+                append(summary)
+                append("\n\n")
+                append(context.getString(R.string.alarm_guard_notification_original_message))
+                append("\n")
+                append(event.body)
+            }
+            notification.setStyle(
+                NotificationCompat.BigTextStyle()
+                    .setBigContentTitle(statusTitle)
+                    .bigText(expandedText)
+            )
+        }
+
+        notificationManager.notify(threadId.toInt(), notification.build())
+
+        if (prefs.wakeScreen(threadId).get()) {
+            context.getSystemService<PowerManager>()?.let { powerManager ->
+                if (!powerManager.isInteractive) {
+                    val flags = PowerManager.SCREEN_DIM_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP
+                    powerManager.newWakeLock(flags, context.packageName).acquire(5000)
                 }
             }
         }
