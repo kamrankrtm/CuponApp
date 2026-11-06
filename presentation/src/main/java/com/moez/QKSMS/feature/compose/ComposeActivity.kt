@@ -471,6 +471,8 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
             }
         }
 
+        com.moez.QKSMS.feature.design.ConversationExperienceShell.refreshHeader(this, conversationHeader)
+
         // Rebinding the avatar reloads the photo, so only do it when the people change
         val recipients = state.messages?.first?.takeIf { it.isValid }?.recipients?.toList().orEmpty()
         val key = recipients.joinToString(",") { recipient -> "${recipient.address}:${recipient.contact?.lookupKey}" }
