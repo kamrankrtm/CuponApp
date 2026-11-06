@@ -436,6 +436,10 @@ class NotificationManagerImpl @Inject constructor(
                 val brandColor = promo.brandColor.takeIf { it != 0 } ?: BrandRegistry.fallbackColor(promo.brand)
                 notification.setLargeIcon(NotificationArt.brandTile(context, brandColor,
                         promo.brandEn.ifBlank { promo.brand }))
+                com.moez.QKSMS.feature.design.ExperienceNotification.special(
+                    context, notification, com.moez.QKSMS.feature.design.ExperienceNotice.PROMO,
+                    title, line, "$line$excerpt"
+                )
                 // Only Copy action for Promo - no Reply/Archive buttons
                 notification.addAction(R.drawable.ic_lc_copy, "کپی کد ${promo.code}", copyPI)
             }
@@ -520,6 +524,10 @@ class NotificationManagerImpl @Inject constructor(
                     .setBigContentTitle(title)
                     .bigText(if (summary != null) "$summary\n$body" else body)
                 notification.setStyle(bigTextStyle)
+                com.moez.QKSMS.feature.design.ExperienceNotification.special(
+                    context, notification, com.moez.QKSMS.feature.design.ExperienceNotice.BANKING,
+                    title, summary ?: body, if (summary != null) "$summary\n$body" else body
+                )
             }
             is SmsCategory.Spam -> {
                 notification.setChannelId(SPAM_CHANNEL_ID)
@@ -674,6 +682,13 @@ class NotificationManagerImpl @Inject constructor(
 
         com.moez.QKSMS.feature.design.ExperienceNotification.decorate(
             context, notification, com.moez.QKSMS.feature.design.ExperienceNotice.ALARM
+        )
+        com.moez.QKSMS.feature.design.ExperienceNotification.special(
+            context, notification, com.moez.QKSMS.feature.design.ExperienceNotice.ALARM,
+            title,
+            if (fullPreview) summary else context.getString(R.string.alarm_guard_notification_private_text),
+            if (fullPreview) summary + "\n" + event.body
+                else context.getString(R.string.alarm_guard_notification_private_text)
         )
         notificationManager.notify(threadId.toInt(), notification.build())
 
