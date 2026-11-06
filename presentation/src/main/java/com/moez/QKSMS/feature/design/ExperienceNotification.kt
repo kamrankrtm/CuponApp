@@ -38,6 +38,71 @@ object ExperienceNotification {
         }
     }
 
+    /**
+     * Dedicated native layouts for financial, coupon and alarm notifications.
+     * Generic SMS retains MessagingStyle, inline reply and conversation grouping.
+     * A public lock-screen variant never reveals the bank amount, coupon or alarm details.
+     */
+    fun special(
+        context: Context,
+        builder: NotificationCompat.Builder,
+        kind: ExperienceNotice,
+        title: String,
+        summary: String,
+        expandedText: String
+    ) {
+        val small = RemoteViews(context.packageName, specialLayout(context, false))
+        val big = RemoteViews(context.packageName, specialLayout(context, true))
+        val icon = when (kind) {
+            ExperienceNotice.PROMO -> R.drawable.ic_lc_ticket
+            ExperienceNotice.BANKING -> R.drawable.ic_lc_landmark
+            ExperienceNotice.ALARM -> R.drawable.ic_lc_shield
+            else -> R.drawable.ic_lc_inbox
+        }
+        listOf(small, big).forEach { remote ->
+            remote.setImageViewResource(R.id.noticeIcon, icon)
+            remote.setTextViewText(R.id.noticeTitle, title)
+            remote.setTextViewText(R.id.noticeBody, summary)
+            remote.setTextViewText(R.id.noticeMeta, if (remote === big) expandedText else kindLabel(kind))
+        }
+        builder.setStyle(NotificationCompat.DecoratedCustomViewStyle())
+        builder.setCustomContentView(small)
+        builder.setCustomBigContentView(big)
+        builder.setCustomHeadsUpContentView(small)
+        builder.setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+        if (kind != ExperienceNotice.ALARM) {
+            val public = NotificationCompat.Builder(context,
+                if (kind == ExperienceNotice.PROMO)
+                    com.moez.QKSMS.common.util.NotificationManagerImpl.DISCOUNT_CHANNEL_ID
+                else com.moez.QKSMS.common.util.NotificationManagerImpl.DEFAULT_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle("اعلان " + kindLabel(kind))
+                .setContentText("برای دیدن جزئیات قفل گوشی را باز کنید")
+                .build()
+            builder.setPublicVersion(public)
+        }
+    }
+
+    private fun kindLabel(kind: ExperienceNotice): String = when (kind) {
+        ExperienceNotice.PROMO -> "تخفیف"
+        ExperienceNotice.BANKING -> "بانکی"
+        ExperienceNotice.ALARM -> "امنیتی"
+        ExperienceNotice.OTP -> "کد ورود"
+        ExperienceNotice.SPAM -> "اسپم"
+        ExperienceNotice.MESSAGE -> "پیام"
+    }
+
+    private fun specialLayout(context: Context, expanded: Boolean): Int {
+        return when (ExperienceStore.get(context)) {
+            Experience.MICROSOFT -> if (expanded) R.layout.notification_smart_microsoft_expanded else R.layout.notification_smart_microsoft
+            Experience.APPLE -> if (expanded) R.layout.notification_smart_apple_expanded else R.layout.notification_smart_apple
+            Experience.AVATR -> if (expanded) R.layout.notification_smart_avatr_expanded else R.layout.notification_smart_avatr
+            Experience.PINTEREST -> if (expanded) R.layout.notification_smart_pinterest_expanded else R.layout.notification_smart_pinterest
+            Experience.TELEGRAM -> if (expanded) R.layout.notification_smart_telegram_expanded else R.layout.notification_smart_telegram
+            Experience.META -> if (expanded) R.layout.notification_smart_meta_expanded else R.layout.notification_smart_meta
+        }
+    }
+
     fun otpLayout(context: Context, expanded: Boolean): Int {
         return when (ExperienceStore.get(context)) {
             Experience.MICROSOFT -> if (expanded) R.layout.notification_otp_microsoft_expanded else R.layout.notification_otp_microsoft
