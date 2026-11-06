@@ -192,7 +192,11 @@ class PromoCodesAdapter(
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         when (val row = rows[position]) {
             is PromoRow.Header -> (holder as HeaderViewHolder).bind(row)
-            is PromoRow.Item -> (holder as PromoViewHolder).bind(row.promo)
+            is PromoRow.Item -> {
+                (holder as PromoViewHolder).bind(row.promo)
+                com.moez.QKSMS.feature.design.ExperienceRows.styleRow(holder.itemView,
+                    com.moez.QKSMS.feature.design.ExperienceRows.Kind.DISCOUNT)
+            }
         }
     }
 

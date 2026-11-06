@@ -338,6 +338,7 @@ class MessagesAdapter @Inject constructor(
                 canGroupWithPrevious = canGroup(message, previous) || media.isNotEmpty(),
                 canGroupWithNext = canGroup(message, next),
                 isMe = message.isMe()))
+        com.moez.QKSMS.feature.design.ExperienceRows.styleBubble(holder.body, message.isMe(), emojiOnly)
 
         // Bind the attachments
         val partsAdapter = holder.attachments.adapter as PartsAdapter

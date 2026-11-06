@@ -166,6 +166,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         AndroidInjection.inject(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.compose_activity)
+        com.moez.QKSMS.feature.design.ExperienceConversation.apply(this)
         directSpotlightMessageId = intent.getLongExtra("spotlightMessageId", -1L)
         showBackButton(true)
         viewModel.bindView(this)
