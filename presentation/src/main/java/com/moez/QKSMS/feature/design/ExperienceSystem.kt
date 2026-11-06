@@ -165,13 +165,5 @@ object ExperienceSettings {
 
 /** Conversation composer shares the selected design without touching SMS transport. */
 object ExperienceConversation {
-    fun apply(activity: Activity) {
-        val style = ExperienceStore.get(activity)
-        val toolbar = activity.findViewById<View>(R.id.toolbar) ?: return
-        val inputBox = activity.findViewById<View>(R.id.messageBackground)
-        toolbar.setBackgroundColor(if (style.darkHeader) style.surface else style.surface)
-        inputBox?.backgroundTintList = ColorStateList.valueOf(
-            if (style.darkHeader) Color.rgb(65, 53, 109) else style.surface
-        )
-    }
+    fun apply(activity: Activity) = ConversationExperienceShell.apply(activity)
 }
