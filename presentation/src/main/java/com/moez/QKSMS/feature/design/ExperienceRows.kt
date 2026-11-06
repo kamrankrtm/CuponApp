@@ -42,22 +42,100 @@ object ExperienceRows {
             Experience.TELEGRAM -> Triple(Color.TRANSPARENT, 0, false)
             Experience.META -> Triple(Color.rgb(244, 239, 255), 19, true)
         }
+        if (kind == Kind.CHAT && experience == Experience.TELEGRAM) {
+            view.minimumHeight = dp(57)
+            view.findViewById<View>(R.id.avatars)?.let { avatar ->
+                val p = avatar.layoutParams
+                p.width = dp(42)
+                p.height = dp(42)
+                avatar.layoutParams = p
+            }
+        } else if (kind == Kind.CHAT && experience == Experience.APPLE) {
+            view.minimumHeight = dp(81)
+        }
+        if (kind == Kind.DISCOUNT && experience == Experience.PINTEREST) {
+            (view.findViewById<View>(R.id.promoHeader) as? ViewGroup)?.apply {
+                setPadding(dp(9), dp(12), dp(9), dp(10))
+            }
+            (view.findViewById<View>(R.id.promoDiscountAmount) as? TextView)?.textSize = 20f
+            (view.findViewById<View>(R.id.promoBrand) as? TextView)?.textSize = 15f
+            (view.findViewById<View>(R.id.promoExpiry) as? TextView)?.textSize = 10f
+
+            // A real Pinterest pin: tall vertical code/actions, not the desktop-width
+            // horizontal coupon squeezed into a half-width RecyclerView column.
+            (view.findViewById<View>(R.id.promoHeader) as? android.widget.LinearLayout)
+                ?.getChildAt(0)?.let { firstLine ->
+                    (firstLine as? android.widget.LinearLayout)?.orientation =
+                        android.widget.LinearLayout.VERTICAL
+                }
+            (view.findViewById<View>(R.id.codeContainer) as? android.widget.LinearLayout)
+                ?.apply {
+                    orientation = android.widget.LinearLayout.VERTICAL
+                    gravity = android.view.Gravity.CENTER_HORIZONTAL
+                    setPadding(dp(8), dp(11), dp(8), dp(7))
+                }
+            view.findViewById<TextView>(R.id.promoCode)?.apply {
+                textSize = 18f
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            }
+            listOf(R.id.btnCopyPromo, R.id.btnOpenApp).forEach { id ->
+                view.findViewById<View>(id)?.apply {
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, dp(37)
+                    ).apply { topMargin = dp(4) }
+                }
+            }
+            (view.findViewById<View>(R.id.btnPinPromo)?.parent as? android.widget.LinearLayout)
+                ?.apply {
+                    orientation = android.widget.LinearLayout.VERTICAL
+                    listOf(R.id.btnPinPromo, R.id.btnMarkUsed, R.id.btnViewOriginal)
+                        .forEach { id ->
+                            findViewById<View>(id)?.apply {
+                                layoutParams = android.widget.LinearLayout.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT, dp(34)
+                                )
+                            }
+                        }
+                }
+        }
         if (radius == 0) {
-            // Keep the platform's own touch feedback on compact, divider-based lists.
+            // Apple and Telegram are true flat, separator-driven lists.
             return
         }
         val stroke = if (experience == Experience.AVATR) Color.rgb(90, 75, 134)
             else if (experience == Experience.PINTEREST && kind == Kind.DISCOUNT) experience.accent
             else null
-        view.background = RippleDrawable(
-            ColorStateList.valueOf(if (experience.darkHeader) 0x55FFFFFF else 0x22000000),
-            ExperienceStore.shape(fill, dp(radius), stroke), null
-        )
-        view.elevation = if (raised) dp(1).toFloat() else 0f
+        val materialCard = view as? com.google.android.material.card.MaterialCardView
+        if (materialCard != null) {
+            // MaterialCardView owns its background; replacing View.background erases its
+            // branded coupon face and causes ripples to draw over coupon contents.
+            materialCard.setCardBackgroundColor(
+                if (kind == Kind.DISCOUNT && experience == Experience.AVATR)
+                    Color.rgb(249, 246, 255) else fill)
+            materialCard.radius = dp(radius).toFloat()
+            materialCard.strokeWidth = if (stroke != null) dp(1) else 0
+            materialCard.strokeColor = stroke ?: Color.TRANSPARENT
+            materialCard.cardElevation = if (raised) dp(1).toFloat() else 0f
+        } else {
+            view.background = RippleDrawable(
+                ColorStateList.valueOf(if (experience.darkHeader) 0x55FFFFFF else 0x22000000),
+                ExperienceStore.shape(fill, dp(radius), stroke), null
+            )
+            view.elevation = if (raised) dp(1).toFloat() else 0f
+        }
+        // Do not recolor coupon text recursively: the brand face deliberately has white
+        // foreground, while the footer has its own dark/semantic colors.
+        if (kind == Kind.DISCOUNT) return
         if (experience == Experience.AVATR) {
             contrastForDarkSurface(view)
-        } else {
+        } else if (materialCard == null) {
             contrastForLightSurface(view, experience.ink)
+        } else if (kind == Kind.OTP) {
+            view.findViewById<TextView>(R.id.otpCode)?.setTextColor(experience.ink)
+            view.findViewById<TextView>(R.id.otpService)?.setTextColor(experience.ink)
         }
     }
 

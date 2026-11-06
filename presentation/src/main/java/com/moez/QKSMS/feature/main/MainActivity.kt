@@ -246,7 +246,11 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
             SmartDataManager.init(this)
             setupSmartTabs()
             setupDiscountsFilterBar()
-            experienceUi = com.moez.QKSMS.feature.design.ExperienceInbox(this).also { it.install() }
+            experienceUi = com.moez.QKSMS.feature.design.ExperienceInbox(this).also { experience ->
+                experience.onOpenConversation = { id -> navigator.showConversation(id) }
+                experience.onAlarmSettings = { navigator.showAlarmSettings() }
+                experience.install()
+            }
         } catch (t: Throwable) {
             android.util.Log.e("MainActivity", "Error setting up smart tabs", t)
         }
@@ -1117,6 +1121,34 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
         })
     }
 
+    /**
+     * Live inputs for workspace counters, Telegram recent people and Meta stories.
+     * No second content provider or fake dashboard entries: everything uses the inbox.
+     */
+    private fun renderExperienceData() {
+        val host = experienceUi ?: return
+        val eligible = currentConversationsList.asSequence()
+            .filter { conversation ->
+                conversation.isValid && conversation.recipients.size == 1 &&
+                    (conversation.recipients.firstOrNull()?.contact != null ||
+                        SmartSmsClassifier.isPersonalNumber(conversation.recipients.firstOrNull()?.address ?: ""))
+            }
+            .take(7)
+            .map { conversation ->
+                com.moez.QKSMS.feature.design.ExperienceContact(
+                    conversation.id, conversation.getTitle(), conversation.unread
+                )
+            }
+            .toList()
+        host.updateData(eligible, com.moez.QKSMS.feature.design.ExperienceCounts(
+            conversations = currentConversationsList.size,
+            unread = currentConversationsList.count { it.isValid && it.unread },
+            banks = cachedBankingIds.size,
+            codes = SmartDataManager.getOtps().size,
+            discounts = SmartDataManager.getPromos().size
+        ))
+    }
+
     private fun applyTabFilter() {
         try {
             val state = currentState ?: return
@@ -1228,6 +1260,8 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
                     empty.setVisible(list.isEmpty() && isClassificationReady)
                 }
             }
+            experienceUi?.refresh(currentTabPosition, true)
+            renderExperienceData()
         } catch (t: Throwable) {
             android.util.Log.e("MainActivity", "Error applying tab filter", t)
         }

@@ -118,6 +118,13 @@ jobs:
           - dark_08_drawer
           - dark_09_settings
           - dark_10_settings_scrolled
+          - design_microsoft_home
+          - design_apple_home
+          - design_avatr_home
+          - design_pinterest_home
+          - design_pinterest_discounts
+          - design_telegram_home
+          - design_meta_home
     steps:
       - uses: actions/download-artifact@v4
         with:
