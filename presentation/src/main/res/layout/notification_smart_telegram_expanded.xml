@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+ android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"
+ android:layoutDirection="rtl" android:padding="13dp"
+ android:background="@drawable/experience_notification_telegram">
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+ <LinearLayout android:layout_width="54dp" android:layout_height="54dp" android:gravity="center" android:background="#D4EAFA"><ImageView android:id="@+id/noticeIcon" android:layout_width="36dp" android:layout_height="36dp" android:layout_marginEnd="0dp" android:tint="#2A9EDA" android:contentDescription="نوع اعلان" android:src="@drawable/ic_lc_inbox" /></LinearLayout>
+ <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:paddingStart="9dp">
+ <TextView android:id="@+id/noticeTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#1A4D69" android:textSize="19sp" android:maxLines="2" android:ellipsize="end" android:textStyle="bold" /><TextView android:id="@+id/noticeBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#1A4D69" android:textSize="15sp" android:maxLines="4" android:ellipsize="end"  /><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="5dp"><TextView android:id="@+id/noticeMeta" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#54819A" android:textSize="13sp" android:maxLines="2" android:ellipsize="end"  /></LinearLayout>
+ </LinearLayout></LinearLayout>
+</LinearLayout>
