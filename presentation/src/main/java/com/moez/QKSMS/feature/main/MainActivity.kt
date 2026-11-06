@@ -478,7 +478,7 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
 
     override fun onResume() {
         super.onResume()
-        if (experienceUi?.experience != com.moez.QKSMS.feature.design.ExperienceStore.get(this)) {
+        if (experienceUi != null && experienceUi?.experience != com.moez.QKSMS.feature.design.ExperienceStore.get(this)) {
             recreate()
             return
         }
