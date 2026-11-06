@@ -128,7 +128,6 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
             onAlarmSettings = { navigator.showAlarmSettings() }
         }
     }
-    private var experienceUi: com.moez.QKSMS.feature.design.ExperienceInbox? = null
     private var currentTabPosition = 0
     private var currentConversationsList: List<Conversation> = emptyList()
     private var cachedPersonalIds = HashSet<Long>()
@@ -246,11 +245,6 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
             SmartDataManager.init(this)
             setupSmartTabs()
             setupDiscountsFilterBar()
-            experienceUi = com.moez.QKSMS.feature.design.ExperienceInbox(this).also { experience ->
-                experience.onOpenConversation = { id -> navigator.showConversation(id) }
-                experience.onAlarmSettings = { navigator.showAlarmSettings() }
-                experience.install()
-            }
         } catch (t: Throwable) {
             android.util.Log.e("MainActivity", "Error setting up smart tabs", t)
         }
@@ -477,15 +471,10 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
                 snackbarButton?.setText(R.string.main_permission_allow)
             }
         }
-        experienceUi?.refresh(currentTabPosition, plainInbox)
     }
 
     override fun onResume() {
         super.onResume()
-        if (experienceUi != null && experienceUi?.experience != com.moez.QKSMS.feature.design.ExperienceStore.get(this)) {
-            recreate()
-            return
-        }
         activityResumedIntent.onNext(true)
 
         // A background AI pass that corrected a code refreshes the discounts tab in place
@@ -693,7 +682,6 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
 
         bar.onCategorySelected = { position, _ ->
             currentTabPosition = position
-            experienceUi?.refresh(position, true)
             applyTabFilter()
             mainAppBar?.setExpanded(true, false)
             recyclerView.post { recyclerView.scrollToPosition(0) }
@@ -1121,34 +1109,6 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
         })
     }
 
-    /**
-     * Live inputs for workspace counters, Telegram recent people and Meta stories.
-     * No second content provider or fake dashboard entries: everything uses the inbox.
-     */
-    private fun renderExperienceData() {
-        val host = experienceUi ?: return
-        val eligible = currentConversationsList.asSequence()
-            .filter { conversation ->
-                conversation.isValid && conversation.recipients.size == 1 &&
-                    (conversation.recipients.firstOrNull()?.contact != null ||
-                        SmartSmsClassifier.isPersonalNumber(conversation.recipients.firstOrNull()?.address ?: ""))
-            }
-            .take(7)
-            .map { conversation ->
-                com.moez.QKSMS.feature.design.ExperienceContact(
-                    conversation.id, conversation.getTitle(), conversation.unread
-                )
-            }
-            .toList()
-        host.updateData(eligible, com.moez.QKSMS.feature.design.ExperienceCounts(
-            conversations = currentConversationsList.size,
-            unread = currentConversationsList.count { it.isValid && it.unread },
-            banks = cachedBankingIds.size,
-            codes = SmartDataManager.getOtps().size,
-            discounts = SmartDataManager.getPromos().size
-        ))
-    }
-
     private fun applyTabFilter() {
         try {
             val state = currentState ?: return
@@ -1260,8 +1220,6 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
                     empty.setVisible(list.isEmpty() && isClassificationReady)
                 }
             }
-            experienceUi?.refresh(currentTabPosition, true)
-            renderExperienceData()
         } catch (t: Throwable) {
             android.util.Log.e("MainActivity", "Error applying tab filter", t)
         }

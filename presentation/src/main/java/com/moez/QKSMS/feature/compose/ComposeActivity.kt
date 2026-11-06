@@ -166,7 +166,6 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
         AndroidInjection.inject(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.compose_activity)
-        com.moez.QKSMS.feature.design.ExperienceConversation.apply(this)
         directSpotlightMessageId = intent.getLongExtra("spotlightMessageId", -1L)
         showBackButton(true)
         viewModel.bindView(this)
@@ -470,8 +469,6 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
                 toolbarHeader.layoutParams = params
             }
         }
-
-        com.moez.QKSMS.feature.design.ConversationExperienceShell.refreshHeader(this, conversationHeader)
 
         // Rebinding the avatar reloads the photo, so only do it when the people change
         val recipients = state.messages?.first?.takeIf { it.isValid }?.recipients?.toList().orEmpty()
