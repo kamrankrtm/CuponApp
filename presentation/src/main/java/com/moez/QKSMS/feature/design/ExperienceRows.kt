@@ -60,6 +60,46 @@ object ExperienceRows {
             (view.findViewById<View>(R.id.promoDiscountAmount) as? TextView)?.textSize = 20f
             (view.findViewById<View>(R.id.promoBrand) as? TextView)?.textSize = 15f
             (view.findViewById<View>(R.id.promoExpiry) as? TextView)?.textSize = 10f
+
+            // A real Pinterest pin: tall vertical code/actions, not the desktop-width
+            // horizontal coupon squeezed into a half-width RecyclerView column.
+            (view.findViewById<View>(R.id.promoHeader) as? android.widget.LinearLayout)
+                ?.getChildAt(0)?.let { firstLine ->
+                    (firstLine as? android.widget.LinearLayout)?.orientation =
+                        android.widget.LinearLayout.VERTICAL
+                }
+            (view.findViewById<View>(R.id.codeContainer) as? android.widget.LinearLayout)
+                ?.apply {
+                    orientation = android.widget.LinearLayout.VERTICAL
+                    gravity = android.view.Gravity.CENTER_HORIZONTAL
+                    setPadding(dp(8), dp(11), dp(8), dp(7))
+                }
+            view.findViewById<TextView>(R.id.promoCode)?.apply {
+                textSize = 18f
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            }
+            listOf(R.id.btnCopyPromo, R.id.btnOpenApp).forEach { id ->
+                view.findViewById<View>(id)?.apply {
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, dp(37)
+                    ).apply { topMargin = dp(4) }
+                }
+            }
+            (view.findViewById<View>(R.id.btnPinPromo)?.parent as? android.widget.LinearLayout)
+                ?.apply {
+                    orientation = android.widget.LinearLayout.VERTICAL
+                    listOf(R.id.btnPinPromo, R.id.btnMarkUsed, R.id.btnViewOriginal)
+                        .forEach { id ->
+                            findViewById<View>(id)?.apply {
+                                layoutParams = android.widget.LinearLayout.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT, dp(34)
+                                )
+                            }
+                        }
+                }
         }
         if (radius == 0) {
             // Apple and Telegram are true flat, separator-driven lists.
