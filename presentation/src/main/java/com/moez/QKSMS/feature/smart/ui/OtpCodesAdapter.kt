@@ -107,8 +107,16 @@ class OtpCodesAdapter(
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         when (val row = rows[position]) {
             is Row.Header -> (holder as HeaderViewHolder).bind(row)
-            is Row.Latest -> (holder as LatestViewHolder).bind(row.otp)
-            is Row.Earlier -> (holder as EarlierViewHolder).bind(row)
+            is Row.Latest -> {
+                (holder as LatestViewHolder).bind(row.otp)
+                com.moez.QKSMS.feature.design.ExperienceRows.styleRow(holder.itemView,
+                    com.moez.QKSMS.feature.design.ExperienceRows.Kind.OTP)
+            }
+            is Row.Earlier -> {
+                (holder as EarlierViewHolder).bind(row)
+                com.moez.QKSMS.feature.design.ExperienceRows.styleRow(holder.itemView,
+                    com.moez.QKSMS.feature.design.ExperienceRows.Kind.HISTORY)
+            }
         }
     }
 
