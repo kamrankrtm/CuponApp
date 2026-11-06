@@ -114,7 +114,7 @@ object ExperienceSettings {
             setPadding(dp(6), dp(4), 0, dp(6))
         })
         group.addView(TextView(ctx).apply {
-            text = "شش رابط مستقل برای پیام‌ها، کدها و اعلان‌ها"
+            text = "شش چیدمان مستقل · پیش‌نمایش واقعی ساختار هر سبک"
             textSize = 13f
             setPadding(dp(6), 0, 0, dp(12))
         })
@@ -138,6 +138,10 @@ object ExperienceSettings {
                         }
                     }
                 }
+                card.addView(ExperienceBlueprint(ctx, style),
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(86)).apply {
+                        bottomMargin = dp(8)
+                    })
                 card.addView(View(ctx).apply {
                     background = ExperienceStore.shape(style.accent, dp(5))
                 }, LinearLayout.LayoutParams(dp(42), dp(5)))
@@ -153,7 +157,7 @@ object ExperienceSettings {
                     textSize = 11f
                     setTextColor(if (style.darkHeader) Color.LTGRAY else Color.DKGRAY)
                 })
-                row.addView(card, LinearLayout.LayoutParams(0, dp(94), 1f).apply {
+                row.addView(card, LinearLayout.LayoutParams(0, dp(184), 1f).apply {
                     setMargins(dp(4), dp(4), dp(4), dp(4))
                 })
             }
