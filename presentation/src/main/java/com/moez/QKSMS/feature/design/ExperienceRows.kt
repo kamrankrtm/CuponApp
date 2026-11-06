@@ -54,7 +54,11 @@ object ExperienceRows {
             ExperienceStore.shape(fill, dp(radius), stroke), null
         )
         view.elevation = if (raised) dp(1).toFloat() else 0f
-        if (experience == Experience.AVATR) contrastForDarkSurface(view)
+        if (experience == Experience.AVATR) {
+            contrastForDarkSurface(view)
+        } else {
+            contrastForLightSurface(view, experience.ink)
+        }
     }
 
     fun styleBubble(body: TextView, outgoing: Boolean, emojiOnly: Boolean) {
@@ -74,6 +78,17 @@ object ExperienceRows {
         body.backgroundTintList = ColorStateList.valueOf(color)
         body.setTextColor(if (lightText) Color.WHITE else Color.rgb(30, 38, 49))
         body.setLinkTextColor(if (lightText) Color.WHITE else style.accent)
+    }
+
+    private fun contrastForLightSurface(view: View, textColor: Int) {
+        if (view is TextView && view !is android.widget.Button) {
+            // Coupon actions and bank amount indicators preserve their existing meaning.
+            if (view.id != R.id.bankAmount && view.id != R.id.promoDiscountAmount) {
+                view.setTextColor(textColor)
+            }
+        } else if (view is ViewGroup) {
+            for (index in 0 until view.childCount) contrastForLightSurface(view.getChildAt(index), textColor)
+        }
     }
 
     private fun contrastForDarkSurface(view: View) {
