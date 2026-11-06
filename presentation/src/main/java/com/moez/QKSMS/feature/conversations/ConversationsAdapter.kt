@@ -166,6 +166,8 @@ class ConversationsAdapter @Inject constructor(
         holder.date.setTextColor(textColorSecondary)
         holder.snippet.setTextColor(if (isUnread) textColorPrimary else textColorSecondary)
         if (isUnread) holder.unread.setTint(ContextCompat.getColor(themed, R.color.blue_500))
+        com.moez.QKSMS.feature.design.ExperienceRows.styleRow(holder.itemView,
+            com.moez.QKSMS.feature.design.ExperienceRows.Kind.CHAT)
     }
 
     override fun getItemId(position: Int): Long {
