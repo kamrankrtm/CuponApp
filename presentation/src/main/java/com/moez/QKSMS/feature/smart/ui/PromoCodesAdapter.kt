@@ -189,22 +189,10 @@ class PromoCodesAdapter(
         }
     }
 
-    // Pinterest uses an actual staggered two-column coupon board. Section headings
-    // must span both columns while coupon cards retain independent column heights.
-    override fun onViewAttachedToWindow(holder: RecyclerView.ViewHolder) {
-        super.onViewAttachedToWindow(holder)
-        (holder.itemView.layoutParams as? androidx.recyclerview.widget.StaggeredGridLayoutManager.LayoutParams)
-            ?.isFullSpan = holder is HeaderViewHolder
-    }
-
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         when (val row = rows[position]) {
             is PromoRow.Header -> (holder as HeaderViewHolder).bind(row)
-            is PromoRow.Item -> {
-                (holder as PromoViewHolder).bind(row.promo)
-                com.moez.QKSMS.feature.design.ExperienceRows.styleRow(holder.itemView,
-                    com.moez.QKSMS.feature.design.ExperienceRows.Kind.DISCOUNT)
-            }
+            is PromoRow.Item -> (holder as PromoViewHolder).bind(row.promo)
         }
     }
 

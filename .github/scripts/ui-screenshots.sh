@@ -124,32 +124,4 @@ sleep 2
 capture_mode dark
 adb shell cmd uimode night no
 
-# Six final structural snapshots using the real Settings selector. This intentionally
-# taps the visible option rather than writing private preferences behind the app's back.
-capture_design() {
-  local name=$1
-  local key=$2
-  adb shell am start -W -n "$PKG/.feature.settings.SettingsActivity" >/dev/null 2>&1 || true
-  sleep 2
-  if [ "$key" = "meta" ]; then
-    adb shell input swipe 540 1650 540 680 280
-    sleep 1
-  fi
-  tap_text "$name"
-  sleep 2
-  launch
-  shot "design_${key}_home" 3
-  if [ "$key" = "pinterest" ]; then
-    tap_text "کدهای تخفیف"
-    shot "design_pinterest_discounts" 3
-  fi
-}
-
-capture_design Microsoft microsoft
-capture_design Apple apple
-capture_design AVATR avatr
-capture_design Pinterest pinterest
-capture_design Telegram telegram
-capture_design Meta meta
-
 ls -la "$OUT"

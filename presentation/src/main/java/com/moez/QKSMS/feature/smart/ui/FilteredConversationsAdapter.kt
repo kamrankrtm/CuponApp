@@ -359,8 +359,6 @@ class FilteredConversationsAdapter(
         }
         if (holder is BankViewHolder) {
             holder.bind(position)
-            com.moez.QKSMS.feature.design.ExperienceRows.styleRow(holder.itemView,
-                com.moez.QKSMS.feature.design.ExperienceRows.Kind.BANK)
             return
         }
 

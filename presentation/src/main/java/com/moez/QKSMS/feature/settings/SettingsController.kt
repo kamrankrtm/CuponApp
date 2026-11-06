@@ -106,7 +106,6 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
     }
 
     override fun onViewCreated() {
-        activity?.let { com.moez.QKSMS.feature.design.ExperienceSettings.install(it, preferences) }
         preferences.postDelayed({ preferences?.animateLayoutChanges = true }, 100)
         val section = activity?.intent?.getStringExtra("settings_section")
         if (section == "alarm" || section == "ai") {

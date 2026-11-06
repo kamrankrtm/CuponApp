@@ -436,10 +436,6 @@ class NotificationManagerImpl @Inject constructor(
                 val brandColor = promo.brandColor.takeIf { it != 0 } ?: BrandRegistry.fallbackColor(promo.brand)
                 notification.setLargeIcon(NotificationArt.brandTile(context, brandColor,
                         promo.brandEn.ifBlank { promo.brand }))
-                com.moez.QKSMS.feature.design.ExperienceNotification.special(
-                    context, notification, com.moez.QKSMS.feature.design.ExperienceNotice.PROMO,
-                    title, line, "$line$excerpt"
-                )
                 // Only Copy action for Promo - no Reply/Archive buttons
                 notification.addAction(R.drawable.ic_lc_copy, "کپی کد ${promo.code}", copyPI)
             }
@@ -460,16 +456,15 @@ class NotificationManagerImpl @Inject constructor(
 
                 // The code is the headline: large, spaced like people read it aloud
                 val code = spacedCode(otp.code)
-                val small = RemoteViews(context.packageName, com.moez.QKSMS.feature.design.ExperienceNotification.otpLayout(context, false)).apply {
+                val small = RemoteViews(context.packageName, R.layout.notification_otp).apply {
                     setTextViewText(R.id.otpCode, code)
                     setTextViewText(R.id.otpService, otp.serviceName)
                 }
-                val big = RemoteViews(context.packageName, com.moez.QKSMS.feature.design.ExperienceNotification.otpLayout(context, true)).apply {
+                val big = RemoteViews(context.packageName, R.layout.notification_otp_expanded).apply {
                     setTextViewText(R.id.otpService, otp.serviceName)
                     setTextViewText(R.id.otpCode, code)
                     setTextViewText(R.id.otpNote, note)
                 }
-                com.moez.QKSMS.feature.design.ExperienceNotification.tintOtp(context, small, big)
                 notification.setStyle(NotificationCompat.DecoratedCustomViewStyle())
                 notification.setCustomContentView(small)
                 notification.setCustomBigContentView(big)
@@ -524,10 +519,6 @@ class NotificationManagerImpl @Inject constructor(
                     .setBigContentTitle(title)
                     .bigText(if (summary != null) "$summary\n$body" else body)
                 notification.setStyle(bigTextStyle)
-                com.moez.QKSMS.feature.design.ExperienceNotification.special(
-                    context, notification, com.moez.QKSMS.feature.design.ExperienceNotice.BANKING,
-                    title, summary ?: body, if (summary != null) "$summary\n$body" else body
-                )
             }
             is SmsCategory.Spam -> {
                 notification.setChannelId(SPAM_CHANNEL_ID)
@@ -537,15 +528,6 @@ class NotificationManagerImpl @Inject constructor(
             else -> Unit
         }
 
-
-        val designNotice = when (smartCategory) {
-            is SmsCategory.Promo -> com.moez.QKSMS.feature.design.ExperienceNotice.PROMO
-            is SmsCategory.Otp -> com.moez.QKSMS.feature.design.ExperienceNotice.OTP
-            is SmsCategory.Banking -> com.moez.QKSMS.feature.design.ExperienceNotice.BANKING
-            is SmsCategory.Spam -> com.moez.QKSMS.feature.design.ExperienceNotice.SPAM
-            else -> com.moez.QKSMS.feature.design.ExperienceNotice.MESSAGE
-        }
-        com.moez.QKSMS.feature.design.ExperienceNotification.decorate(context, notification, designNotice)
 
         if (prefs.qkreply.get()) {
             notification.priority = NotificationCompat.PRIORITY_DEFAULT
@@ -680,16 +662,6 @@ class NotificationManagerImpl @Inject constructor(
             )
         }
 
-        com.moez.QKSMS.feature.design.ExperienceNotification.decorate(
-            context, notification, com.moez.QKSMS.feature.design.ExperienceNotice.ALARM
-        )
-        com.moez.QKSMS.feature.design.ExperienceNotification.special(
-            context, notification, com.moez.QKSMS.feature.design.ExperienceNotice.ALARM,
-            title,
-            if (fullPreview) summary else context.getString(R.string.alarm_guard_notification_private_text),
-            if (fullPreview) summary + "\n" + event.body
-                else context.getString(R.string.alarm_guard_notification_private_text)
-        )
         notificationManager.notify(threadId.toInt(), notification.build())
 
         if (prefs.wakeScreen(threadId).get()) {
