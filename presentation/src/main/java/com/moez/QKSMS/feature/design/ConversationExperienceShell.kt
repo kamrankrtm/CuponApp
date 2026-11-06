@@ -88,19 +88,19 @@ object ConversationExperienceShell {
                 list.setPadding(list.paddingLeft, list.paddingTop, list.paddingRight, dp(activity, 8))
             }
             Experience.TELEGRAM -> {
-                horizontalHeader(header)
+                horizontalHeader(header, activity)
                 attach.setPadding(dp(activity, 6), dp(activity, 6), dp(activity, 6), dp(activity, 6))
                 list.setPadding(list.paddingLeft, dp(activity, 2), list.paddingRight, dp(activity, 2))
             }
             Experience.MICROSOFT -> {
-                horizontalHeader(header)
+                horizontalHeader(header, activity)
                 addTools(root, list, activity, style, listOf(
                     Triple("پیوست", R.id.attach, R.drawable.ic_lc_plus),
                     Triple("مشخصات", R.id.toolbarHeader, R.drawable.ic_lc_user)
                 ))
             }
             Experience.AVATR -> {
-                horizontalHeader(header)
+                horizontalHeader(header, activity)
                 list.setBackgroundColor(Color.rgb(23, 23, 39))
                 addTools(root, list, activity, style, listOf(
                     Triple("MEDIA", R.id.attach, R.drawable.ic_lc_plus),
@@ -117,7 +117,7 @@ object ConversationExperienceShell {
                 ))
             }
             Experience.META -> {
-                horizontalHeader(header)
+                horizontalHeader(header, activity)
                 addTools(root, list, activity, style, listOf(
                     Triple("پروفایل", R.id.toolbarHeader, R.drawable.ic_lc_user),
                     Triple("واتساپ", R.id.sendWhatsApp, R.drawable.ic_whatsapp)
@@ -140,7 +140,7 @@ object ConversationExperienceShell {
             if (style == Experience.AVATR) 16f else 17f
     }
 
-    private fun horizontalHeader(header: LinearLayout) {
+    private fun horizontalHeader(header: LinearLayout, activity: Activity) {
         if (header.childCount < 3) return
         val titleAndChevron = header.getChildAt(1)
         val subtitle = header.getChildAt(2)
@@ -153,13 +153,13 @@ object ConversationExperienceShell {
         names.addView(titleAndChevron)
         names.addView(subtitle)
         header.addView(names, LinearLayout.LayoutParams(-2,-2).apply {
-            marginStart = dp(header.context as Activity, 8)
+            marginStart = dp(activity, 8)
         })
         header.orientation = LinearLayout.HORIZONTAL
         header.gravity = Gravity.CENTER_VERTICAL
         val avatar = header.findViewById<View>(R.id.toolbarAvatar)
         avatar.layoutParams = LinearLayout.LayoutParams(
-            dp(header.context as Activity, 39), dp(header.context as Activity, 39)
+            dp(activity, 39), dp(activity, 39)
         )
     }
 
