@@ -306,60 +306,67 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
         }
 
 
-        // Xiaomi Home scene bridge; disabled by default.
-        prefAlarmCameraEnabled?.checkbox?.isChecked = prefs.alarmCameraAutomationEnabled.get()
-        prefAlarmCameraEnabled?.setOnClickListener {
-            val enabled = !prefs.alarmCameraAutomationEnabled.get()
-            prefs.alarmCameraAutomationEnabled.set(enabled)
-            prefAlarmCameraEnabled.checkbox.isChecked = enabled
-        }
-        prefAlarmCameraPackage?.summary = prefs.alarmCameraAutomationPackage.get()
-        prefAlarmCameraPackage?.setOnClickListener {
+
+        // Xiaomi LAN discovery probe (no login, token or third-party app).
+        prefXiaomiLanIp?.summary = prefs.xiaomiLanAddress.get().ifBlank { "IP دوربین را وارد کنید" }
+        prefXiaomiLanIp?.setOnClickListener {
             activity?.let { act ->
-                TextInputDialog(act, "نام بسته برنامه واسط") { value ->
-                    val target = value.trim()
-                    if (com.moez.QKSMS.util.AlarmCameraAutomation.isValidPackage(target)) {
-                        prefs.alarmCameraAutomationPackage.set(target)
-                        prefAlarmCameraPackage.summary = target
+                TextInputDialog(act, "IP داخلی دوربین") { value ->
+                    val host = value.trim()
+                    if (com.moez.QKSMS.feature.alarmguard.XiaomiLanProbe.isValidPrivateIpv4(host)) {
+                        prefs.xiaomiLanAddress.set(host)
+                        prefXiaomiLanIp.summary = host
                     } else {
-                        android.widget.Toast.makeText(act, "نام بسته معتبر نیست", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(act,
+                            "فقط IP داخلی معتبر مانند 192.168.1.100 پذیرفته می‌شود",
+                            android.widget.Toast.LENGTH_LONG).show()
                     }
-                }.setText(prefs.alarmCameraAutomationPackage.get()).show()
+                }.setText(prefs.xiaomiLanAddress.get()).show()
             }
         }
-        prefAlarmCameraHelp?.setOnClickListener {
+        prefXiaomiLanTest?.setOnClickListener {
+            activity?.let { act ->
+                val host = prefs.xiaomiLanAddress.get().trim()
+                if (!com.moez.QKSMS.feature.alarmguard.XiaomiLanProbe.isValidPrivateIpv4(host)) {
+                    android.widget.Toast.makeText(act, "ابتدا IP دوربین را تنظیم کنید",
+                        android.widget.Toast.LENGTH_SHORT).show()
+                } else {
+                    prefXiaomiLanTest.summary = "در حال بررسی اتصال محلی..."
+                    Thread {
+                        val result = com.moez.QKSMS.feature.alarmguard.XiaomiLanProbe.probe(host)
+                        act.runOnUiThread {
+                            if (!act.isFinishing && !act.isDestroyed) {
+                                prefXiaomiLanTest?.summary = result.message
+                                AlertDialog.Builder(act)
+                                    .setTitle("نتیجه بررسی دوربین")
+                                    .setMessage(result.message + "\n\n" +
+                                        "این آزمایش فقط ارتباط اولیه شبکه را بررسی می‌کند. " +
+                                        "حتی پاسخ موفق به معنی امکان اجرای Wake/Sleep نیست. " +
+                                        "برای فرمان کنترل‌شده، احراز هویت دستگاه لازم است.")
+                                    .setPositiveButton("متوجه شدم", null)
+                                    .show()
+                            }
+                        }
+                    }.start()
+                }
+            }
+        }
+        prefXiaomiLanHelp?.setOnClickListener {
             activity?.let { act ->
                 AlertDialog.Builder(act)
-                    .setTitle("اتصال سناریوهای Xiaomi Home")
+                    .setTitle("تست مستقیم دوربین بدون برنامه اضافه")
                     .setMessage(
-                        "۱. دو Manual Control با نام wake و sleep بساز و آنها را دستی آزمایش کن.\n\n" +
-                        "۲. MacroDroid و IntentTask را نصب کن. میان‌برها را با IntentTask ثبت کن؛ ممکن است موقتاً لازم باشد آن را لانچر پیش‌فرض قرار دهی.\n\n" +
-                        "۳. در MacroDroid دو ماکرو با Trigger نوع Intent Received بساز:\n" +
-                        "com.moez.QKSMS.alarmcamera.WAKE\n" +
-                        "com.moez.QKSMS.alarmcamera.SLEEP\n\n" +
-                        "Action هرکدام: Tasker/Locale Plugin → IntentTask → Launch app shortcut → wake/sleep\n\n" +
-                        "۴. دکمه‌های تست را بزن. وقتی اجرای واقعی سناریوها تأیید شد، کلید کنترل خودکار را روشن کن.\n\n" +
-                        "ارسال رویداد مساوی با تأیید وضعیت دوربین نیست."
+                        "۱. گوشی و دوربین باید به یک شبکه خانگی متصل باشند.\n" +
+                        "۲. از Xiaomi Home > Additional settings > Network info، IP داخلی دوربین را ببینید.\n" +
+                        "۳. IP را در تنظیمات این بخش ثبت و دکمه تست را بزنید.\n\n" +
+                        "این آزمایش فقط پاسخ MIIO روی UDP 54321 را بررسی می‌کند، " +
+                        "هیچ رمزی نمی‌گیرد و وضعیت دوربین را تغییر نمی‌دهد.\n\n" +
+                        "برای فعال‌سازی خودکار دوربین با پیامک، باید امکان کنترل احرازشده " +
+                        "همین مدل جداگانه روی دستگاه واقعی آزمایش و تأیید شود."
                     )
                     .setPositiveButton("متوجه شدم", null)
                     .show()
             }
-        }
-        prefAlarmCameraTestWake?.setOnClickListener {
-            val ok = com.moez.QKSMS.util.AlarmCameraAutomation.sendTest(
-                context, prefs, com.moez.QKSMS.util.AlarmCameraAutomation.Scene.WAKE
-            )
-            android.widget.Toast.makeText(context,
-                if (ok) "درخواست wake ارسال شد؛ دوربین را بررسی کن" else "گیرنده معتبر تنظیم نشده",
-                android.widget.Toast.LENGTH_LONG).show()
-        }
-        prefAlarmCameraTestSleep?.setOnClickListener {
-            val ok = com.moez.QKSMS.util.AlarmCameraAutomation.sendTest(
-                context, prefs, com.moez.QKSMS.util.AlarmCameraAutomation.Scene.SLEEP
-            )
-            android.widget.Toast.makeText(context,
-                if (ok) "درخواست sleep ارسال شد؛ دوربین را بررسی کن" else "گیرنده معتبر تنظیم نشده",
-                android.widget.Toast.LENGTH_LONG).show()
         }
 
         prefMediaAsCloudLink?.checkbox?.isChecked = prefs.mediaAsCloudLink.get()

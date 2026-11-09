@@ -75,15 +75,6 @@ class ReceiveSms @Inject constructor(
                         Timber.e(t, "AlarmGuard parsing error")
                     }
 
-                    // Only trusted, received confirmation SMS may invoke Xiaomi scenes.
-                    try {
-                        com.moez.QKSMS.util.AlarmCameraAutomation.onReceivedSms(
-                            context, prefs, safeAddress, body, time
-                        )
-                    } catch (t: Throwable) {
-                        Timber.e(t, "Alarm-camera bridge failed")
-                    }
-
                     // Add the message to the db
                     val message = messageRepo.insertReceivedSms(it.subId, safeAddress, body, time)
 

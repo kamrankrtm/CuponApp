@@ -475,54 +475,37 @@
                     app:summary="@string/alarm_guard_status_unknown" />
 
 
-                <com.moez.QKSMS.common.widget.PreferenceView
-                    android:id="@+id/prefAlarmCameraEnabled"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    app:icon="@drawable/ic_lc_shield"
-                    app:iconTileColor="@color/tileGreen"
-                    app:title="کنترل خودکار دوربین شیائومی"
-                    app:summary="بعد از تأیید پیامکی دزدگیر، فرمان wake یا sleep ارسال شود"
-                    app:widget="@layout/settings_switch_widget" />
 
                 <com.moez.QKSMS.common.widget.PreferenceView
-                    android:id="@+id/prefAlarmCameraPackage"
+                    android:id="@+id/prefXiaomiLanIp"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     app:icon="@drawable/ic_lc_phone"
                     app:iconTileColor="@color/tileBlue"
                     app:chevron="true"
                     app:valueSummary="true"
-                    app:title="برنامه واسط کنترل دوربین"
-                    app:summary="com.arlosoft.macrodroid" />
+                    app:title="آدرس محلی دوربین شیائومی"
+                    app:summary="IP دوربین را وارد کنید" />
 
                 <com.moez.QKSMS.common.widget.PreferenceView
-                    android:id="@+id/prefAlarmCameraHelp"
+                    android:id="@+id/prefXiaomiLanTest"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     app:icon="@drawable/ic_lc_activity"
                     app:iconTileColor="@color/tileTeal"
                     app:chevron="true"
-                    app:title="راهنمای اتصال به Xiaomi Home"
-                    app:summary="پیکربندی MacroDroid و میان‌برهای wake و sleep" />
+                    app:title="تست اتصال مستقیم دوربین"
+                    app:summary="بررسی پاسخ دستگاه بدون ارسال فرمان روشن یا خاموش" />
 
                 <com.moez.QKSMS.common.widget.PreferenceView
-                    android:id="@+id/prefAlarmCameraTestWake"
+                    android:id="@+id/prefXiaomiLanHelp"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:icon="@drawable/ic_lc_zap"
-                    app:iconTileColor="@color/tileGreen"
-                    app:title="تست بیدار کردن دوربین‌ها"
-                    app:summary="ارسال درخواست wake به برنامه واسط" />
-
-                <com.moez.QKSMS.common.widget.PreferenceView
-                    android:id="@+id/prefAlarmCameraTestSleep"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    app:icon="@drawable/ic_lc_ban"
-                    app:iconTileColor="@color/tileOrange"
-                    app:title="تست خواب دوربین‌ها"
-                    app:summary="ارسال درخواست sleep به برنامه واسط" />
+                    app:icon="@drawable/ic_lc_shield"
+                    app:iconTileColor="@color/tileGray"
+                    app:chevron="true"
+                    app:title="راهنمای تست دوربین بدون برنامه اضافی"
+                    app:summary="تست فقط اتصال شبکه است؛ کنترل Wake/Sleep هنوز تأیید نشده" />
 
                 <com.moez.QKSMS.common.widget.PreferenceView
                     android:id="@+id/prefAlarmResetStatus"
