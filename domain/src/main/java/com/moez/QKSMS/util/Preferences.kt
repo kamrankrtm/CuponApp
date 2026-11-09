@@ -262,4 +262,9 @@ class Preferences @Inject constructor(
     val alarmLastStatusDetail = rxPrefs.getString("alarmLastStatusDetail", "")
     val alarmLastWarning = rxPrefs.getString("alarmLastWarning", "")
     val alarmLastCredit = rxPrefs.getString("alarmLastCredit", "")
+
+    // Opt-in Xiaomi Home camera bridge
+    val alarmCameraAutomationEnabled = rxPrefs.getBoolean("alarmCameraAutomationEnabled", false)
+    val alarmCameraAutomationPackage = rxPrefs.getString("alarmCameraAutomationPackage", "com.arlosoft.macrodroid")
+    val alarmCameraLastSmsTimestamp = rxPrefs.getString("alarmCameraLastSmsTimestamp", "0")
 }

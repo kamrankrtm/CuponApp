@@ -18,6 +18,7 @@
  */
 package com.moez.QKSMS.interactor
 
+import android.content.Context
 import android.telephony.SmsMessage
 import com.moez.QKSMS.blocking.BlockingClient
 import com.moez.QKSMS.extensions.mapNotNull
@@ -39,7 +40,8 @@ class ReceiveSms @Inject constructor(
     private val notificationManager: NotificationManager,
     private val updateBadge: UpdateBadge,
     private val shortcutManager: ShortcutManager,
-    private val analysisProcessor: MessageAnalysisProcessor
+    private val analysisProcessor: MessageAnalysisProcessor,
+    private val context: Context
 ) : Interactor<ReceiveSms.Params>() {
 
     class Params(val subId: Int, val messages: Array<SmsMessage>)
@@ -71,6 +73,15 @@ class ReceiveSms @Inject constructor(
                         com.moez.QKSMS.util.AlarmGuardParser.processMessage(prefs, safeAddress, body, time)
                     } catch (t: Throwable) {
                         Timber.e(t, "AlarmGuard parsing error")
+                    }
+
+                    // Only trusted, received confirmation SMS may invoke Xiaomi scenes.
+                    try {
+                        com.moez.QKSMS.util.AlarmCameraAutomation.onReceivedSms(
+                            context, prefs, safeAddress, body, time
+                        )
+                    } catch (t: Throwable) {
+                        Timber.e(t, "Alarm-camera bridge failed")
                     }
 
                     // Add the message to the db

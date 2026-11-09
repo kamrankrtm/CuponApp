@@ -305,6 +305,63 @@ class SettingsController : QkController<SettingsView, SettingsState, SettingsPre
             }
         }
 
+
+        // Xiaomi Home scene bridge; disabled by default.
+        prefAlarmCameraEnabled?.checkbox?.isChecked = prefs.alarmCameraAutomationEnabled.get()
+        prefAlarmCameraEnabled?.setOnClickListener {
+            val enabled = !prefs.alarmCameraAutomationEnabled.get()
+            prefs.alarmCameraAutomationEnabled.set(enabled)
+            prefAlarmCameraEnabled.checkbox.isChecked = enabled
+        }
+        prefAlarmCameraPackage?.summary = prefs.alarmCameraAutomationPackage.get()
+        prefAlarmCameraPackage?.setOnClickListener {
+            activity?.let { act ->
+                TextInputDialog(act, "نام بسته برنامه واسط") { value ->
+                    val target = value.trim()
+                    if (com.moez.QKSMS.util.AlarmCameraAutomation.isValidPackage(target)) {
+                        prefs.alarmCameraAutomationPackage.set(target)
+                        prefAlarmCameraPackage.summary = target
+                    } else {
+                        android.widget.Toast.makeText(act, "نام بسته معتبر نیست", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }.setText(prefs.alarmCameraAutomationPackage.get()).show()
+            }
+        }
+        prefAlarmCameraHelp?.setOnClickListener {
+            activity?.let { act ->
+                AlertDialog.Builder(act)
+                    .setTitle("اتصال سناریوهای Xiaomi Home")
+                    .setMessage(
+                        "۱. دو Manual Control با نام wake و sleep بساز و آنها را دستی آزمایش کن.\n\n" +
+                        "۲. MacroDroid و IntentTask را نصب کن. میان‌برها را با IntentTask ثبت کن؛ ممکن است موقتاً لازم باشد آن را لانچر پیش‌فرض قرار دهی.\n\n" +
+                        "۳. در MacroDroid دو ماکرو با Trigger نوع Intent Received بساز:\n" +
+                        "com.moez.QKSMS.alarmcamera.WAKE\n" +
+                        "com.moez.QKSMS.alarmcamera.SLEEP\n\n" +
+                        "Action هرکدام: Tasker/Locale Plugin → IntentTask → Launch app shortcut → wake/sleep\n\n" +
+                        "۴. دکمه‌های تست را بزن. وقتی اجرای واقعی سناریوها تأیید شد، کلید کنترل خودکار را روشن کن.\n\n" +
+                        "ارسال رویداد مساوی با تأیید وضعیت دوربین نیست."
+                    )
+                    .setPositiveButton("متوجه شدم", null)
+                    .show()
+            }
+        }
+        prefAlarmCameraTestWake?.setOnClickListener {
+            val ok = com.moez.QKSMS.util.AlarmCameraAutomation.sendTest(
+                context, prefs, com.moez.QKSMS.util.AlarmCameraAutomation.Scene.WAKE
+            )
+            android.widget.Toast.makeText(context,
+                if (ok) "درخواست wake ارسال شد؛ دوربین را بررسی کن" else "گیرنده معتبر تنظیم نشده",
+                android.widget.Toast.LENGTH_LONG).show()
+        }
+        prefAlarmCameraTestSleep?.setOnClickListener {
+            val ok = com.moez.QKSMS.util.AlarmCameraAutomation.sendTest(
+                context, prefs, com.moez.QKSMS.util.AlarmCameraAutomation.Scene.SLEEP
+            )
+            android.widget.Toast.makeText(context,
+                if (ok) "درخواست sleep ارسال شد؛ دوربین را بررسی کن" else "گیرنده معتبر تنظیم نشده",
+                android.widget.Toast.LENGTH_LONG).show()
+        }
+
         prefMediaAsCloudLink?.checkbox?.isChecked = prefs.mediaAsCloudLink.get()
         prefMediaAsCloudLink?.setOnClickListener {
             val newVal = !prefs.mediaAsCloudLink.get()
