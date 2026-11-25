@@ -90,10 +90,28 @@ class MessageRepositoryImpl @Inject constructor(
     companion object {
         val delayedRunnables = java.util.concurrent.ConcurrentHashMap<Long, Runnable>()
         val mainHandler = Handler(Looper.getMainLooper())
+        private val smsDispatchLock = Any()
+    }
+
+    // A pending entry is an authorization to hand this particular row to Android once.
+    // Consume it synchronously before dispatch: OUTBOX alone is not proof of an unsent SMS.
+    private val pendingSms by lazy { context.getSharedPreferences("sms_dispatch_pending_v1", Context.MODE_PRIVATE) }
+
+    private fun registerPendingSms(id: Long, dueAt: Long): Boolean = synchronized(smsDispatchLock) {
+        pendingSms.edit().putLong(id.toString(), dueAt).commit()
+    }
+
+    private fun claimPendingSms(id: Long): Boolean = synchronized(smsDispatchLock) {
+        val key = id.toString()
+        if (!pendingSms.contains(key) || pendingSms.getLong(key, Long.MAX_VALUE) > System.currentTimeMillis()) {
+            false
+        } else {
+            pendingSms.edit().remove(key).commit()
+        }
     }
 
     init {
-        // Automatically rescue any messages stuck in OUTBOX on app start
+        // Rescue only explicitly registered, not-yet-dispatched messages on app start
         mainHandler.postDelayed({
             rescueStuckOutboxMessages()
         }, 2000L)
@@ -474,6 +492,10 @@ class MessageRepositoryImpl @Inject constructor(
                 val sendTime = System.currentTimeMillis() + delay
                 val message = insertSentSms(resolvedSubId, threadId, cleanAddresses.first(), strippedBody, sendTime)
                 val msgId = message.id
+                if (!registerPendingSms(msgId, sendTime)) {
+                    markFailed(msgId, Telephony.MmsSms.ERR_TYPE_GENERIC)
+                    return
+                }
 
                 val intent = getIntentForDelayedSms(msgId)
 
@@ -507,7 +529,11 @@ class MessageRepositoryImpl @Inject constructor(
                 mainHandler.postDelayed(runnable, delay.toLong())
             } else { // No delay
                 val message = insertSentSms(resolvedSubId, threadId, cleanAddresses.first(), strippedBody, now())
-                sendSms(message)
+                if (registerPendingSms(message.id, now())) {
+                    sendSms(message)
+                } else {
+                    markFailed(message.id, Telephony.MmsSms.ERR_TYPE_GENERIC)
+                }
             }
         } else { // MMS
             val parts = arrayListOf<MMSPart>()
@@ -638,6 +664,9 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     override fun sendSms(message: Message) {
+        if (!message.isSms() || message.boxId != Sms.MESSAGE_TYPE_OUTBOX || !claimPendingSms(message.id)) return
+        // The alarm, in-process timer and recovery can race; only the successful claim sends.
+        tryOrNull { cancelDelayedSms(message.id) }
         val destAddress = phoneNumberUtils.cleanDestinationAddress(message.address).takeIf { it.isNotEmpty() } ?: message.address
 
         // Resolve active subscription for Dual SIM devices
@@ -776,6 +805,7 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     override fun cancelDelayedSms(id: Long) {
+        synchronized(smsDispatchLock) { pendingSms.edit().remove(id.toString()).commit() }
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         alarmManager.cancel(getIntentForDelayedSms(id))
         delayedRunnables.remove(id)?.let { mainHandler.removeCallbacks(it) }
@@ -795,9 +825,10 @@ class MessageRepositoryImpl @Inject constructor(
                 val now = System.currentTimeMillis()
                 SendDebugLogger.log("rescueStuckOutboxMessages: Found ${unmanaged.size} stuck messages in OUTBOX")
                 for (msg in unmanaged) {
-                    // Only rescue messages older than 3 seconds that are not actively counting down in-memory
-                    if (now - msg.date >= 3000L && !delayedRunnables.containsKey(msg.id)) {
-                        SendDebugLogger.log("rescueStuckOutboxMessages: Rescuing message id=${msg.id}, body='${msg.body.take(20)}'")
+                    // A row may remain in OUTBOX while Android is still sending it.
+                    // Never retry an unknown or already dispatched SMS automatically.
+                    val dueAt = pendingSms.getLong(msg.id.toString(), Long.MAX_VALUE)
+                    if (msg.isSms() && dueAt <= now && !delayedRunnables.containsKey(msg.id)) {
                         sendSms(msg)
                     }
                 }
@@ -921,11 +952,14 @@ class MessageRepositoryImpl @Inject constructor(
      * Marks the message as sending, in case we need to retry sending it
      */
     override fun markSending(id: Long) {
+        synchronized(smsDispatchLock) {
         Realm.getDefaultInstance().use { realm ->
             realm.refresh()
 
             val message = realm.where(Message::class.java).equalTo("id", id).findFirst()
             message?.let {
+                if (!message.isFailedMessage()) return
+                if (message.isSms() && !registerPendingSms(id, System.currentTimeMillis())) return
                 // Update the message in realm
                 realm.executeTransaction {
                     message.boxId = when (message.isSms()) {
@@ -941,6 +975,7 @@ class MessageRepositoryImpl @Inject constructor(
                 }
                 context.contentResolver.update(message.getUri(), values, null, null)
             }
+        }
         }
     }
 

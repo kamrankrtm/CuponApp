@@ -21,7 +21,6 @@ package com.moez.QKSMS.receiver
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.moez.QKSMS.interactor.RetrySending
 import com.moez.QKSMS.repository.MessageRepository
 import dagger.android.AndroidInjection
 import javax.inject.Inject
@@ -29,7 +28,6 @@ import javax.inject.Inject
 class SendSmsReceiver : BroadcastReceiver() {
 
     @Inject lateinit var messageRepo: MessageRepository
-    @Inject lateinit var retrySending: RetrySending
 
     override fun onReceive(context: Context, intent: Intent) {
         AndroidInjection.inject(this, context)
@@ -42,8 +40,10 @@ class SendSmsReceiver : BroadcastReceiver() {
             com.moez.QKSMS.repository.MessageRepositoryImpl.mainHandler.removeCallbacks(it)
         }
 
-        val result = goAsync()
-        retrySending.execute(messageId) { result.finish() }
+        // Do not turn a late alarm into a manual retry of a failed/sent row.
+        messageRepo.getMessage(messageId)?.let { message ->
+            messageRepo.sendSms(message)
+        }
     }
 
 }

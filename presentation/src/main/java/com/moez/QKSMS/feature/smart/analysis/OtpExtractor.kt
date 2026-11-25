@@ -236,7 +236,8 @@ object OtpExtractor {
                 }
                 gap.length <= 45 && gap.count { it == '\n' } <= 1 -> score += LABEL_NEAR
             }
-        } else if (negativeIndex >= 0) {
+        } else if (negativeIndex >= 0 && !(verification && beforeWords.lastOrNull() == "کد" &&
+                entries.any { it.start >= run.end && it.start - run.end <= 25 })) {
             // "کارت 12345678", "شماره پیگیری: 998877" — the word is the number's own label
             if (negativeIndex >= beforeWords.size - 3) return null
             score += NEGATIVE_NEAR

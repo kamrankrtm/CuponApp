@@ -96,6 +96,28 @@ class OtpExtractionTest {
     }
 
     @Test
+    fun `Melli Bam login with bank heading is an OTP`() {
+        val body = "بانک ملی\nکد 01234 را جهت ورود به سامانه بام وارد نمایید.\nAbCdEfGh123"
+        val result = analyze(body, "ملی")
+        assertEquals(SmsKind.OTP, result.kind)
+        assertEquals("01234", result.otpItem?.code)
+        assertTrue(result.otp.autoCopyEligible)
+    }
+
+    @Test
+    fun `Melli withdrawal confirmation is a code not a receipt`() {
+        val body = "بانک ملی(هشدار)\nشناسه تایید برداشت از حساب شما:۰۱۲۳۴\n" +
+            "مبلغ:200000000 ریال\nبه نام: گیرنده آزمایشی\nبه حساب:55**44\nAbCdEfGh123"
+        val result = analyze(body, "ملی")
+        assertEquals(SmsKind.OTP, result.kind)
+        assertEquals("01234", result.otpItem?.code)
+        assertEquals(listOf("01234"), result.otp.candidates.map { it.code })
+        assertTrue(result.otp.autoCopyEligible)
+        assertNull(code("بانک ملی\nورود به سامانه بام\n1405/08/09-18:41"))
+        assertNull(code("بانک ملی\nبرداشت از حساب شما: 123456\nمبلغ:200000000 ریال"))
+    }
+
+    @Test
     fun `numbers that are something else are excluded`() {
         val body = "بانک ملت\nکد تایید: 482913\nمبلغ: 500,000 ریال\nشماره پیگیری: 99887766\n" +
             "تاریخ: 1403/07/20 ساعت 14:32\nتماس: 02188776655\nhttps://bank.ir/r/123456"

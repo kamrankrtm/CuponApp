@@ -26,7 +26,7 @@ import java.util.regex.Pattern
 object SmsAnalyzer {
 
     /** Raise when a rule changes what a message reads as; cached readings are then redone. */
-    const val RULES_VERSION = 1
+    const val RULES_VERSION = 2
 
     /** Rules and coupon engine together: a reading from either older engine is stale. */
     const val ENGINE_VERSION = "r$RULES_VERSION.p${PromoStore.ENGINE_VERSION}"

@@ -553,7 +553,9 @@ class MainActivity : QkThemedActivity(), MainView, com.moez.QKSMS.feature.update
             }
             else -> {
                 updateBannerTitle.text = "نسخه‌ی جدید $name آماده است"
-                updateBannerSubtitle.text = "برای دانلود و نصب خودکار بزنید" +
+                val notes = release?.notes.orEmpty().trim()
+                updateBannerSubtitle.text = (if (notes.isNotBlank()) "$notes\n\n" else "") +
+                    "برای دانلود و نصب نسخه‌ی جدید بزنید" +
                     (release?.sizeBytes?.takeIf { it > 0 }?.let { " · ${com.moez.QKSMS.feature.smart.SmartSmsClassifier.toPersianDigits(String.format("%.1f", it / 1_048_576.0))} مگابایت" } ?: "")
             }
         }
